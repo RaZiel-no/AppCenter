@@ -19,7 +19,7 @@
         here when the release is built. It is the one place it is recorded, and
         the About page shows whatever the running build was stamped with.  -->
   <PropertyGroup>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Product>App Center</Product>
     <AssemblyTitle>App Center</AssemblyTitle>
     <Description>Ubuntu's App Center, rebuilt for Windows on top of winget.</Description>
