@@ -1,0 +1,11 @@
+# Build output - reproducible from build.bat / deploy.bat.
+bin/
+obj/
+releases/
+
+# Visual Studio droppings.
+.vs/
+*.user
+
+# Local working notes - carry machine paths and pre-release planning.
+TODO.md

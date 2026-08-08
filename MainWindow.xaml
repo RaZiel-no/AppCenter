@@ -1,0 +1,165 @@
+<Window x:Class="AppCenter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="App Center"
+        Icon="AppCenter.ico"
+        Width="1340"
+        Height="860"
+        MinWidth="940"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        FontFamily="{StaticResource AppFont}"
+        Background="{DynamicResource ContentBgBrush}"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="6"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="208" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!--  ================= Sidebar =================  -->
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBgBrush}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="56" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="Transparent" MouseLeftButtonDown="OnTitleBarMouseDown">
+                    <!--  Icon overlaid rather than in a StackPanel, so it can sit on the
+                          same left edge as the nav icons below without pushing the
+                          centred title off centre. NavItem is Margin 8 + Padding 12 on a
+                          20px icon, so its centre line is at 30; 18 + 12 puts this there.  -->
+                    <Grid>
+                        <Image Width="24"
+                               Height="24"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               Margin="18,0,0,0"
+                               RenderOptions.BitmapScalingMode="HighQuality">
+                            <Image.Source>
+                                <!--  Without DecodePixelWidth the ICO decoder hands back the
+                                      16px frame and upscales it, which looks awful. 48 is
+                                      1:1 at 200% DPI and an exact halving at 100%, so it
+                                      stays sharp either way.  -->
+                                <BitmapImage UriSource="AppCenter.ico" DecodePixelWidth="48" />
+                            </Image.Source>
+                        </Image>
+
+                        <TextBlock Text="App Center"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="15"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Row="1" Margin="0,6,0,0">
+                    <RadioButton x:Name="NavExplore"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="Explore"
+                                 Tag="{StaticResource IconCompass}"
+                                 IsChecked="True"
+                                 Checked="OnNavChecked" />
+                    <RadioButton x:Name="NavFeatured"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="Featured"
+                                 Tag="{StaticResource IconStar}"
+                                 Checked="OnNavChecked" />
+                    <RadioButton x:Name="NavProductivity"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="Productivity"
+                                 Tag="{StaticResource IconClock}"
+                                 Checked="OnNavChecked" />
+                    <RadioButton x:Name="NavDevelopment"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="Development"
+                                 Tag="{StaticResource IconPencil}"
+                                 Checked="OnNavChecked" />
+                    <RadioButton x:Name="NavGames"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="Games"
+                                 Tag="{StaticResource IconGamepad}"
+                                 Checked="OnNavChecked" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Margin="0,0,0,14">
+                    <RadioButton x:Name="NavManage"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="Manage"
+                                 Tag="{StaticResource IconGrid}"
+                                 Checked="OnNavChecked" />
+                    <RadioButton x:Name="NavAbout"
+                                 Style="{StaticResource NavItem}"
+                                 GroupName="Nav"
+                                 Content="About"
+                                 Tag="{StaticResource IconAbout}"
+                                 Checked="OnNavChecked" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--  ================= Content column =================  -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="56" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!--  Top bar doubles as the drag handle, since there is no title bar  -->
+            <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="OnTitleBarMouseDown">
+                <TextBox x:Name="SearchBox"
+                         Style="{StaticResource SearchBox}"
+                         Tag="Search for apps"
+                         Width="420"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         TextChanged="OnSearchTextChanged"
+                         KeyDown="OnSearchKeyDown" />
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <Button Style="{StaticResource WindowButton}"
+                            Tag="{StaticResource IconMinimize}"
+                            ToolTip="Minimise"
+                            Click="OnMinimiseClick" />
+                    <Button x:Name="MaximiseButton"
+                            Style="{StaticResource WindowButton}"
+                            Tag="{StaticResource IconMaximize}"
+                            ToolTip="Maximise"
+                            Click="OnMaximiseClick" />
+                    <Button Style="{StaticResource WindowCloseButton}"
+                            Tag="{StaticResource IconClose}"
+                            ToolTip="Close"
+                            Click="OnCloseClick" />
+                </StackPanel>
+            </Grid>
+
+            <ContentControl x:Name="PageHost" Grid.Row="1" />
+        </Grid>
+    </Grid>
+</Window>

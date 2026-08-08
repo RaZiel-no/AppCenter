@@ -1,0 +1,156 @@
+<views:PageView x:Class="AppCenter.Views.AboutView"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:views="clr-namespace:AppCenter.Views">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+
+            <TextBlock Text="About" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
+
+            <Border Margin="0,24,0,0"
+                    Background="{DynamicResource CardBgBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="24,22">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="56" Height="56" CornerRadius="12" Background="{DynamicResource AccentBrush}">
+                            <TextBlock Text="A"
+                                       FontFamily="{StaticResource DisplayFont}"
+                                       FontSize="28"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="App Center"
+                                       FontFamily="{StaticResource DisplayFont}"
+                                       FontSize="22"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock x:Name="VersionText"
+                                       Margin="0,3,0,0"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Margin="0,20,0,0"
+                               FontSize="13.5"
+                               LineHeight="21"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="A storefront for the Windows Package Manager, in the shape of Ubuntu's App Center. Browsing, search, installing, updating and removing all run through winget on this machine - nothing is bundled and no account is needed." />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}" Margin="0,32,0,0" />
+
+            <Border Margin="0,14,0,0"
+                    Background="{DynamicResource CardBgBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="24,20">
+                <StackPanel>
+                    <TextBlock Text="The theme applies as you pick it, and is remembered for next time."
+                               FontSize="13.5"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                    <ItemsControl x:Name="ThemeList"
+                                  Margin="0,18,0,0"
+                                  ItemTemplate="{StaticResource ThemeSwatchTemplate}"
+                                  RadioButton.Checked="OnThemeChecked">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
+                    <TextBlock x:Name="ThemeBlurb"
+                               Margin="0,14,0,0"
+                               FontSize="12.5"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Licence and origins" Style="{StaticResource SectionTitle}" Margin="0,32,0,0" />
+
+            <Border Margin="0,14,0,0"
+                    Background="{DynamicResource CardBgBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="24,20">
+                <StackPanel>
+                    <TextBlock FontSize="13.5"
+                               LineHeight="21"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextPrimaryBrush}">
+                        App Center is free software, released under the GNU General Public License
+                        version 3. You may use, study, share and modify it; anything you pass on has
+                        to carry the same freedoms.
+                        <Hyperlink Style="{StaticResource LinkText}"
+                                   NavigateUri="license"
+                                   RequestNavigate="OnLinkClicked">Read the licence</Hyperlink>
+                    </TextBlock>
+
+                    <TextBlock Margin="0,16,0,0"
+                               FontSize="13.5"
+                               LineHeight="21"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextPrimaryBrush}">
+                        It is modelled on
+                        <Hyperlink Style="{StaticResource LinkText}"
+                                   NavigateUri="https://github.com/ubuntu/app-center"
+                                   RequestNavigate="OnLinkClicked">Ubuntu's App Center</Hyperlink>,
+                        which Canonical publish under that same licence - taking anything weaker for
+                        a piece of work that owes them its whole shape would not sit right. No code
+                        is shared between the two: this is an independent Windows implementation, in
+                        C# over winget rather than Dart over snapd, and it is neither affiliated with
+                        nor endorsed by Canonical.
+                    </TextBlock>
+
+                    <TextBlock x:Name="AuthorText"
+                               Margin="0,16,0,0"
+                               FontSize="12.5"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Environment" Style="{StaticResource SectionTitle}" Margin="0,32,0,0" />
+
+            <Border Margin="0,14,0,0"
+                    Background="{DynamicResource CardBgBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="6,4">
+                <ItemsControl x:Name="Facts">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="16,9">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Label}"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Value}"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</views:PageView>

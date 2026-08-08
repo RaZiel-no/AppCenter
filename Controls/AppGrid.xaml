@@ -1,0 +1,27 @@
+<UserControl x:Class="AppCenter.Controls.AppGrid"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <!--  The negative margin cancels the 9px margin each card carries,
+              so the outer edges line up with the page gutter while the gap
+              between cards stays a uniform 18px.  -->
+        <ItemsControl x:Name="Items"
+                      Margin="-9"
+                      ItemTemplate="{StaticResource AppCardTemplate}"
+                      Button.Click="OnCardClick">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="2" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <TextBlock x:Name="EmptyMessage"
+                   Visibility="Collapsed"
+                   Margin="0,40,0,0"
+                   HorizontalAlignment="Left"
+                   FontSize="14"
+                   Foreground="{DynamicResource TextSecondaryBrush}" />
+    </Grid>
+</UserControl>

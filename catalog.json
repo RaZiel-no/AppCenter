@@ -1,0 +1,1937 @@
+{
+  "banner": {
+    "title": "Featured apps",
+    "buttonText": "Discover more",
+    "highlightIds": [
+      "Microsoft.VisualStudioCode",
+      "Mozilla.Firefox",
+      "Valve.Steam"
+    ]
+  },
+  "explore": [
+    {
+      "id": "Microsoft.PowerToys",
+      "icon": "https://raw.githubusercontent.com/microsoft/PowerToys/main/src/settings-ui/Settings.UI/Assets/Settings/icon.ico",
+      "name": "PowerToys",
+      "publisher": "Microsoft",
+      "badge": "verified",
+      "homepage": "https://learn.microsoft.com/windows/powertoys/",
+      "summary": "Windows system utilities to maximize productivity"
+    },
+    {
+      "id": "Microsoft.WindowsTerminal",
+      "icon": "https://raw.githubusercontent.com/microsoft/terminal/main/res/terminal.ico",
+      "name": "Windows Terminal",
+      "publisher": "Microsoft",
+      "badge": "verified",
+      "homepage": "https://github.com/microsoft/terminal",
+      "summary": "The modern terminal for Windows"
+    },
+    {
+      "id": "7zip.7zip",
+      "name": "7-Zip",
+      "publisher": "Igor Pavlov",
+      "badge": "star",
+      "homepage": "https://www.7-zip.org",
+      "summary": "A file archiver with a high compression ratio"
+    },
+    {
+      "id": "VideoLAN.VLC",
+      "name": "VLC media player",
+      "publisher": "VideoLAN",
+      "badge": "verified",
+      "homepage": "https://www.videolan.org",
+      "summary": "Plays everything you throw at it"
+    },
+    {
+      "id": "Mozilla.Firefox",
+      "name": "Firefox",
+      "publisher": "Mozilla",
+      "badge": "verified",
+      "homepage": "https://www.firefox.com/",
+      "summary": "Mozilla Firefox web browser"
+    },
+    {
+      "id": "Valve.Steam",
+      "name": "Steam",
+      "publisher": "Valve Corporation",
+      "badge": "verified",
+      "homepage": "https://store.steampowered.com",
+      "summary": "The ultimate destination for playing and discussing games"
+    },
+    {
+      "id": "Obsidian.Obsidian",
+      "name": "Obsidian",
+      "publisher": "Obsidian.md",
+      "badge": "star",
+      "homepage": "https://obsidian.md",
+      "summary": "A knowledge base that works on local Markdown files"
+    },
+    {
+      "id": "Spotify.Spotify",
+      "name": "Spotify",
+      "publisher": "Spotify AB",
+      "badge": "verified",
+      "homepage": "https://www.spotify.com",
+      "summary": "Music for everyone"
+    },
+    {
+      "id": "Discord.Discord",
+      "name": "Discord",
+      "publisher": "Discord Inc.",
+      "badge": "verified",
+      "homepage": "https://discord.com",
+      "summary": "Talk, chat, hang out and stay close with your communities"
+    },
+    {
+      "id": "OBSProject.OBSStudio",
+      "name": "OBS Studio",
+      "publisher": "OBS Project",
+      "badge": "star",
+      "homepage": "https://obsproject.com",
+      "summary": "Free and open source software for video recording and live streaming"
+    },
+    {
+      "id": "GIMP.GIMP",
+      "name": "GIMP",
+      "publisher": "The GIMP Team",
+      "badge": "star",
+      "homepage": "https://www.gimp.org/downloads/",
+      "summary": "The GNU Image Manipulation Program"
+    },
+    {
+      "id": "Inkscape.Inkscape",
+      "name": "Inkscape",
+      "publisher": "Inkscape",
+      "badge": "star",
+      "homepage": "https://inkscape.org/release/",
+      "summary": "Professional vector graphics, free forever"
+    },
+    {
+      "id": "KDE.Krita",
+      "name": "Krita",
+      "publisher": "Krita Foundation",
+      "badge": "star",
+      "homepage": "https://krita.org/",
+      "summary": "Digital painting, built by artists for artists"
+    },
+    {
+      "id": "BlenderFoundation.Blender",
+      "name": "Blender",
+      "publisher": "Blender Foundation",
+      "badge": "star",
+      "homepage": "https://www.blender.org",
+      "summary": "The open source 3D creation suite"
+    },
+    {
+      "id": "Audacity.Audacity",
+      "name": "Audacity",
+      "publisher": "Audacity Team",
+      "badge": "star",
+      "homepage": "https://www.audacityteam.org/",
+      "summary": "Record and edit audio across many tracks"
+    },
+    {
+      "id": "HandBrake.HandBrake",
+      "name": "HandBrake",
+      "publisher": "The HandBrake Team",
+      "badge": "star",
+      "homepage": "https://handbrake.fr/",
+      "summary": "Convert video from nearly any format"
+    },
+    {
+      "id": "KDE.Kdenlive",
+      "name": "Kdenlive",
+      "publisher": "KDE e.V.",
+      "badge": "star",
+      "homepage": "https://kdenlive.org/",
+      "summary": "Non-linear video editing from the KDE community"
+    },
+    {
+      "id": "Telegram.TelegramDesktop",
+      "name": "Telegram Desktop",
+      "publisher": "Telegram FZ-LLC",
+      "badge": "verified",
+      "homepage": "https://desktop.telegram.org/",
+      "summary": "Fast messaging with a real desktop client"
+    },
+    {
+      "id": "OpenWhisperSystems.Signal",
+      "name": "Signal",
+      "publisher": "Signal Messenger, LLC",
+      "badge": "verified",
+      "homepage": "https://www.signal.org/",
+      "summary": "Private messaging, end-to-end encrypted"
+    },
+    {
+      "id": "Bitwarden.Bitwarden",
+      "name": "Bitwarden",
+      "publisher": "Bitwarden Inc.",
+      "badge": "verified",
+      "homepage": "https://bitwarden.com/",
+      "summary": "An open source password manager that syncs"
+    },
+    {
+      "id": "voidtools.Everything",
+      "name": "Everything",
+      "publisher": "voidtools",
+      "badge": "star",
+      "homepage": "https://www.voidtools.com/",
+      "summary": "Find any file on any NTFS volume instantly"
+    },
+    {
+      "id": "ShareX.ShareX",
+      "name": "ShareX",
+      "publisher": "ShareX Team",
+      "badge": "star",
+      "homepage": "https://getsharex.com/",
+      "summary": "Capture, annotate and upload anything on screen"
+    },
+    {
+      "id": "FilesCommunity.Files",
+      "name": "Files",
+      "publisher": "Files Community",
+      "badge": "star",
+      "homepage": "https://files.community/",
+      "summary": "A modern file manager for Windows"
+    },
+    {
+      "id": "calibre.calibre",
+      "name": "calibre",
+      "publisher": "Kovid Goyal",
+      "badge": "star",
+      "homepage": "https://calibre-ebook.com/",
+      "summary": "Manage, convert and read an ebook library"
+    },
+    {
+      "id": "qBittorrent.qBittorrent",
+      "name": "qBittorrent",
+      "publisher": "The qBittorrent project",
+      "badge": "star",
+      "homepage": "https://www.qbittorrent.org/",
+      "summary": "An open source BitTorrent client with no ads"
+    },
+    {
+      "id": "Ollama.Ollama",
+      "name": "Ollama",
+      "publisher": "Ollama",
+      "badge": "star",
+      "homepage": "https://ollama.com/",
+      "summary": "Run large language models on your own machine"
+    }
+  ],
+  "featured": [
+    {
+      "id": "Microsoft.VisualStudioCode",
+      "name": "Visual Studio Code",
+      "publisher": "Microsoft",
+      "badge": "verified",
+      "homepage": "https://code.visualstudio.com",
+      "summary": "Code editing. Redefined."
+    },
+    {
+      "id": "Mozilla.Firefox",
+      "name": "Firefox",
+      "publisher": "Mozilla",
+      "badge": "verified",
+      "homepage": "https://www.firefox.com/",
+      "summary": "Mozilla Firefox web browser"
+    },
+    {
+      "id": "Valve.Steam",
+      "name": "Steam",
+      "publisher": "Valve Corporation",
+      "badge": "verified",
+      "homepage": "https://store.steampowered.com",
+      "summary": "The ultimate destination for playing and discussing games"
+    },
+    {
+      "id": "Microsoft.PowerToys",
+      "icon": "https://raw.githubusercontent.com/microsoft/PowerToys/main/src/settings-ui/Settings.UI/Assets/Settings/icon.ico",
+      "name": "PowerToys",
+      "publisher": "Microsoft",
+      "badge": "verified",
+      "homepage": "https://learn.microsoft.com/windows/powertoys/",
+      "summary": "Windows system utilities to maximize productivity"
+    },
+    {
+      "id": "VideoLAN.VLC",
+      "name": "VLC media player",
+      "publisher": "VideoLAN",
+      "badge": "verified",
+      "homepage": "https://www.videolan.org",
+      "summary": "Plays everything you throw at it"
+    },
+    {
+      "id": "7zip.7zip",
+      "name": "7-Zip",
+      "publisher": "Igor Pavlov",
+      "badge": "star",
+      "homepage": "https://www.7-zip.org",
+      "summary": "A file archiver with a high compression ratio"
+    },
+    {
+      "id": "Notepad++.Notepad++",
+      "name": "Notepad++",
+      "publisher": "Notepad++ Team",
+      "badge": "star",
+      "homepage": "https://notepad-plus-plus.org",
+      "summary": "A free source code editor and Notepad replacement"
+    },
+    {
+      "id": "Git.Git",
+      "name": "Git",
+      "publisher": "The Git Project",
+      "badge": "verified",
+      "homepage": "https://git-scm.com",
+      "summary": "Distributed version control system"
+    },
+    {
+      "id": "Brave.Brave",
+      "name": "Brave",
+      "publisher": "Brave Software",
+      "badge": "verified",
+      "homepage": "https://brave.com",
+      "summary": "Browse faster and safer with Brave"
+    },
+    {
+      "id": "Obsidian.Obsidian",
+      "name": "Obsidian",
+      "publisher": "Obsidian.md",
+      "badge": "star",
+      "homepage": "https://obsidian.md",
+      "summary": "A knowledge base that works on local Markdown files"
+    },
+    {
+      "id": "Microsoft.Edge",
+      "name": "Microsoft Edge",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://www.microsoft.com/en-us/edge",
+      "summary": "Chromium-based browser, already wired into Windows"
+    },
+    {
+      "id": "Vivaldi.Vivaldi",
+      "name": "Vivaldi",
+      "publisher": "Vivaldi Technologies AS.",
+      "badge": "verified",
+      "homepage": "https://vivaldi.com/desktop/",
+      "summary": "A browser that hands the controls back to you"
+    },
+    {
+      "id": "Zen-Team.Zen-Browser",
+      "name": "Zen Browser",
+      "publisher": "Zen OSS Team",
+      "badge": "star",
+      "homepage": "https://zen-browser.app/",
+      "summary": "A calmer, keyboard-driven take on Firefox"
+    },
+    {
+      "id": "Telegram.TelegramDesktop",
+      "name": "Telegram Desktop",
+      "publisher": "Telegram FZ-LLC",
+      "badge": "verified",
+      "homepage": "https://desktop.telegram.org/",
+      "summary": "Fast messaging with a real desktop client"
+    },
+    {
+      "id": "OpenWhisperSystems.Signal",
+      "name": "Signal",
+      "publisher": "Signal Messenger, LLC",
+      "badge": "verified",
+      "homepage": "https://www.signal.org/",
+      "summary": "Private messaging, end-to-end encrypted"
+    },
+    {
+      "id": "Bitwarden.Bitwarden",
+      "name": "Bitwarden",
+      "publisher": "Bitwarden Inc.",
+      "badge": "verified",
+      "homepage": "https://bitwarden.com/",
+      "summary": "An open source password manager that syncs"
+    },
+    {
+      "id": "KeePassXCTeam.KeePassXC",
+      "name": "KeePassXC",
+      "publisher": "KeePassXC Team",
+      "badge": "star",
+      "homepage": "https://keepassxc.org/",
+      "summary": "A password vault that never leaves your machine"
+    },
+    {
+      "id": "ShareX.ShareX",
+      "name": "ShareX",
+      "publisher": "ShareX Team",
+      "badge": "star",
+      "homepage": "https://getsharex.com/",
+      "summary": "Capture, annotate and upload anything on screen"
+    },
+    {
+      "id": "BlenderFoundation.Blender",
+      "name": "Blender",
+      "publisher": "Blender Foundation",
+      "badge": "star",
+      "homepage": "https://www.blender.org",
+      "summary": "The open source 3D creation suite"
+    },
+    {
+      "id": "GIMP.GIMP",
+      "name": "GIMP",
+      "publisher": "The GIMP Team",
+      "badge": "star",
+      "homepage": "https://www.gimp.org/downloads/",
+      "summary": "The GNU Image Manipulation Program"
+    },
+    {
+      "id": "KDE.Krita",
+      "name": "Krita",
+      "publisher": "Krita Foundation",
+      "badge": "star",
+      "homepage": "https://krita.org/",
+      "summary": "Digital painting, built by artists for artists"
+    },
+    {
+      "id": "Inkscape.Inkscape",
+      "name": "Inkscape",
+      "publisher": "Inkscape",
+      "badge": "star",
+      "homepage": "https://inkscape.org/release/",
+      "summary": "Professional vector graphics, free forever"
+    },
+    {
+      "id": "Audacity.Audacity",
+      "name": "Audacity",
+      "publisher": "Audacity Team",
+      "badge": "star",
+      "homepage": "https://www.audacityteam.org/",
+      "summary": "Record and edit audio across many tracks"
+    },
+    {
+      "id": "HandBrake.HandBrake",
+      "name": "HandBrake",
+      "publisher": "The HandBrake Team",
+      "badge": "star",
+      "homepage": "https://handbrake.fr/",
+      "summary": "Convert video from nearly any format"
+    },
+    {
+      "id": "JetBrains.IntelliJIDEA.Community",
+      "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/IntelliJ_IDEA_icon.png",
+      "name": "IntelliJ IDEA Community",
+      "publisher": "JetBrains s.r.o.",
+      "badge": "verified",
+      "homepage": "https://www.jetbrains.com/idea",
+      "summary": "The JVM IDE, Community Edition"
+    },
+    {
+      "id": "SublimeHQ.SublimeText.4",
+      "name": "Sublime Text",
+      "publisher": "Sublime HQ Pty Ltd",
+      "badge": "verified",
+      "homepage": "https://www.sublimetext.com/",
+      "summary": "A sophisticated text editor for code"
+    },
+    {
+      "id": "voidtools.Everything",
+      "name": "Everything",
+      "publisher": "voidtools",
+      "badge": "star",
+      "homepage": "https://www.voidtools.com/",
+      "summary": "Find any file on any NTFS volume instantly"
+    },
+    {
+      "id": "FilesCommunity.Files",
+      "name": "Files",
+      "publisher": "Files Community",
+      "badge": "star",
+      "homepage": "https://files.community/",
+      "summary": "A modern file manager for Windows"
+    },
+    {
+      "id": "qBittorrent.qBittorrent",
+      "name": "qBittorrent",
+      "publisher": "The qBittorrent project",
+      "badge": "star",
+      "homepage": "https://www.qbittorrent.org/",
+      "summary": "An open source BitTorrent client with no ads"
+    },
+    {
+      "id": "Joplin.Joplin",
+      "name": "Joplin",
+      "publisher": "Laurent Cozic",
+      "badge": "star",
+      "homepage": "https://joplinapp.org/",
+      "summary": "Open source notes and to-dos that sync where you like"
+    },
+    {
+      "id": "Anki.Anki",
+      "name": "Anki",
+      "publisher": "Anki",
+      "badge": "star",
+      "homepage": "https://apps.ankiweb.net/",
+      "summary": "Spaced-repetition flashcards that actually stick"
+    },
+    {
+      "id": "Oracle.VirtualBox",
+      "name": "VirtualBox",
+      "publisher": "Oracle and/or its affiliates",
+      "badge": "verified",
+      "homepage": "https://www.virtualbox.org/",
+      "summary": "Run other operating systems in a window"
+    }
+  ],
+  "productivity": [
+    {
+      "id": "Google.Chrome",
+      "name": "Google Chrome",
+      "publisher": "Google LLC",
+      "badge": "verified",
+      "homepage": "https://www.google.com/chrome/",
+      "summary": "A fast, secure and free web browser built for the modern web"
+    },
+    {
+      "id": "Brave.Brave",
+      "name": "Brave",
+      "publisher": "Brave Software",
+      "badge": "verified",
+      "homepage": "https://brave.com",
+      "summary": "Browse faster and safer with Brave"
+    },
+    {
+      "id": "Mozilla.Firefox",
+      "name": "Firefox",
+      "publisher": "Mozilla",
+      "badge": "verified",
+      "homepage": "https://www.firefox.com/",
+      "summary": "Mozilla Firefox web browser"
+    },
+    {
+      "id": "TheDocumentFoundation.LibreOffice",
+      "name": "LibreOffice",
+      "publisher": "The Document Foundation",
+      "badge": "verified",
+      "homepage": "https://www.libreoffice.org",
+      "summary": "LibreOffice is a free and open source office suite"
+    },
+    {
+      "id": "Obsidian.Obsidian",
+      "name": "Obsidian",
+      "publisher": "Obsidian.md",
+      "badge": "star",
+      "homepage": "https://obsidian.md",
+      "summary": "A knowledge base that works on local Markdown files"
+    },
+    {
+      "id": "Notion.Notion",
+      "name": "Notion",
+      "publisher": "Notion Labs, Inc.",
+      "badge": "verified",
+      "homepage": "https://www.notion.so",
+      "summary": "The connected workspace where better, faster work happens"
+    },
+    {
+      "id": "Mozilla.Thunderbird",
+      "name": "Thunderbird",
+      "publisher": "Mozilla",
+      "badge": "verified",
+      "homepage": "https://www.thunderbird.net",
+      "summary": "Free email application that's easy to set up and customize"
+    },
+    {
+      "id": "SlackTechnologies.Slack",
+      "name": "Slack",
+      "publisher": "Slack Technologies",
+      "badge": "verified",
+      "homepage": "https://slack.com",
+      "summary": "Where work happens"
+    },
+    {
+      "id": "Zoom.Zoom",
+      "name": "Zoom Workplace",
+      "publisher": "Zoom Communications",
+      "badge": "verified",
+      "homepage": "https://zoom.us",
+      "summary": "Video conferencing, meetings and screen sharing"
+    },
+    {
+      "id": "Opera.Opera",
+      "name": "Opera",
+      "publisher": "Opera Software",
+      "badge": "verified",
+      "homepage": "https://www.opera.com",
+      "summary": "Fast, secure, easy-to-use browser"
+    },
+    {
+      "id": "Microsoft.Edge",
+      "name": "Microsoft Edge",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://www.microsoft.com/en-us/edge",
+      "summary": "Chromium-based browser, already wired into Windows"
+    },
+    {
+      "id": "Vivaldi.Vivaldi",
+      "name": "Vivaldi",
+      "publisher": "Vivaldi Technologies AS.",
+      "badge": "verified",
+      "homepage": "https://vivaldi.com/desktop/",
+      "summary": "A browser that hands the controls back to you"
+    },
+    {
+      "id": "Zen-Team.Zen-Browser",
+      "name": "Zen Browser",
+      "publisher": "Zen OSS Team",
+      "badge": "star",
+      "homepage": "https://zen-browser.app/",
+      "summary": "A calmer, keyboard-driven take on Firefox"
+    },
+    {
+      "id": "LibreWolf.LibreWolf",
+      "name": "LibreWolf",
+      "publisher": "LibreWolf",
+      "badge": "star",
+      "homepage": "https://librewolf.net/",
+      "summary": "Firefox with the telemetry stripped out"
+    },
+    {
+      "id": "TorProject.TorBrowser",
+      "name": "Tor Browser",
+      "publisher": "Tor Project",
+      "badge": "verified",
+      "homepage": "https://www.torproject.org/",
+      "summary": "Browse anonymously over the Tor network"
+    },
+    {
+      "id": "qBittorrent.qBittorrent",
+      "name": "qBittorrent",
+      "publisher": "The qBittorrent project",
+      "badge": "star",
+      "homepage": "https://www.qbittorrent.org/",
+      "summary": "An open source BitTorrent client with no ads"
+    },
+    {
+      "id": "Transmission.Transmission",
+      "name": "Transmission",
+      "publisher": "Transmission Project",
+      "badge": "star",
+      "homepage": "https://transmissionbt.com/",
+      "summary": "A fast, light BitTorrent client"
+    },
+    {
+      "id": "ONLYOFFICE.DesktopEditors",
+      "name": "ONLYOFFICE Desktop Editors",
+      "publisher": "Ascensio System SIA",
+      "badge": "verified",
+      "homepage": "https://www.onlyoffice.com/en/desktop.aspx",
+      "summary": "An office suite fluent in Microsoft formats"
+    },
+    {
+      "id": "Joplin.Joplin",
+      "name": "Joplin",
+      "publisher": "Laurent Cozic",
+      "badge": "star",
+      "homepage": "https://joplinapp.org/",
+      "summary": "Open source notes and to-dos that sync where you like"
+    },
+    {
+      "id": "Logseq.Logseq",
+      "name": "Logseq",
+      "publisher": "Logseq",
+      "badge": "star",
+      "homepage": "https://logseq.com/",
+      "summary": "An outliner and knowledge graph over local files"
+    },
+    {
+      "id": "DigitalScholar.Zotero",
+      "name": "Zotero",
+      "publisher": "Corporation for Digital Scholarship",
+      "badge": "star",
+      "homepage": "https://www.zotero.org/",
+      "summary": "Collect, cite and organise research"
+    },
+    {
+      "id": "calibre.calibre",
+      "name": "calibre",
+      "publisher": "Kovid Goyal",
+      "badge": "star",
+      "homepage": "https://calibre-ebook.com/",
+      "summary": "Manage, convert and read an ebook library"
+    },
+    {
+      "id": "Anki.Anki",
+      "name": "Anki",
+      "publisher": "Anki",
+      "badge": "star",
+      "homepage": "https://apps.ankiweb.net/",
+      "summary": "Spaced-repetition flashcards that actually stick"
+    },
+    {
+      "id": "Doist.Todoist",
+      "name": "Todoist",
+      "publisher": "Doist",
+      "badge": "verified",
+      "homepage": "https://todoist.com/",
+      "summary": "Capture tasks and get them finished"
+    },
+    {
+      "id": "StandardNotes.StandardNotes",
+      "name": "Standard Notes",
+      "publisher": "Standard Notes",
+      "badge": "star",
+      "homepage": "https://standardnotes.com/",
+      "summary": "Encrypted notes built to outlast the company"
+    },
+    {
+      "id": "Adobe.Acrobat.Reader.64-bit",
+      "name": "Adobe Acrobat Reader",
+      "publisher": "Adobe",
+      "badge": "verified",
+      "homepage": "https://www.adobe.com/acrobat/pdf-reader.html",
+      "summary": "Read, sign and comment on PDFs"
+    },
+    {
+      "id": "SumatraPDF.SumatraPDF",
+      "name": "SumatraPDF",
+      "publisher": "Krzysztof Kowalczyk",
+      "badge": "star",
+      "homepage": "https://www.sumatrapdfreader.org/free-pdf-reader",
+      "summary": "A tiny, instant PDF and ebook reader"
+    },
+    {
+      "id": "Evernote.Evernote",
+      "name": "Evernote",
+      "publisher": "Evernote Corporation",
+      "badge": "verified",
+      "homepage": "https://evernote.com/download",
+      "summary": "Notes, clippings and search across all of them"
+    },
+    {
+      "id": "Zettlr.Zettlr",
+      "name": "Zettlr",
+      "publisher": "Hendrik Erz",
+      "badge": "star",
+      "homepage": "https://www.zettlr.com/",
+      "summary": "A Markdown editor built for long-form academic writing"
+    },
+    {
+      "id": "Microsoft.OneDrive",
+      "name": "Microsoft OneDrive",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://www.microsoft.com/microsoft-365/onedrive/download",
+      "summary": "Files that follow you between devices"
+    },
+    {
+      "id": "Dropbox.Dropbox",
+      "name": "Dropbox",
+      "publisher": "Dropbox, Inc.",
+      "badge": "verified",
+      "homepage": "https://www.dropbox.com/",
+      "summary": "Keep folders in sync and share them"
+    },
+    {
+      "id": "Nextcloud.NextcloudDesktop",
+      "name": "Nextcloud",
+      "publisher": "Nextcloud GmbH",
+      "badge": "star",
+      "homepage": "https://nextcloud.com/",
+      "summary": "Sync against a Nextcloud server you run yourself"
+    },
+    {
+      "id": "Syncthing.Syncthing",
+      "name": "Syncthing",
+      "publisher": "The Syncthing Authors",
+      "badge": "star",
+      "homepage": "https://syncthing.net/",
+      "summary": "Peer-to-peer file sync with no server in the middle"
+    },
+    {
+      "id": "Telegram.TelegramDesktop",
+      "name": "Telegram Desktop",
+      "publisher": "Telegram FZ-LLC",
+      "badge": "verified",
+      "homepage": "https://desktop.telegram.org/",
+      "summary": "Fast messaging with a real desktop client"
+    },
+    {
+      "id": "OpenWhisperSystems.Signal",
+      "name": "Signal",
+      "publisher": "Signal Messenger, LLC",
+      "badge": "verified",
+      "homepage": "https://www.signal.org/",
+      "summary": "Private messaging, end-to-end encrypted"
+    },
+    {
+      "id": "Element.Element",
+      "name": "Element",
+      "publisher": "Element",
+      "badge": "star",
+      "homepage": "https://element.io/download",
+      "summary": "Matrix chat you can host yourself"
+    },
+    {
+      "id": "Mattermost.MattermostDesktop",
+      "name": "Mattermost",
+      "publisher": "Mattermost, Inc.",
+      "badge": "star",
+      "homepage": "https://mattermost.com/apps/",
+      "summary": "Team chat that runs on your own servers"
+    },
+    {
+      "id": "Microsoft.Teams",
+      "name": "Microsoft Teams",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://www.microsoft.com/microsoft-teams/group-chat-software",
+      "summary": "Chat, meetings and calls for work"
+    },
+    {
+      "id": "Ferdium.Ferdium",
+      "name": "Ferdium",
+      "publisher": "Ferdium Contributors",
+      "badge": "star",
+      "homepage": "https://ferdium.org/",
+      "summary": "Every messaging service in one window"
+    },
+    {
+      "id": "GIMP.GIMP",
+      "name": "GIMP",
+      "publisher": "The GIMP Team",
+      "badge": "star",
+      "homepage": "https://www.gimp.org/downloads/",
+      "summary": "The GNU Image Manipulation Program"
+    },
+    {
+      "id": "Inkscape.Inkscape",
+      "name": "Inkscape",
+      "publisher": "Inkscape",
+      "badge": "star",
+      "homepage": "https://inkscape.org/release/",
+      "summary": "Professional vector graphics, free forever"
+    },
+    {
+      "id": "KDE.Krita",
+      "name": "Krita",
+      "publisher": "Krita Foundation",
+      "badge": "star",
+      "homepage": "https://krita.org/",
+      "summary": "Digital painting, built by artists for artists"
+    },
+    {
+      "id": "BlenderFoundation.Blender",
+      "name": "Blender",
+      "publisher": "Blender Foundation",
+      "badge": "star",
+      "homepage": "https://www.blender.org",
+      "summary": "The open source 3D creation suite"
+    },
+    {
+      "id": "Figma.Figma",
+      "name": "Figma",
+      "publisher": "Figma, Inc.",
+      "badge": "verified",
+      "homepage": "https://www.figma.com/downloads/",
+      "summary": "Collaborative interface design"
+    },
+    {
+      "id": "KDE.Kdenlive",
+      "name": "Kdenlive",
+      "publisher": "KDE e.V.",
+      "badge": "star",
+      "homepage": "https://kdenlive.org/",
+      "summary": "Non-linear video editing from the KDE community"
+    },
+    {
+      "id": "Meltytech.Shotcut",
+      "name": "Shotcut",
+      "publisher": "Meltytech",
+      "badge": "star",
+      "homepage": "https://shotcut.org/",
+      "summary": "A video editor that reads almost every format"
+    },
+    {
+      "id": "HandBrake.HandBrake",
+      "name": "HandBrake",
+      "publisher": "The HandBrake Team",
+      "badge": "star",
+      "homepage": "https://handbrake.fr/",
+      "summary": "Convert video from nearly any format"
+    },
+    {
+      "id": "darktable.darktable",
+      "name": "darktable",
+      "publisher": "the darktable project",
+      "badge": "star",
+      "homepage": "https://www.darktable.org/",
+      "summary": "A virtual lighttable and darkroom for photographers"
+    },
+    {
+      "id": "OpenShot.OpenShot",
+      "name": "OpenShot Video Editor",
+      "publisher": "OpenShot Studios, LLC",
+      "badge": "star",
+      "homepage": "https://www.openshot.org/download/",
+      "summary": "Simple, capable video editing"
+    },
+    {
+      "id": "RawTherapee.RawTherapee",
+      "name": "RawTherapee",
+      "publisher": "rawtherapee.com",
+      "badge": "star",
+      "homepage": "https://www.rawtherapee.com/downloads/",
+      "summary": "Raw photo processing with every knob exposed"
+    },
+    {
+      "id": "IrfanSkiljan.IrfanView",
+      "name": "IrfanView",
+      "publisher": "Irfan Skiljan",
+      "badge": "star",
+      "homepage": "https://www.irfanview.com/",
+      "summary": "A fast, tiny image viewer and converter"
+    },
+    {
+      "id": "XnSoft.XnViewMP",
+      "name": "XnView MP",
+      "publisher": "Pierre-e Gougelet",
+      "badge": "star",
+      "homepage": "https://www.xnview.com/en/xnviewmp/",
+      "summary": "Browse, convert and sort a photo library"
+    },
+    {
+      "id": "Audacity.Audacity",
+      "name": "Audacity",
+      "publisher": "Audacity Team",
+      "badge": "star",
+      "homepage": "https://www.audacityteam.org/",
+      "summary": "Record and edit audio across many tracks"
+    },
+    {
+      "id": "PeterPawlowski.foobar2000",
+      "name": "foobar2000",
+      "publisher": "Peter Pawlowski",
+      "badge": "star",
+      "homepage": "https://www.foobar2000.org/",
+      "summary": "A minimal audio player you can rebuild entirely"
+    },
+    {
+      "id": "AIMP.AIMP",
+      "name": "AIMP",
+      "publisher": "Artem Izmaylov",
+      "badge": "star",
+      "homepage": "https://www.aimp.ru",
+      "summary": "Audio player with a proper library behind it"
+    },
+    {
+      "id": "LMMS.LMMS",
+      "name": "LMMS",
+      "publisher": "LMMS Developers",
+      "badge": "star",
+      "homepage": "https://lmms.io/download",
+      "summary": "Make beats and melodies without a studio"
+    },
+    {
+      "id": "Musescore.Musescore",
+      "name": "MuseScore",
+      "publisher": "MuseScore BVBA and Others",
+      "badge": "star",
+      "homepage": "https://musescore.org/en",
+      "summary": "Write, play back and print sheet music"
+    },
+    {
+      "id": "clsid2.mpc-hc",
+      "icon": "https://raw.githubusercontent.com/clsid2/mpc-hc/develop/src/mpc-hc/res/icon.ico",
+      "name": "Media Player Classic",
+      "publisher": "MPC-HC Team",
+      "badge": "star",
+      "homepage": "https://github.com/clsid2/mpc-hc",
+      "summary": "Media Player Classic, still going strong"
+    },
+    {
+      "id": "voidtools.Everything",
+      "name": "Everything",
+      "publisher": "voidtools",
+      "badge": "star",
+      "homepage": "https://www.voidtools.com/",
+      "summary": "Find any file on any NTFS volume instantly"
+    },
+    {
+      "id": "FilesCommunity.Files",
+      "name": "Files",
+      "publisher": "Files Community",
+      "badge": "star",
+      "homepage": "https://files.community/",
+      "summary": "A modern file manager for Windows"
+    },
+    {
+      "id": "Flow-Launcher.Flow-Launcher",
+      "name": "Flow Launcher",
+      "publisher": "Flow-Launcher Team",
+      "badge": "star",
+      "homepage": "https://www.flowlauncher.com/",
+      "summary": "Launch anything with a keystroke"
+    },
+    {
+      "id": "ShareX.ShareX",
+      "name": "ShareX",
+      "publisher": "ShareX Team",
+      "badge": "star",
+      "homepage": "https://getsharex.com/",
+      "summary": "Capture, annotate and upload anything on screen"
+    },
+    {
+      "id": "Greenshot.Greenshot",
+      "name": "Greenshot",
+      "publisher": "Greenshot",
+      "badge": "star",
+      "homepage": "https://getgreenshot.org/",
+      "summary": "Quick screenshots with an editor attached"
+    },
+    {
+      "id": "Flameshot.Flameshot",
+      "name": "Flameshot",
+      "publisher": "flameshot-org",
+      "badge": "star",
+      "homepage": "https://flameshot.org/",
+      "summary": "Screenshots with annotation, done properly"
+    },
+    {
+      "id": "RARLab.WinRAR",
+      "name": "WinRAR",
+      "publisher": "win.rar GmbH",
+      "badge": "verified",
+      "homepage": "https://www.win-rar.com/",
+      "summary": "The archiver with the famously patient trial"
+    },
+    {
+      "id": "Bitwarden.Bitwarden",
+      "name": "Bitwarden",
+      "publisher": "Bitwarden Inc.",
+      "badge": "verified",
+      "homepage": "https://bitwarden.com/",
+      "summary": "An open source password manager that syncs"
+    },
+    {
+      "id": "KeePassXCTeam.KeePassXC",
+      "name": "KeePassXC",
+      "publisher": "KeePassXC Team",
+      "badge": "star",
+      "homepage": "https://keepassxc.org/",
+      "summary": "A password vault that never leaves your machine"
+    },
+    {
+      "id": "Proton.ProtonVPN",
+      "name": "Proton VPN",
+      "publisher": "Proton AG",
+      "badge": "verified",
+      "homepage": "https://protonvpn.com/",
+      "summary": "VPN from the people behind Proton Mail"
+    }
+  ],
+  "development": [
+    {
+      "id": "Microsoft.VisualStudioCode",
+      "name": "Visual Studio Code",
+      "publisher": "Microsoft",
+      "badge": "verified",
+      "homepage": "https://code.visualstudio.com",
+      "summary": "Code editing. Redefined."
+    },
+    {
+      "id": "Git.Git",
+      "name": "Git",
+      "publisher": "The Git Project",
+      "badge": "verified",
+      "homepage": "https://git-scm.com",
+      "summary": "Distributed version control system"
+    },
+    {
+      "id": "Microsoft.WindowsTerminal",
+      "icon": "https://raw.githubusercontent.com/microsoft/terminal/main/res/terminal.ico",
+      "name": "Windows Terminal",
+      "publisher": "Microsoft",
+      "badge": "verified",
+      "homepage": "https://github.com/microsoft/terminal",
+      "summary": "The modern terminal for Windows"
+    },
+    {
+      "id": "Notepad++.Notepad++",
+      "name": "Notepad++",
+      "publisher": "Notepad++ Team",
+      "badge": "star",
+      "homepage": "https://notepad-plus-plus.org",
+      "summary": "A free source code editor and Notepad replacement"
+    },
+    {
+      "id": "Docker.DockerDesktop",
+      "name": "Docker Desktop",
+      "publisher": "Docker Inc.",
+      "badge": "verified",
+      "homepage": "https://www.docker.com",
+      "summary": "Build, share and run containerised applications"
+    },
+    {
+      "id": "OpenJS.NodeJS.LTS",
+      "name": "Node.js LTS",
+      "publisher": "OpenJS Foundation",
+      "badge": "verified",
+      "homepage": "https://nodejs.org",
+      "summary": "JavaScript runtime built on Chrome's V8 engine"
+    },
+    {
+      "id": "Python.Python.3.12",
+      "name": "Python 3.12",
+      "publisher": "Python Software Foundation",
+      "badge": "verified",
+      "homepage": "https://www.python.org",
+      "summary": "The Python programming language"
+    },
+    {
+      "id": "GitHub.GitHubDesktop",
+      "name": "GitHub Desktop",
+      "publisher": "GitHub, Inc.",
+      "badge": "verified",
+      "homepage": "https://desktop.github.com",
+      "summary": "Focus on what matters instead of fighting with Git"
+    },
+    {
+      "id": "Postman.Postman",
+      "name": "Postman",
+      "publisher": "Postman, Inc.",
+      "badge": "verified",
+      "homepage": "https://www.postman.com",
+      "summary": "API development environment"
+    },
+    {
+      "id": "Neovim.Neovim",
+      "name": "Neovim",
+      "publisher": "Neovim",
+      "badge": "star",
+      "homepage": "https://neovim.io",
+      "summary": "Vim-fork focused on extensibility and usability"
+    },
+    {
+      "id": "JetBrains.IntelliJIDEA.Community",
+      "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/IntelliJ_IDEA_icon.png",
+      "name": "IntelliJ IDEA Community",
+      "publisher": "JetBrains s.r.o.",
+      "badge": "verified",
+      "homepage": "https://www.jetbrains.com/idea",
+      "summary": "The JVM IDE, Community Edition"
+    },
+    {
+      "id": "JetBrains.PyCharm.Community",
+      "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/PyCharm_icon.png",
+      "name": "PyCharm Community",
+      "publisher": "JetBrains s.r.o.",
+      "badge": "verified",
+      "homepage": "https://www.jetbrains.com/pycharm/",
+      "summary": "Python IDE, Community Edition"
+    },
+    {
+      "id": "JetBrains.Toolbox",
+      "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/Toolbox_icon.png",
+      "name": "JetBrains Toolbox",
+      "publisher": "JetBrains",
+      "badge": "verified",
+      "homepage": "https://www.jetbrains.com/toolbox-app/",
+      "summary": "Install and update every JetBrains IDE"
+    },
+    {
+      "id": "SublimeHQ.SublimeText.4",
+      "name": "Sublime Text",
+      "publisher": "Sublime HQ Pty Ltd",
+      "badge": "verified",
+      "homepage": "https://www.sublimetext.com/",
+      "summary": "A sophisticated text editor for code"
+    },
+    {
+      "id": "Microsoft.VisualStudio.2022.Community",
+      "name": "Visual Studio 2022 Community",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://visualstudio.microsoft.com/",
+      "summary": "The full Visual Studio IDE, free for individuals"
+    },
+    {
+      "id": "ZedIndustries.Zed",
+      "name": "Zed",
+      "publisher": "Zed Industries",
+      "badge": "star",
+      "homepage": "https://zed.dev/windows",
+      "summary": "A fast, collaborative code editor"
+    },
+    {
+      "id": "vim.vim",
+      "name": "Vim",
+      "publisher": "Bram Moolenaar et al.",
+      "badge": "star",
+      "homepage": "https://www.vim.org/",
+      "summary": "The ubiquitous modal text editor"
+    },
+    {
+      "id": "GNU.Emacs",
+      "name": "GNU Emacs",
+      "publisher": "GNU Project",
+      "badge": "star",
+      "homepage": "https://www.gnu.org/software/emacs/",
+      "summary": "An extensible, customisable editor and rather more"
+    },
+    {
+      "id": "Alacritty.Alacritty",
+      "icon": "https://raw.githubusercontent.com/alacritty/alacritty/master/extra/logo/compat/alacritty-term.png",
+      "name": "Alacritty",
+      "publisher": "Alacritty",
+      "badge": "star",
+      "homepage": "https://alacritty.org/",
+      "summary": "A GPU-accelerated terminal emulator"
+    },
+    {
+      "id": "Microsoft.PowerShell",
+      "name": "PowerShell",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://microsoft.com/PowerShell",
+      "summary": "The cross-platform PowerShell 7 shell"
+    },
+    {
+      "id": "Rustlang.Rustup",
+      "name": "Rustup",
+      "publisher": "The Rust Programming Language",
+      "badge": "verified",
+      "homepage": "https://rust-lang.github.io/rustup/",
+      "summary": "The Rust toolchain installer"
+    },
+    {
+      "id": "GoLang.Go",
+      "name": "Go",
+      "publisher": "https://go.dev",
+      "badge": "verified",
+      "homepage": "https://go.dev/dl/",
+      "summary": "The Go programming language"
+    },
+    {
+      "id": "EclipseAdoptium.Temurin.21.JDK",
+      "name": "Eclipse Temurin 21 (JDK)",
+      "publisher": "Eclipse Adoptium",
+      "badge": "verified",
+      "homepage": "https://adoptium.net/",
+      "summary": "Open source Java, the current LTS"
+    },
+    {
+      "id": "DenoLand.Deno",
+      "name": "Deno",
+      "publisher": "Deno Land Inc.",
+      "badge": "star",
+      "homepage": "https://deno.com/",
+      "summary": "A secure runtime for JavaScript and TypeScript"
+    },
+    {
+      "id": "Oven-sh.Bun",
+      "name": "Bun",
+      "publisher": "Oven-sh",
+      "badge": "star",
+      "homepage": "https://bun.sh/",
+      "summary": "A fast JavaScript runtime, bundler and package manager"
+    },
+    {
+      "id": "Yarn.Yarn",
+      "name": "Yarn",
+      "publisher": "Yarn Contributors",
+      "badge": "star",
+      "homepage": "https://yarnpkg.com/",
+      "summary": "Dependable package management for Node"
+    },
+    {
+      "id": "Microsoft.DotNet.SDK.9",
+      "name": ".NET SDK 9",
+      "publisher": "Microsoft Corporation",
+      "badge": "verified",
+      "homepage": "https://dotnet.microsoft.com",
+      "summary": "Build .NET apps with the current SDK"
+    },
+    {
+      "id": "PostgreSQL.PostgreSQL.17",
+      "name": "PostgreSQL 17",
+      "publisher": "PostgreSQL Global Development Group",
+      "badge": "star",
+      "homepage": "https://www.postgresql.org/download/windows/",
+      "summary": "The most advanced open source database"
+    },
+    {
+      "id": "MongoDB.Compass.Full",
+      "name": "MongoDB Compass",
+      "publisher": "MongoDB Inc",
+      "badge": "verified",
+      "homepage": "https://www.mongodb.com/products/compass",
+      "summary": "A GUI for querying and tuning MongoDB"
+    },
+    {
+      "id": "Insomnia.Insomnia",
+      "name": "Insomnia",
+      "publisher": "Kong",
+      "badge": "verified",
+      "homepage": "https://insomnia.rest/",
+      "summary": "Design and test APIs without the clutter"
+    },
+    {
+      "id": "TortoiseSVN.TortoiseSVN",
+      "name": "TortoiseSVN",
+      "publisher": "TortoiseSVN",
+      "badge": "star",
+      "homepage": "https://tortoisesvn.net/downloads.html",
+      "summary": "Subversion, wired straight into Explorer"
+    },
+    {
+      "id": "Atlassian.Sourcetree",
+      "name": "Sourcetree",
+      "publisher": "Atlassian",
+      "badge": "verified",
+      "homepage": "https://www.sourcetreeapp.com/",
+      "summary": "A visual client for Git"
+    },
+    {
+      "id": "WinMerge.WinMerge",
+      "name": "WinMerge",
+      "publisher": "Thingamahoochie Software",
+      "badge": "star",
+      "homepage": "https://winmerge.org/",
+      "summary": "Diff and merge files and whole folders"
+    },
+    {
+      "id": "Meld.Meld",
+      "name": "Meld",
+      "publisher": "Kai Willadsen",
+      "badge": "star",
+      "homepage": "https://meldmerge.org/",
+      "summary": "A visual diff and merge tool"
+    },
+    {
+      "id": "WinSCP.WinSCP",
+      "name": "WinSCP",
+      "publisher": "Martin Prikryl",
+      "badge": "star",
+      "homepage": "https://winscp.net/",
+      "summary": "SFTP, FTP and SCP transfers, two panes at a time"
+    },
+    {
+      "id": "PuTTY.PuTTY",
+      "name": "PuTTY",
+      "publisher": "Simon Tatham",
+      "badge": "star",
+      "homepage": "https://www.chiark.greenend.org.uk/~sgtatham/putty/",
+      "summary": "The SSH client everyone already has"
+    },
+    {
+      "id": "Ollama.Ollama",
+      "name": "Ollama",
+      "publisher": "Ollama",
+      "badge": "star",
+      "homepage": "https://ollama.com/",
+      "summary": "Run large language models on your own machine"
+    },
+    {
+      "id": "GodotEngine.GodotEngine",
+      "name": "Godot Engine",
+      "publisher": "Godot Engine",
+      "badge": "star",
+      "homepage": "https://godotengine.org/download/windows",
+      "summary": "A game engine whose source you can actually read"
+    },
+    {
+      "id": "Unity.UnityHub",
+      "name": "Unity Hub",
+      "publisher": "Unity Technologies Inc.",
+      "badge": "verified",
+      "homepage": "https://unity.com/unity-hub",
+      "summary": "Manage Unity editors and projects"
+    },
+    {
+      "id": "ArduinoSA.IDE.stable",
+      "name": "Arduino IDE",
+      "publisher": "Arduino SA",
+      "badge": "verified",
+      "homepage": "https://www.arduino.cc/en/software",
+      "summary": "Write and flash sketches to Arduino boards"
+    },
+    {
+      "id": "Oracle.VirtualBox",
+      "name": "VirtualBox",
+      "publisher": "Oracle and/or its affiliates",
+      "badge": "verified",
+      "homepage": "https://www.virtualbox.org/",
+      "summary": "Run other operating systems in a window"
+    },
+    {
+      "id": "Kubernetes.kubectl",
+      "name": "kubectl",
+      "publisher": "The Kubernetes Authors",
+      "badge": "verified",
+      "homepage": "https://kubernetes.io/docs/reference/kubectl/",
+      "summary": "Drive Kubernetes clusters from the command line"
+    },
+    {
+      "id": "Helm.Helm",
+      "name": "Helm",
+      "publisher": "Helm",
+      "badge": "verified",
+      "homepage": "https://helm.sh/",
+      "summary": "The package manager for Kubernetes"
+    },
+    {
+      "id": "Hashicorp.Terraform",
+      "name": "Terraform",
+      "publisher": "HashiCorp",
+      "badge": "verified",
+      "homepage": "https://github.com/hashicorp/terraform",
+      "summary": "Describe infrastructure as code, then apply it"
+    },
+    {
+      "id": "WiresharkFoundation.Wireshark",
+      "name": "Wireshark",
+      "publisher": "The Wireshark developer community, https://www.wireshark.org",
+      "badge": "star",
+      "homepage": "https://www.wireshark.org/",
+      "summary": "See exactly what is on the wire"
+    },
+    {
+      "id": "Tailscale.Tailscale",
+      "name": "Tailscale",
+      "publisher": "Tailscale Inc.",
+      "badge": "verified",
+      "homepage": "https://tailscale.com/download",
+      "summary": "A private network stitched between your machines"
+    },
+    {
+      "id": "WireGuard.WireGuard",
+      "name": "WireGuard",
+      "publisher": "WireGuard LLC",
+      "badge": "star",
+      "homepage": "https://www.wireguard.com/install/",
+      "summary": "Fast, modern, unfussy VPN tunnelling"
+    },
+    {
+      "id": "GNU.Octave",
+      "name": "GNU Octave",
+      "publisher": "GNU Octave",
+      "badge": "star",
+      "homepage": "https://octave.org",
+      "summary": "A high-level language for numerical computing"
+    },
+    {
+      "id": "RProject.R",
+      "name": "R",
+      "publisher": "R Core Team",
+      "badge": "star",
+      "homepage": "https://cloud.r-project.org",
+      "summary": "Statistical computing and graphics"
+    },
+    {
+      "id": "Anaconda.Anaconda3",
+      "name": "Anaconda",
+      "publisher": "Anaconda, Inc.",
+      "badge": "verified",
+      "homepage": "https://www.anaconda.com/download",
+      "summary": "Python and R for data science, batteries included"
+    },
+    {
+      "id": "Stellarium.Stellarium",
+      "name": "Stellarium",
+      "publisher": "Stellarium team",
+      "badge": "star",
+      "homepage": "https://stellarium.org/",
+      "summary": "A planetarium that runs on your desktop"
+    },
+    {
+      "id": "OSGeo.QGIS",
+      "name": "QGIS",
+      "publisher": "QGIS.org",
+      "badge": "star",
+      "homepage": "https://www.qgis.org/",
+      "summary": "A free and open geographic information system"
+    },
+    {
+      "id": "FreeCAD.FreeCAD",
+      "name": "FreeCAD",
+      "publisher": "FreeCAD Team",
+      "badge": "star",
+      "homepage": "https://www.freecad.org/downloads.php",
+      "summary": "Parametric 3D modelling for parts that get made"
+    },
+    {
+      "id": "KiCad.KiCad",
+      "name": "KiCad",
+      "publisher": "KiCad",
+      "badge": "star",
+      "homepage": "https://www.kicad.org/download/windows/",
+      "summary": "Schematic capture and PCB layout"
+    },
+    {
+      "id": "GeoGebra.Classic",
+      "name": "GeoGebra Classic",
+      "publisher": "International GeoGebra Institute",
+      "badge": "star",
+      "homepage": "https://www.geogebra.org/download",
+      "summary": "Geometry, algebra and calculus in one place"
+    },
+    {
+      "id": "OpenSCAD.OpenSCAD",
+      "name": "OpenSCAD",
+      "publisher": "OpenSCAD",
+      "badge": "star",
+      "homepage": "https://www.openscad.org/",
+      "summary": "Model solid 3D CAD by writing code"
+    },
+    {
+      "id": "Ultimaker.Cura",
+      "name": "Ultimaker Cura",
+      "publisher": "UltiMaker",
+      "badge": "verified",
+      "homepage": "https://ultimaker.com/software/ultimaker-cura",
+      "summary": "Slice models ready for a 3D printer"
+    },
+    {
+      "id": "Prusa3D.PrusaSlicer",
+      "name": "PrusaSlicer",
+      "publisher": "Prusa Research",
+      "badge": "verified",
+      "homepage": "https://www.prusa3d.com/prusaslicer/",
+      "summary": "A slicer tuned for Prusa and plenty of others"
+    },
+    {
+      "id": "Rufus.Rufus",
+      "name": "Rufus",
+      "publisher": "pbatard",
+      "badge": "star",
+      "homepage": "https://rufus.ie/",
+      "summary": "Write bootable USB drives in a hurry"
+    },
+    {
+      "id": "Balena.Etcher",
+      "name": "balenaEtcher",
+      "publisher": "Balena Ltd. <hello@balena.io>",
+      "badge": "star",
+      "homepage": "https://etcher.balena.io/",
+      "summary": "Flash OS images to SD cards and USB sticks"
+    },
+    {
+      "id": "Ventoy.Ventoy",
+      "name": "Ventoy",
+      "publisher": "Ventoy",
+      "badge": "star",
+      "homepage": "https://www.ventoy.net/",
+      "summary": "One USB stick, as many bootable ISOs as it holds"
+    },
+    {
+      "id": "AntibodySoftware.WizTree",
+      "name": "WizTree",
+      "publisher": "Antibody Software",
+      "badge": "star",
+      "homepage": "https://diskanalyzer.com/",
+      "summary": "Work out what filled the disk, fast"
+    },
+    {
+      "id": "WinDirStat.WinDirStat",
+      "name": "WinDirStat",
+      "publisher": "The WinDirStat Team",
+      "badge": "star",
+      "homepage": "https://windirstat.net/",
+      "summary": "Disk usage drawn as a treemap"
+    },
+    {
+      "id": "CPUID.CPU-Z",
+      "name": "CPU-Z",
+      "publisher": "CPUID, Inc.",
+      "badge": "star",
+      "homepage": "https://www.cpuid.com/softwares/cpu-z.html",
+      "summary": "Report on your CPU, board and memory"
+    },
+    {
+      "id": "TechPowerUp.GPU-Z",
+      "name": "GPU-Z",
+      "publisher": "TechPowerUp",
+      "badge": "star",
+      "homepage": "https://www.techpowerup.com/gpuz/",
+      "summary": "Everything about your graphics card"
+    },
+    {
+      "id": "CrystalDewWorld.CrystalDiskInfo",
+      "name": "CrystalDiskInfo",
+      "publisher": "Crystal Dew World",
+      "badge": "star",
+      "homepage": "https://crystalmark.info/en/software/crystaldiskinfo/",
+      "summary": "Watch drive health before it fails"
+    },
+    {
+      "id": "REALiX.HWiNFO",
+      "name": "HWiNFO®",
+      "publisher": "Martin Malik, REALiX s.r.o.",
+      "badge": "star",
+      "homepage": "https://www.hwinfo.com/download/",
+      "summary": "Deep hardware monitoring and sensor readouts"
+    },
+    {
+      "id": "Microsoft.Sysinternals.ProcessExplorer",
+      "name": "Process Explorer",
+      "publisher": "Sysinternals",
+      "badge": "verified",
+      "homepage": "https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer",
+      "summary": "Task Manager, taken seriously"
+    },
+    {
+      "id": "Microsoft.Sysinternals.Autoruns",
+      "name": "Autoruns",
+      "publisher": "Sysinternals",
+      "badge": "verified",
+      "homepage": "https://learn.microsoft.com/en-us/sysinternals/downloads/autoruns",
+      "summary": "See everything that starts with Windows"
+    },
+    {
+      "id": "AutoHotkey.AutoHotkey",
+      "name": "AutoHotkey",
+      "publisher": "AutoHotkey Foundation LLC",
+      "badge": "star",
+      "homepage": "https://www.autohotkey.com",
+      "summary": "Script anything on the desktop"
+    },
+    {
+      "id": "Piriform.CCleaner",
+      "name": "CCleaner 7",
+      "publisher": "Piriform",
+      "badge": "verified",
+      "homepage": "https://www.ccleaner.com/ccleaner",
+      "summary": "Clear out caches and accumulated junk"
+    },
+    {
+      "id": "Malwarebytes.Malwarebytes",
+      "name": "Malwarebytes",
+      "publisher": "Malwarebytes",
+      "badge": "verified",
+      "homepage": "https://www.malwarebytes.com/mwb-download",
+      "summary": "On-demand malware scanning and removal"
+    },
+    {
+      "id": "Wagnardsoft.DisplayDriverUninstaller",
+      "name": "Display Driver Uninstaller",
+      "publisher": "Wagnardsoft",
+      "badge": "star",
+      "homepage": "https://www.wagnardsoft.com/display-driver-uninstaller-ddu",
+      "summary": "Remove graphics drivers cleanly"
+    },
+    {
+      "id": "IDRIX.VeraCrypt",
+      "name": "VeraCrypt",
+      "publisher": "IDRIX",
+      "badge": "star",
+      "homepage": "https://veracrypt.io/",
+      "summary": "Encrypted volumes and full-disk encryption"
+    },
+    {
+      "id": "GnuPG.Gpg4win",
+      "name": "Gpg4win",
+      "publisher": "The Gpg4win Project",
+      "badge": "star",
+      "homepage": "https://www.gpg4win.org/",
+      "summary": "GnuPG for Windows, with a key manager"
+    },
+    {
+      "id": "Gyan.FFmpeg",
+      "name": "FFmpeg",
+      "publisher": "Gyan",
+      "badge": "star",
+      "homepage": "https://www.gyan.dev/ffmpeg/builds/",
+      "summary": "The command line behind half the video on the internet"
+    }
+  ],
+  "games": [
+    {
+      "id": "Valve.Steam",
+      "name": "Steam",
+      "publisher": "Valve Corporation",
+      "badge": "verified",
+      "homepage": "https://store.steampowered.com",
+      "summary": "The ultimate destination for playing and discussing games"
+    },
+    {
+      "id": "WildfireGames.0AD",
+      "screenshot": "https://wildfiregames.com/forum/uploads/monthly_2026_01/screenshot0011.thumb.png.50d0e74bb637ddf2191fe5ad88241f75.png",
+      "name": "0 A.D.",
+      "publisher": "Wildfire Games",
+      "badge": "verified",
+      "homepage": "https://play0ad.com",
+      "summary": "Real-time strategy game of ancient warfare"
+    },
+    {
+      "id": "joncampbell123.DOSBox-X",
+      "screenshot": "https://dosbox-x.com/images/tomb3d.png",
+      "name": "DOSBox-X",
+      "publisher": "DOSBox-X Team",
+      "badge": "star",
+      "homepage": "https://dosbox-x.com",
+      "summary": "DOSBox-X fork of the DOSBox project"
+    },
+    {
+      "id": "OpenRA.OpenRA.Release",
+      "screenshot": "https://www.openra.net/images/social.jpg",
+      "name": "OpenRA",
+      "publisher": "OpenRA Team",
+      "badge": "star",
+      "homepage": "https://www.openra.net",
+      "summary": "Reimagining early Westwood real-time strategy games"
+    },
+    {
+      "id": "Warzone2100Project.Warzone2100",
+      "screenshot": "https://wz2100.net/img/wz2100-open-graph-template.png",
+      "name": "Warzone 2100",
+      "publisher": "Warzone 2100 Project",
+      "badge": "star",
+      "homepage": "https://wz2100.net",
+      "summary": "3D real-time strategy game set in a post-apocalyptic world"
+    },
+    {
+      "id": "SuperTuxKart.SuperTuxKart",
+      "screenshot": "https://supertuxkart.net/assets/blog/Blog_electro-shield_thumb.jpg",
+      "name": "SuperTuxKart",
+      "publisher": "SuperTuxKart Team",
+      "badge": "star",
+      "homepage": "https://supertuxkart.net",
+      "summary": "A 3D open-source arcade racer with a variety of characters"
+    },
+    {
+      "id": "OpenTTD.OpenTTD",
+      "screenshot": "https://www.openttd.org/screenshots/1.9-industry_trams.png",
+      "name": "OpenTTD",
+      "publisher": "OpenTTD Team",
+      "badge": "star",
+      "homepage": "https://www.openttd.org",
+      "summary": "An open source simulation game based on Transport Tycoon Deluxe"
+    },
+    {
+      "id": "Libretro.RetroArch",
+      "name": "RetroArch",
+      "publisher": "Libretro",
+      "badge": "star",
+      "homepage": "https://www.retroarch.com",
+      "summary": "Frontend for emulators, game engines and media players"
+    },
+    {
+      "id": "Wesnoth.BattleForWesnoth",
+      "screenshot": "https://www.wesnoth.org/images/sshots/wesnoth-1.18.0-2.jpg",
+      "name": "The Battle for Wesnoth",
+      "publisher": "The Battle for Wesnoth Project",
+      "badge": "star",
+      "homepage": "https://www.wesnoth.org/",
+      "summary": "Turn-based fantasy strategy with a very long campaign"
+    },
+    {
+      "id": "Hedgewars.Hedgewars",
+      "name": "Hedgewars",
+      "publisher": "Hedgewars Project",
+      "badge": "star",
+      "homepage": "https://hedgewars.org",
+      "summary": "Turn-based artillery, fought by hedgehogs"
+    },
+    {
+      "id": "SuperTux.SuperTux",
+      "name": "SuperTux",
+      "publisher": "SuperTux Devel Team",
+      "badge": "star",
+      "homepage": "https://www.supertux.org/",
+      "summary": "A classic 2D jump-and-run side scroller"
+    },
+    {
+      "id": "Xonotic.Xonotic",
+      "screenshot": "https://xonotic.org/static/img/carousel_maps.jpg",
+      "name": "Xonotic",
+      "publisher": "Team Xonotic",
+      "badge": "star",
+      "homepage": "https://xonotic.org/download/",
+      "summary": "A fast open source arena shooter"
+    },
+    {
+      "id": "FlightGear.FlightGear",
+      "name": "FlightGear",
+      "publisher": "The FlightGear Team",
+      "badge": "star",
+      "homepage": "https://www.flightgear.org/",
+      "summary": "An open source flight simulator"
+    },
+    {
+      "id": "OpenMW.OpenMW",
+      "screenshot": "https://openmw.org/wp-content/uploads/2025/11/image-1024x576.png",
+      "name": "OpenMW",
+      "publisher": "OpenMW.org",
+      "badge": "star",
+      "homepage": "https://openmw.org",
+      "summary": "A modern engine for Morrowind"
+    },
+    {
+      "id": "CleverRaven.CataclysmDarkDaysAhead",
+      "name": "Cataclysm: Dark Days Ahead",
+      "publisher": "Kevin Granade",
+      "badge": "star",
+      "homepage": "https://cataclysmdda.org/",
+      "summary": "Turn-based survival in a very detailed apocalypse"
+    },
+    {
+      "id": "ScummVM.ScummVM",
+      "name": "ScummVM",
+      "publisher": "The ScummVM Team",
+      "badge": "star",
+      "homepage": "https://www.scummvm.org/",
+      "summary": "Run the classic point-and-click adventures again"
+    },
+    {
+      "id": "DolphinEmulator.Dolphin",
+      "name": "Dolphin Emulator",
+      "publisher": "Dolphin Team",
+      "badge": "star",
+      "homepage": "https://dolphin-emu.org",
+      "summary": "GameCube and Wii, emulated in HD"
+    },
+    {
+      "id": "PPSSPPTeam.PPSSPP",
+      "name": "PPSSPP",
+      "publisher": "PPSSPP Project",
+      "badge": "star",
+      "homepage": "https://www.ppsspp.org/",
+      "summary": "A PSP emulator that renders above native resolution"
+    },
+    {
+      "id": "PCSX2Team.PCSX2",
+      "icon": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/bin/resources/icons/AppIconLarge.png",
+      "name": "PCSX2",
+      "publisher": "PCSX2 Team",
+      "badge": "star",
+      "homepage": "https://pcsx2.net/",
+      "summary": "PlayStation 2 emulation for the desktop"
+    },
+    {
+      "id": "Mojang.MinecraftLauncher",
+      "name": "Minecraft Launcher",
+      "publisher": "Mojang",
+      "badge": "verified",
+      "homepage": "https://www.minecraft.net",
+      "summary": "Build, mine, survive"
+    },
+    {
+      "id": "ppy.osu",
+      "name": "osu!",
+      "publisher": "ppy Pty Ltd",
+      "badge": "star",
+      "homepage": "https://osu.ppy.sh/",
+      "summary": "Rhythm is just a click away"
+    },
+    {
+      "id": "EpicGames.EpicGamesLauncher",
+      "name": "Epic Games Launcher",
+      "publisher": "Epic Games, Inc.",
+      "badge": "verified",
+      "homepage": "https://epicgames.com/download",
+      "summary": "The Epic Games store and launcher"
+    },
+    {
+      "id": "GOG.Galaxy",
+      "name": "GOG Galaxy",
+      "publisher": "GOG.com",
+      "badge": "verified",
+      "homepage": "https://www.gog.com/galaxy",
+      "summary": "DRM-free games, every library in one place"
+    },
+    {
+      "id": "Ubisoft.Connect",
+      "name": "Ubisoft Connect",
+      "publisher": "Ubisoft",
+      "badge": "verified",
+      "homepage": "https://ubisoftconnect.com/",
+      "summary": "Ubisoft's launcher and store"
+    },
+    {
+      "id": "ElectronicArts.EADesktop",
+      "name": "EA app",
+      "publisher": "Electronic Arts",
+      "badge": "verified",
+      "homepage": "https://www.ea.com/ea-app",
+      "summary": "The EA app for PC games"
+    },
+    {
+      "id": "Blizzard.BattleNet",
+      "name": "Battle.net",
+      "publisher": "Blizzard Entertainment",
+      "badge": "verified",
+      "homepage": "https://download.battle.net/en-us/desktop",
+      "summary": "Blizzard's launcher and social hub"
+    },
+    {
+      "id": "ItchIo.Itch",
+      "name": "itch",
+      "publisher": "itch corp.",
+      "badge": "star",
+      "homepage": "https://itch.io/app",
+      "summary": "Independent games straight from the people who made them"
+    },
+    {
+      "id": "HeroicGamesLauncher.HeroicGamesLauncher",
+      "name": "Heroic Games Launcher",
+      "publisher": "Heroic Games Launcher",
+      "badge": "star",
+      "homepage": "https://heroicgameslauncher.com/",
+      "summary": "An open launcher for Epic, GOG and Amazon"
+    }
+  ],
+  "carousel": [
+    {
+      "id": "WildfireGames.0AD",
+      "screenshot": "https://wildfiregames.com/forum/uploads/monthly_2026_01/screenshot0011.thumb.png.50d0e74bb637ddf2191fe5ad88241f75.png",
+      "name": "0 A.D.",
+      "summary": "Real-time strategy game of ancient warfare"
+    },
+    {
+      "id": "joncampbell123.DOSBox-X",
+      "screenshot": "https://dosbox-x.com/images/tomb3d.png",
+      "name": "DOSBox-X",
+      "summary": "DOSBox-X fork of the DOSBox project"
+    },
+    {
+      "id": "OpenRA.OpenRA.Release",
+      "screenshot": "https://www.openra.net/images/social.jpg",
+      "name": "OpenRA",
+      "summary": "Reimagining early Westwood real-time strategy games"
+    },
+    {
+      "id": "SuperTuxKart.SuperTuxKart",
+      "screenshot": "https://supertuxkart.net/assets/blog/Blog_electro-shield_thumb.jpg",
+      "name": "SuperTuxKart",
+      "summary": "A 3D open-source arcade racer"
+    },
+    {
+      "id": "Warzone2100Project.Warzone2100",
+      "screenshot": "https://wz2100.net/img/wz2100-open-graph-template.png",
+      "name": "Warzone 2100",
+      "summary": "3D real-time strategy in a post-apocalyptic world"
+    },
+    {
+      "id": "OpenTTD.OpenTTD",
+      "screenshot": "https://www.openttd.org/screenshots/1.9-industry_trams.png",
+      "name": "OpenTTD",
+      "summary": "An open source Transport Tycoon Deluxe"
+    },
+    {
+      "id": "Wesnoth.BattleForWesnoth",
+      "screenshot": "https://www.wesnoth.org/images/sshots/wesnoth-1.18.0-2.jpg",
+      "name": "The Battle for Wesnoth",
+      "summary": "Turn-based fantasy strategy with a very long campaign"
+    },
+    {
+      "id": "Xonotic.Xonotic",
+      "screenshot": "https://xonotic.org/static/img/carousel_maps.jpg",
+      "name": "Xonotic",
+      "summary": "A fast open source arena shooter"
+    },
+    {
+      "id": "OpenMW.OpenMW",
+      "screenshot": "https://openmw.org/wp-content/uploads/2025/11/image-1024x576.png",
+      "name": "OpenMW",
+      "summary": "A modern engine for Morrowind"
+    }
+  ]
+}

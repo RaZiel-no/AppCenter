@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>AppCenter</RootNamespace>
+    <AssemblyName>AppCenter</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>AppCenter.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!--  Shipping metadata. <Version> is the last version that was released:
+        deploy.bat reads it, ships the next patch, and writes that number back
+        here when the release is built. It is the one place it is recorded, and
+        the About page shows whatever the running build was stamped with.  -->
+  <PropertyGroup>
+    <Version>1.0.1</Version>
+    <Product>App Center</Product>
+    <AssemblyTitle>App Center</AssemblyTitle>
+    <Description>Ubuntu's App Center, rebuilt for Windows on top of winget.</Description>
+    <!--  Plain ASCII on purpose: these feed the installer, the Add/Remove entry
+          and the winget manifest. The About page shows the real spelling.  -->
+    <Company>Arnstein Skara</Company>
+    <Authors>Arnstein Skara</Authors>
+    <Copyright>Copyright © 2026 Arnstein Skara</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="catalog.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!--  GPL section 4: the licence travels with the binary, so it ships in the
+          installer and the portable zip, and About links to this copy.  -->
+    <Content Include="LICENSE">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!--  ApplicationIcon covers the exe; Window.Icon needs it in the assembly too  -->
+    <Resource Include="AppCenter.ico" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,67 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--  ============================================================
+          The brushes every control binds to.
+
+          Colours/Ubuntu.xaml seeds them; ThemeService swaps themes by
+          writing new Colors onto these same brush instances, which is
+          why nothing here may be frozen and why the whole window
+          repaints without being rebuilt. Bind to XxxBrush, never to
+          XxxColor - only the brushes follow the current theme.
+          ============================================================  -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Colours/Ubuntu.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <FontFamily x:Key="AppFont">Ubuntu Sans, Ubuntu, Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">Ubuntu Sans, Ubuntu, Segoe UI Variable Display, Segoe UI</FontFamily>
+
+    <!--  Surfaces  -->
+    <SolidColorBrush x:Key="ContentBgBrush" Color="{StaticResource ContentBgColor}" />
+    <SolidColorBrush x:Key="SidebarBgBrush" Color="{StaticResource SidebarBgColor}" />
+    <SolidColorBrush x:Key="CardBgBrush" Color="{StaticResource CardBgColor}" />
+    <SolidColorBrush x:Key="CardHoverBgBrush" Color="{StaticResource CardHoverBgColor}" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorderColor}" />
+    <SolidColorBrush x:Key="CardHoverBorderBrush" Color="{StaticResource CardHoverBorderColor}" />
+    <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
+    <SolidColorBrush x:Key="RowBgBrush" Color="{StaticResource RowBgColor}" />
+    <SolidColorBrush x:Key="RowHoverBgBrush" Color="{StaticResource RowHoverBgColor}" />
+    <SolidColorBrush x:Key="PopupBgBrush" Color="{StaticResource PopupBgColor}" />
+    <SolidColorBrush x:Key="DialogBgBrush" Color="{StaticResource DialogBgColor}" />
+
+    <!--  Sidebar states  -->
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="{StaticResource SidebarHoverColor}" />
+    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="{StaticResource SidebarSelectedColor}" />
+
+    <!--  Text  -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}" />
+
+    <!--  Accents  -->
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}" />
+    <SolidColorBrush x:Key="GreenBrush" Color="{StaticResource GreenColor}" />
+    <SolidColorBrush x:Key="GreenHoverBrush" Color="{StaticResource GreenHoverColor}" />
+
+    <!--  Controls  -->
+    <SolidColorBrush x:Key="ButtonBgBrush" Color="{StaticResource ButtonBgColor}" />
+    <SolidColorBrush x:Key="ButtonHoverBgBrush" Color="{StaticResource ButtonHoverBgColor}" />
+    <SolidColorBrush x:Key="ButtonPressedBgBrush" Color="{StaticResource ButtonPressedBgColor}" />
+    <SolidColorBrush x:Key="ButtonBorderBrush" Color="{StaticResource ButtonBorderColor}" />
+    <SolidColorBrush x:Key="SearchBgBrush" Color="{StaticResource SearchBgColor}" />
+    <SolidColorBrush x:Key="SearchBorderBrush" Color="{StaticResource SearchBorderColor}" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="{StaticResource ScrollThumbColor}" />
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="{StaticResource ScrollThumbHoverColor}" />
+    <SolidColorBrush x:Key="ToggleKnobBrush" Color="{StaticResource ToggleKnobColor}" />
+
+    <!--  The Explore banner gradient. ThemeService rewrites the three stops.  -->
+    <LinearGradientBrush x:Key="BannerGradientBrush" StartPoint="0,0" EndPoint="1,0.35">
+        <GradientStop Offset="0" Color="{StaticResource BannerStop0Color}" />
+        <GradientStop Offset="0.45" Color="{StaticResource BannerStop1Color}" />
+        <GradientStop Offset="1" Color="{StaticResource BannerStop2Color}" />
+    </LinearGradientBrush>
+
+</ResourceDictionary>

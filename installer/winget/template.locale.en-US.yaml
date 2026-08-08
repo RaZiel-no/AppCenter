@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+# Rendered by deploy.bat - edit the template, not releases\winget\*.
+PackageIdentifier: __PACKAGE_ID__
+PackageVersion: "__VERSION__"
+PackageLocale: en-US
+Publisher: __PUBLISHER__
+PublisherUrl: __APP_URL__
+PublisherSupportUrl: __APP_URL__/issues
+PackageName: App Center
+PackageUrl: __APP_URL__
+License: __LICENSE__
+LicenseUrl: __APP_URL__/blob/main/LICENSE
+Copyright: __COPYRIGHT__
+CopyrightUrl: __APP_URL__/blob/main/LICENSE
+ShortDescription: Ubuntu's App Center, rebuilt for Windows on top of winget.
+Description: |-
+  A graphical front-end for the Windows Package Manager, modelled on Ubuntu's
+  App Center. Browse a curated catalogue of 178 apps across Featured,
+  Productivity, Development and Games, search the whole winget repository, and
+  install, update or remove packages from one place.
+
+  Every install, upgrade and uninstall is a real winget command against the
+  local machine, and each one goes through a confirmation dialog first.
+
+  Free software under the GPL-3.0, the same licence Canonical publish Ubuntu's
+  App Center under. It is an independent Windows implementation that shares no
+  code with theirs, and is not affiliated with or endorsed by Canonical.
+Moniker: appcenter
+Tags:
+  - app-store
+  - foss
+  - gui
+  - open-source
+  - package-manager
+  - software-center
+  - winget
+ReleaseNotesUrl: __APP_URL__/releases/tag/v__VERSION__
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

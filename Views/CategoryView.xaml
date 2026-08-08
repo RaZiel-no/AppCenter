@@ -1,0 +1,33 @@
+<views:PageView x:Class="AppCenter.Views.CategoryView"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:views="clr-namespace:AppCenter.Views"
+                xmlns:ctrl="clr-namespace:AppCenter.Controls">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+
+            <TextBlock x:Name="Title" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                <TextBlock Text="Sort by"
+                           VerticalAlignment="Center"
+                           Margin="0,0,14,0"
+                           FontSize="13.5"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <ComboBox x:Name="SortBox"
+                          Style="{StaticResource AppComboBox}"
+                          Width="170"
+                          SelectedIndex="0"
+                          SelectionChanged="OnSortChanged">
+                    <ComboBoxItem Content="Relevance" />
+                    <ComboBoxItem Content="Name (A to Z)" />
+                    <ComboBoxItem Content="Name (Z to A)" />
+                    <ComboBoxItem Content="Publisher" />
+                </ComboBox>
+            </StackPanel>
+
+            <ctrl:AppGrid x:Name="Cards" Margin="0,26,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</views:PageView>

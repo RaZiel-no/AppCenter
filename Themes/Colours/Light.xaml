@@ -1,0 +1,55 @@
+<!--  ============================================================
+      Light - Yaru in daylight. White cards on a warm grey page, with
+      the Ubuntu orange kept as the accent; it darkens rather than
+      brightens on hover, which is the way round that reads on a light
+      background. Same key set as Colours/Ubuntu.xaml.
+      ============================================================  -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--  Surfaces  -->
+    <Color x:Key="ContentBgColor">#FFF6F5F4</Color>
+    <Color x:Key="SidebarBgColor">#FFEAE8E6</Color>
+    <Color x:Key="CardBgColor">#FFFFFFFF</Color>
+    <Color x:Key="CardHoverBgColor">#FFF2F1F0</Color>
+    <Color x:Key="CardBorderColor">#FFDCD9D6</Color>
+    <Color x:Key="CardHoverBorderColor">#FFB5B0AB</Color>
+    <Color x:Key="DividerColor">#FFE3E0DD</Color>
+    <Color x:Key="RowBgColor">#FFFFFFFF</Color>
+    <Color x:Key="RowHoverBgColor">#FFF2F1F0</Color>
+    <Color x:Key="PopupBgColor">#FFFFFFFF</Color>
+    <Color x:Key="DialogBgColor">#FFFAF9F8</Color>
+
+    <!--  Sidebar states  -->
+    <Color x:Key="SidebarHoverColor">#FFDEDBD8</Color>
+    <Color x:Key="SidebarSelectedColor">#FFCFCBC7</Color>
+
+    <!--  Text  -->
+    <Color x:Key="TextPrimaryColor">#FF1B1B1B</Color>
+    <Color x:Key="TextSecondaryColor">#FF5C5751</Color>
+    <Color x:Key="TextMutedColor">#FF88827C</Color>
+
+    <!--  Accents  -->
+    <Color x:Key="AccentColor">#FFE95420</Color>
+    <Color x:Key="AccentHoverColor">#FFC94317</Color>
+    <Color x:Key="GreenColor">#FF0E8420</Color>
+    <Color x:Key="GreenHoverColor">#FF0B6B1A</Color>
+
+    <!--  Controls  -->
+    <Color x:Key="ButtonBgColor">#FFFFFFFF</Color>
+    <Color x:Key="ButtonHoverBgColor">#FFF0EEEC</Color>
+    <Color x:Key="ButtonPressedBgColor">#FFE2DFDC</Color>
+    <Color x:Key="ButtonBorderColor">#FFCFCBC7</Color>
+    <Color x:Key="SearchBgColor">#FFFFFFFF</Color>
+    <Color x:Key="SearchBorderColor">#FFC6C1BC</Color>
+    <Color x:Key="ScrollThumbColor">#FFC4BFBA</Color>
+    <Color x:Key="ScrollThumbHoverColor">#FFA6A09A</Color>
+    <!--  Grey, not white: the track it sits in is white here  -->
+    <Color x:Key="ToggleKnobColor">#FF8A847E</Color>
+
+    <!--  Explore banner gradient: unchanged, its white text needs the depth  -->
+    <Color x:Key="BannerStop0Color">#FF2B1B6B</Color>
+    <Color x:Key="BannerStop1Color">#FF1F4E64</Color>
+    <Color x:Key="BannerStop2Color">#FF3FCC6E</Color>
+
+</ResourceDictionary>

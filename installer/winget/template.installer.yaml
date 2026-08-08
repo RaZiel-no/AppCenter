@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+# Rendered by deploy.bat - edit the template, not releases\winget\*.
+PackageIdentifier: __PACKAGE_ID__
+PackageVersion: "__VERSION__"
+MinimumOSVersion: 10.0.17763.0
+InstallerType: inno
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+# Inno registers itself in Add/Remove as <AppId>_is1 - this is how winget spots
+# an existing install and offers the upgrade.
+ProductCode: "{8F3C1B62-4A7D-4E29-9C6E-1D5B0A7F2E84}_is1"
+ReleaseDate: __DATE__
+Installers:
+  - Architecture: x64
+    InstallerUrl: __APP_URL__/releases/download/v__VERSION__/AppCenter-__VERSION__-Setup.exe
+    InstallerSha256: __SHA256__
+ManifestType: installer
+ManifestVersion: 1.6.0
