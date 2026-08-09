@@ -155,7 +155,7 @@ priority over everything above, and it is the answer for projects that live on a
 code host and have no site of their own. Note that entries are per-section, so
 an app appearing on several pages needs the field on each of them.
 
-The cache filename carries a version (`<id>.v2.png`). Bump `CacheSuffix` in
+The cache filename carries a version (`<id>.v3.png`). Bump `CacheSuffix` in
 `IconService` when the rules change — without that, a fix never reaches anyone
 who already ran the app, because the wrong icon is on disk and gets returned
 before any of the new logic runs.

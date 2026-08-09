@@ -60,6 +60,35 @@
             </Border>
         </DataTemplate>
 
+        <!--  One frame of the carousel: the slide, and the two neighbours
+              peeking in from either side. It is a template rather than inline
+              layout because a transition needs two of these at once - the
+              outgoing frame stays on screen, underneath the incoming one,
+              until it has finished fading out.  -->
+        <DataTemplate x:Key="StripTemplate">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="86" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="86" />
+                </Grid.ColumnDefinitions>
+
+                <ContentControl Grid.Column="0"
+                                Content="{Binding Previous}"
+                                Margin="0,24,10,24"
+                                ContentTemplate="{StaticResource PeekTemplate}" />
+
+                <ContentControl Grid.Column="1"
+                                Content="{Binding Current}"
+                                ContentTemplate="{StaticResource SlideTemplate}" />
+
+                <ContentControl Grid.Column="2"
+                                Content="{Binding Next}"
+                                Margin="10,24,0,24"
+                                ContentTemplate="{StaticResource PeekTemplate}" />
+            </Grid>
+        </DataTemplate>
+
         <DataTemplate x:Key="DotTemplate">
             <Ellipse x:Name="Dot"
                      Width="9"
@@ -79,28 +108,37 @@
 
             <TextBlock Text="Games" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
 
-            <!--  ================= Carousel =================  -->
-            <Grid Height="250" Margin="0,20,0,0">
+            <!--  ================= Carousel =================
+                  Clipped so the two frames can drift past the edges during a
+                  transition without bleeding over the page beside them.  -->
+            <Grid Height="250" Margin="0,20,0,0" ClipToBounds="True">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="86" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="86" />
                 </Grid.ColumnDefinitions>
 
-                <ContentControl x:Name="PeekPrevious"
-                                Grid.Column="0"
-                                Margin="0,24,10,24"
-                                ContentTemplate="{StaticResource PeekTemplate}" />
+                <!--  The frame on its way out, underneath the one coming in.
+                      Empty and invisible until the first transition.  -->
+                <ContentControl x:Name="OutgoingStrip"
+                                Grid.ColumnSpan="3"
+                                Opacity="0"
+                                IsHitTestVisible="False"
+                                ContentTemplate="{StaticResource StripTemplate}">
+                    <ContentControl.RenderTransform>
+                        <TranslateTransform />
+                    </ContentControl.RenderTransform>
+                </ContentControl>
 
-                <ContentControl x:Name="CurrentSlide"
-                                Grid.Column="1"
-                                ContentTemplate="{StaticResource SlideTemplate}" />
+                <ContentControl x:Name="CurrentStrip"
+                                Grid.ColumnSpan="3"
+                                ContentTemplate="{StaticResource StripTemplate}">
+                    <ContentControl.RenderTransform>
+                        <TranslateTransform />
+                    </ContentControl.RenderTransform>
+                </ContentControl>
 
-                <ContentControl x:Name="PeekNext"
-                                Grid.Column="2"
-                                Margin="10,24,0,24"
-                                ContentTemplate="{StaticResource PeekTemplate}" />
-
+                <!--  Outside both frames, so they stay put while the slides move.  -->
                 <Button Grid.Column="1"
                         Style="{StaticResource CarouselArrow}"
                         Tag="{StaticResource IconChevronLeft}"
