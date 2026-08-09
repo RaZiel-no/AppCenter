@@ -56,10 +56,6 @@ same URL, then open a PR on
 `releases\winget\<v>` folder dropped into `manifests\a\<Publisher>\AppCenter\<v>`.
 `winget validate --manifest releases\winget\<v>` checks them before you do.
 
-[TODO.md](TODO.md) tracks what is still outstanding before the first public
-release — placeholders to fill in, the untested runtime-bootstrap path, and the
-winget-pkgs submission steps.
-
 ## What it does
 
 | Page | Backed by |

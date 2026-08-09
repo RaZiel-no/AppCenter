@@ -7,5 +7,5 @@ releases/
 .vs/
 *.user
 
-# Local working notes - carry machine paths and pre-release planning.
-TODO.md
+# Local working notes. Not documentation for anyone using the app.
+internal/
