@@ -25,8 +25,16 @@ public sealed class IconService
 {
     private static readonly HttpClient Http = CreateClient();
 
-    /// <summary>Give up on the network after this many consecutive transport failures.</summary>
+    /// <summary>Stop trying the network after this many consecutive transport failures.</summary>
     private const int OfflineThreshold = 6;
+
+    /// <summary>
+    /// How long to leave the network alone once <see cref="OfflineThreshold"/>
+    /// transport failures have piled up. Fixed rather than escalating: the point
+    /// is to stop hammering a network that is not answering, not to punish it.
+    /// Short enough that moving to another page recovers on its own.
+    /// </summary>
+    private static readonly TimeSpan QuietPeriod = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Bumped when the resolution rules change, so that everyone's cache of
@@ -75,11 +83,22 @@ public sealed class IconService
     private readonly string _cacheDir;
     private readonly string _screenshotDir;
     private readonly SemaphoreSlim _gate = new(4);
-    private readonly ConcurrentDictionary<string, Task<BitmapSource?>> _inFlight = new();
-    private readonly ConcurrentDictionary<string, Task<BitmapSource?>> _inFlightScreenshots = new();
+    private readonly ConcurrentDictionary<string, Task<IconResult>> _inFlight = new();
+    private readonly ConcurrentDictionary<string, Task<IconResult>> _inFlightScreenshots = new();
 
     private int _consecutiveFailures;
-    private volatile bool _assumeOffline;
+
+    /// <summary>
+    /// When the network may be tried again, on the monotonic tick clock; 0 means
+    /// now. A backoff, deliberately not a latch - this used to be a one-way
+    /// `_assumeOffline` flag that nothing ever cleared, so a single blip left
+    /// every remaining card on a letter tile until the app was restarted.
+    /// </summary>
+    private long _retryAfterTicks;
+
+    /// <summary>True while the network is being left alone to recover.</summary>
+    private bool NetworkIsQuiet =>
+        Environment.TickCount64 < Interlocked.Read(ref _retryAfterTicks);
 
     public IconService()
     {
@@ -168,13 +187,76 @@ public sealed class IconService
         }
     }
 
+    /// <summary>
+    /// What one load concluded. <see cref="Tried"/> is the whole point: it
+    /// separates "this app has no icon" from "we never looked". Inferring that
+    /// afterwards from the backoff flag was racy - another thread's success can
+    /// clear the flag between the null being produced and anyone reading it, and
+    /// the untried null would then be kept for the rest of the session, which is
+    /// the very bug the backoff was meant to end.
+    /// </summary>
+    private readonly record struct IconResult(BitmapSource? Image, bool Tried)
+    {
+        /// <summary>Nothing was asked, so nothing was learned. Do not remember this.</summary>
+        public static IconResult NotTried => default;
+
+        /// <summary>A real conclusion, including "asked, and there is none".</summary>
+        public static IconResult Answer(BitmapSource? image) => new(image, true);
+    }
+
     public Task<BitmapSource?> GetIconAsync(AppPackage package, CancellationToken ct = default)
     {
         var key = CacheKey(package.Id.Length > 0 ? package.Id : package.Name);
         if (key.Length == 0)
             return Task.FromResult<BitmapSource?>(null);
 
-        return _inFlight.GetOrAdd(key, _ => LoadAsync(package, key, ct));
+        return Remember(_inFlight, key, k => LoadAsync(package, k, ct));
+    }
+
+    /// <summary>
+    /// Shares one load per package and keeps the answer - but only when there was
+    /// one. A load that never looked is dropped, so the next page to ask tries
+    /// again. That covers both the backoff and the commoner case of a package
+    /// whose homepage is not known yet: the detail page asks once before
+    /// `winget show` answers and again afterwards, and without this the second
+    /// ask would be served the first ask's memoised nothing.
+    /// </summary>
+    private Task<BitmapSource?> Remember(
+        ConcurrentDictionary<string, Task<IconResult>> inFlight,
+        string key,
+        Func<string, Task<IconResult>> load)
+    {
+        var task = inFlight.GetOrAdd(key, load);
+
+        return Settle();
+
+        async Task<BitmapSource?> Settle()
+        {
+            try
+            {
+                var result = await task.ConfigureAwait(false);
+
+                if (!result.Tried)
+                    Forget();
+
+                return result.Image;
+            }
+            catch
+            {
+                // Cancelled or faulted: not an answer either. Evicting here also
+                // stops a cancelled load from poisoning the key for the session.
+                Forget();
+                throw;
+            }
+        }
+
+        // Matched on key and value, so this only ever removes our own entry.
+        // Note the value is not a unique token: the async machinery hands back
+        // one shared cached Task for every synchronous default result, so several
+        // keys can legitimately hold the same instance - harmless, because that
+        // instance always means NotTried, which is always safe to drop. Safe to
+        // call after GetOrAdd returned, which is what puts the entry there.
+        void Forget() => inFlight.TryRemove(new KeyValuePair<string, Task<IconResult>>(key, task));
     }
 
     /// <summary>
@@ -215,19 +297,19 @@ public sealed class IconService
         if (key.Length == 0)
             return Task.FromResult<BitmapSource?>(null);
 
-        return _inFlightScreenshots.GetOrAdd(key, _ => LoadScreenshotAsync(package, key, ct));
+        return Remember(_inFlightScreenshots, key, k => LoadScreenshotAsync(package, k, ct));
     }
 
-    private async Task<BitmapSource?> LoadScreenshotAsync(AppPackage package, string key, CancellationToken ct)
+    private async Task<IconResult> LoadScreenshotAsync(AppPackage package, string key, CancellationToken ct)
     {
         var path = Path.Combine(_screenshotDir, key + CacheSuffix);
 
         var cached = TryLoadFile(path);
         if (cached is not null)
-            return cached;
+            return IconResult.Answer(cached);
 
-        if (_assumeOffline)
-            return null;
+        if (NetworkIsQuiet)
+            return IconResult.NotTried;
 
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -239,35 +321,38 @@ public sealed class IconService
                     .GetAsync(package.ScreenshotUrl!, HttpCompletionOption.ResponseContentRead, ct)
                     .ConfigureAwait(false);
 
+                NoteSuccess();
+
                 if (!response.IsSuccessStatusCode)
-                    return null;
+                    return IconResult.Answer(null);
 
                 if (response.Content.Headers.ContentLength > MaxScreenshotBytes)
-                    return null;
+                    return IconResult.Answer(null);
 
                 bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
+                // Timed out rather than answered: nothing was learned about the
+                // image, so this must not be remembered as "there is none".
                 NoteFailure();
-                return null;
+                return IconResult.NotTried;
             }
-            catch (HttpRequestException)
+            catch (HttpRequestException ex)
             {
-                NoteFailure();
-                return null;
+                NoteFailure(ex);
+                return IconResult.NotTried;
             }
 
             if (bytes.Length is < 1024 or > MaxScreenshotBytes)
-                return null;
+                return IconResult.Answer(null);
 
             var decoded = DecodeScaled(bytes, ScreenshotDecodeWidth);
             if (decoded is null)
-                return null;
+                return IconResult.Answer(null);
 
-            Interlocked.Exchange(ref _consecutiveFailures, 0);
             SaveFile(path, decoded);
-            return decoded;
+            return IconResult.Answer(decoded);
         }
         finally
         {
@@ -301,29 +386,52 @@ public sealed class IconService
         }
     }
 
-    private async Task<BitmapSource?> LoadAsync(AppPackage package, string key, CancellationToken ct)
+    private async Task<IconResult> LoadAsync(AppPackage package, string key, CancellationToken ct)
     {
         var cached = TryLoadFromDisk(key);
         if (cached is not null)
-            return cached;
+            return IconResult.Answer(cached);
 
-        if (_assumeOffline)
-            return null;
+        if (NetworkIsQuiet)
+            return IconResult.NotTried;
 
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            foreach (var url in await CandidateUrlsAsync(package, ct).ConfigureAwait(false))
+            var candidates = await CandidateUrlsAsync(package, ct).ConfigureAwait(false);
+
+            // Nowhere to look yet - no homepage, a code host we skip on purpose,
+            // or a scheme we cannot fetch. Not an answer: a homepage may arrive
+            // later, and re-deciding this costs no requests.
+            if (candidates.Count == 0)
+                return IconResult.NotTried;
+
+            var looked = true;
+
+            foreach (var url in candidates)
             {
                 ct.ThrowIfCancellationRequested();
 
-                var image = await TryFetchAsync(url, key, ct).ConfigureAwait(false);
-                if (image is not null)
-                {
-                    Interlocked.Exchange(ref _consecutiveFailures, 0);
-                    return image;
-                }
+                // The backoff can arm while this fan-out is still running. Stop
+                // adding to a network that has just stopped answering, rather
+                // than only throttling whatever starts next.
+                if (NetworkIsQuiet)
+                    return IconResult.NotTried;
+
+                // No reset needed on the way out: TryFetchAsync has already
+                // noted the successful exchange that produced this image.
+                var attempt = await TryFetchAsync(url, key, ct).ConfigureAwait(false);
+
+                if (attempt.Image is not null)
+                    return attempt;
+
+                looked &= attempt.Tried;
             }
+
+            // Every candidate answered and none of them held an icon: that is a
+            // real answer and worth keeping. If any of them never answered, it
+            // is not.
+            return looked ? IconResult.Answer(null) : IconResult.NotTried;
         }
         catch (OperationCanceledException)
         {
@@ -333,8 +441,6 @@ public sealed class IconService
         {
             _gate.Release();
         }
-
-        return null;
     }
 
     /// <summary>
@@ -390,6 +496,8 @@ public sealed class IconService
                 .GetAsync(homepage, HttpCompletionOption.ResponseContentRead, ct)
                 .ConfigureAwait(false);
 
+            NoteSuccess();
+
             if (!response.IsSuccessStatusCode)
                 return Array.Empty<string>();
 
@@ -408,9 +516,11 @@ public sealed class IconService
             NoteFailure();
             return Array.Empty<string>();
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            NoteFailure();
+            // The likeliest dead host in the app: a catalogue homepage that no
+            // longer resolves. NoteFailure sorts that from a dead network.
+            NoteFailure(ex);
             return Array.Empty<string>();
         }
 
@@ -481,7 +591,7 @@ public sealed class IconService
         return largest;
     }
 
-    private async Task<BitmapSource?> TryFetchAsync(string url, string key, CancellationToken ct)
+    private async Task<IconResult> TryFetchAsync(string url, string key, CancellationToken ct)
     {
         byte[] bytes;
         try
@@ -489,8 +599,10 @@ public sealed class IconService
             using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseContentRead, ct)
                 .ConfigureAwait(false);
 
+            NoteSuccess();
+
             if (!response.IsSuccessStatusCode)
-                return null;
+                return IconResult.Answer(null);
 
             bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
         }
@@ -498,29 +610,76 @@ public sealed class IconService
         {
             // HttpClient timeout, not our cancellation token.
             NoteFailure();
-            return null;
+            return IconResult.NotTried;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            NoteFailure();
-            return null;
+            NoteFailure(ex);
+            return IconResult.NotTried;
         }
 
         if (bytes.Length is < 64 or > 4 * 1024 * 1024)
-            return null;
+            return IconResult.Answer(null);
 
         var decoded = Decode(bytes);
         if (decoded is null)
-            return null;
+            return IconResult.Answer(null);
 
         SaveToDisk(key, decoded);
-        return decoded;
+        return IconResult.Answer(decoded);
     }
 
+    /// <summary>
+    /// Sorts a transport exception into "the network is down" and "this host is".
+    /// A name that does not resolve, or a certificate that will not negotiate, is
+    /// a dead homepage - and the catalogue carries a couple of hundred of those,
+    /// plus whatever `winget show` reports for a search hit. Counting them was
+    /// the same false positive as counting a 404: six dead domains on one page
+    /// would have silenced icons on a perfectly healthy network.
+    /// </summary>
+    private void NoteFailure(HttpRequestException ex)
+    {
+        if (ex.HttpRequestError is HttpRequestError.NameResolutionError
+            or HttpRequestError.SecureConnectionError)
+            return;
+
+        NoteFailure();
+    }
+
+    /// <summary>
+    /// A request that never reached a server. Enough of these in a row and the
+    /// network is left alone for <see cref="QuietPeriod"/>.
+    /// </summary>
     private void NoteFailure()
     {
-        if (Interlocked.Increment(ref _consecutiveFailures) >= OfflineThreshold)
-            _assumeOffline = true;
+        var count = Interlocked.Increment(ref _consecutiveFailures);
+
+        if (count < OfflineThreshold)
+            return;
+
+        // Claimed against the exact count that was seen, and clearing it in the
+        // same stroke: the next window then starts with a full allowance instead
+        // of re-arming on its first failure. If a success landed in between and
+        // zeroed the counter, this fails and the success wins - otherwise a
+        // backoff could be armed moments after proof the network is alive.
+        if (Interlocked.CompareExchange(ref _consecutiveFailures, 0, count) != count)
+            return;
+
+        Interlocked.Exchange(
+            ref _retryAfterTicks,
+            Environment.TickCount64 + (long)QuietPeriod.TotalMilliseconds);
+    }
+
+    /// <summary>
+    /// Evidence that the network is there. Called for any completed HTTP
+    /// exchange, including a 404: a server that says "no" is still a server that
+    /// answered, and treating that as failure is what let six sites without a
+    /// favicon look like an offline machine.
+    /// </summary>
+    private void NoteSuccess()
+    {
+        Interlocked.Exchange(ref _consecutiveFailures, 0);
+        Interlocked.Exchange(ref _retryAfterTicks, 0);
     }
 
     /// <summary>Decodes ico/png/jpg and picks the largest frame an .ico contains.</summary>
