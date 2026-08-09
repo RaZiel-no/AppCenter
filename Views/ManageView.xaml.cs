@@ -84,9 +84,7 @@ public partial class ManageView : PageView
 
             _allInstalled = installed;
 
-            UpdatesHeading.Text = $"Updates available ({upgrades.Count})";
-            UpdatesPanel.Visibility = upgrades.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            UpdatesEmpty.Visibility = upgrades.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+            RefreshUpdatesSection();
 
             if (!WingetService.IsAvailable)
                 UpdatesEmptyText.Text = "winget could not be started. Install App Installer from the Microsoft Store.";
@@ -231,7 +229,9 @@ public partial class ManageView : PageView
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
             (progress, token) => WingetService.UpgradeEachAsync(
-                batch, progress, OperationService.NoteBatchFailure, token),
+                batch, progress,
+                OperationService.NoteBatchStart, OperationService.NoteBatchDone,
+                token),
             batch.Count);
     }
 
@@ -321,8 +321,8 @@ public partial class ManageView : PageView
 
     /// <summary>
     /// Repaints one row, for the progress lines that arrive while an operation
-    /// runs - a new milestone moves that row's bar and nothing else. "Update
-    /// all" matches no row, and shows on the page-level bar instead.
+    /// runs - a new milestone moves that row's bar and nothing else. Not for
+    /// "update all", which is keyed to no package and moves from row to row.
     /// </summary>
     private void PaintRow(string key)
     {
@@ -331,6 +331,43 @@ public partial class ManageView : PageView
             if (string.Equals(package.Id, key, StringComparison.OrdinalIgnoreCase))
                 OperationService.Paint(package, shows);
         }
+    }
+
+    /// <summary>
+    /// Takes the rows "update all" is done with off the list as it goes, so what
+    /// is left is what it still has to do and the top of the list is always the
+    /// package being worked on. The ones it could not update stay where they
+    /// are, carrying winget's reason: they are still upgradable, and removing
+    /// them would take the explanation with them.
+    /// </summary>
+    private void DropUpdated(Operation batch)
+    {
+        var dropped = false;
+
+        // Backwards, so removing a row does not move the one after it out from
+        // under the loop. Most calls find nothing: this runs on every line
+        // winget prints, not only on the ones that end a package.
+        for (var i = _updates.Count - 1; i >= 0; i--)
+        {
+            if (!batch.WasUpdated(_updates[i].Id))
+                continue;
+
+            _updates.RemoveAt(i);
+            dropped = true;
+        }
+
+        if (dropped)
+            RefreshUpdatesSection();
+    }
+
+    /// <summary>The heading and the empty card, from whatever the list holds now.</summary>
+    private void RefreshUpdatesSection()
+    {
+        var any = _updates.Count > 0;
+
+        UpdatesHeading.Text = $"Updates available ({_updates.Count})";
+        UpdatesPanel.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        UpdatesEmpty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void RefreshButtons()
@@ -406,12 +443,17 @@ public partial class ManageView : PageView
     {
         RefreshStatus();
 
-        // A batch has no single row to repaint: it moves through the list and
-        // leaves a reason on any row it could not update.
+        // A batch has no single row to repaint: it works down the list, taking
+        // off the ones it has updated and leaving a reason on any it could not.
         if (operation.Kind == OperationKind.UpdateAll)
+        {
+            DropUpdated(operation);
             ApplyOperations();
+        }
         else
+        {
             PaintRow(operation.Key);
+        }
     }
 
     private async void OnOperationFinished(object? sender, Operation operation)
@@ -433,17 +475,26 @@ public partial class ManageView : PageView
     /// was - Teams and anything else that swaps itself out on next launch
     /// keeps reporting the old version until it restarts. Silently redrawing
     /// the same row reads as "the button did nothing", so the row says why.
+    ///
+    /// A batch needs the same sentence more than a single update does: it took
+    /// the row off the list on its way past, and the reload has just put it
+    /// back. Without a word on it, that reads as a package it skipped.
     /// </summary>
     private void NoteUnfinishedUpdate(Operation operation)
     {
-        if (operation.Failed || operation.Kind != OperationKind.Update)
-            return;
+        bool WentThrough(AppPackage package) => operation.Kind switch
+        {
+            OperationKind.Update => !operation.Failed
+                && string.Equals(package.Id, operation.Key, StringComparison.OrdinalIgnoreCase),
+            OperationKind.UpdateAll => operation.WasUpdated(package.Id),
+            _ => false,
+        };
 
-        var stillListed = _updates.FirstOrDefault(p =>
-            string.Equals(p.Id, operation.Key, StringComparison.OrdinalIgnoreCase));
-
-        if (stillListed is not null && !stillListed.IsBusy)
-            stillListed.Status = "Restart the app to finish";
+        foreach (var package in _updates)
+        {
+            if (!package.IsBusy && WentThrough(package))
+                package.Status = "Restart the app to finish";
+        }
     }
 
     private void SetProgress(string? text)

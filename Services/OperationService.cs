@@ -81,11 +81,56 @@ public sealed class Operation
     /// </summary>
     private readonly Dictionary<string, string> _failures = new(StringComparer.OrdinalIgnoreCase);
 
-    internal void NoteFailure(string id, string reason) => _failures[id] = reason;
+    /// <summary>The other half of that: the ones the batch did get through.</summary>
+    private readonly HashSet<string> _updated = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The reason this package was skipped, or empty if it was not.</summary>
     public string FailureFor(string id) =>
         _failures.TryGetValue(id, out var reason) ? reason : string.Empty;
+
+    /// <summary>Whether "update all" has already been through this package and updated it.</summary>
+    public bool WasUpdated(string id) => _updated.Contains(id);
+
+    /// <summary>
+    /// The package "update all" is on right now, empty between packages and for
+    /// every other kind of operation. A batch runs under its own key, so the row
+    /// it is currently working on has nothing of its own to find - this is what
+    /// lets that row go busy, and the list be seen working downwards.
+    /// </summary>
+    public string CurrentItem { get; private set; } = string.Empty;
+
+    /// <summary>What to call it. Ids are unreadable; the heading needs the name.</summary>
+    private string _itemName = string.Empty;
+
+    /// <summary>
+    /// Moves the batch onto a package. Everything the phase and the detail were
+    /// saying belonged to the package before it, so both go back to the start:
+    /// the milestones that follow are this one's, and its row draws its own bar
+    /// from them.
+    /// </summary>
+    internal void BeginItem(string id, string name)
+    {
+        CurrentItem = id;
+        _itemName = name;
+        Phase = OperationPhase.Starting;
+        Detail = string.Empty;
+    }
+
+    /// <summary>
+    /// Retires the package the batch has just left, with winget's reason if it
+    /// was left behind rather than updated. Either way it counts towards the
+    /// tally: a package that failed still took its turn.
+    /// </summary>
+    internal void EndItem(string id, string reason)
+    {
+        if (reason.Length > 0)
+            _failures[id] = reason;
+        else
+            _updated.Add(id);
+
+        CurrentItem = string.Empty;
+        _completed++;
+    }
 
     public bool IsRunning { get; private set; } = true;
 
@@ -100,8 +145,20 @@ public sealed class Operation
         OperationKind.Install => $"Installing {PackageName}…",
         OperationKind.Update => $"Updating {PackageName}…",
         OperationKind.Uninstall => $"Uninstalling {PackageName}…",
-        _ => "Updating all packages…",
+        _ => BatchHeading,
     };
+
+    /// <summary>
+    /// "Updating 7-Zip (3 of 22)…". A batch names the package it is on rather
+    /// than only the batch: these installers run silently and can restart the
+    /// shell or a service out from under the machine, and which package was in
+    /// flight when that happened is the whole question afterwards. The general
+    /// form is only for before the first package and between two of them.
+    /// </summary>
+    private string BatchHeading =>
+        CurrentItem.Length > 0
+            ? $"Updating {_itemName} ({_completed + 1} of {TotalItems})…"
+            : "Updating all packages…";
 
     /// <summary>"Installing…" - the short label a list row has room for.</summary>
     public string RowLabel => Kind switch
@@ -114,22 +171,29 @@ public sealed class Operation
     public string Status => Detail.Length == 0 ? Heading : $"{Heading}  {Detail}";
 
     /// <summary>
-    /// Where to draw the bar, 0 to 1. The steps are deliberately uneven: they
-    /// reflect where winget's milestones fall, not equal thirds of anything.
-    /// "Update all" is the exception - one finished package is a real fraction
-    /// of a known total, so it counts instead of guessing.
+    /// Where to draw the page-level bar, 0 to 1. The steps are deliberately
+    /// uneven: they reflect where winget's milestones fall, not equal thirds of
+    /// anything. "Update all" is the exception - one finished package is a real
+    /// fraction of a known total, so it counts instead of guessing.
     /// </summary>
     public double Percent => Kind == OperationKind.UpdateAll
         ? (TotalItems > 0 ? Math.Min(1.0, (double)_completed / TotalItems) : 0.5)
-        : Phase switch
-        {
-            OperationPhase.Starting => 0.04,
-            OperationPhase.Located => 0.15,
-            OperationPhase.Downloading => 0.40,
-            OperationPhase.Verified => 0.62,
-            OperationPhase.Installing => 0.80,
-            _ => 1.0,
-        };
+        : RowPercent;
+
+    /// <summary>
+    /// Where to draw one package's own bar. Always the milestones, "update all"
+    /// included: the batch keeps the phase of whichever package it is on, so the
+    /// row it is working through fills like any single update would.
+    /// </summary>
+    public double RowPercent => Phase switch
+    {
+        OperationPhase.Starting => 0.04,
+        OperationPhase.Located => 0.15,
+        OperationPhase.Downloading => 0.40,
+        OperationPhase.Verified => 0.62,
+        OperationPhase.Installing => 0.80,
+        _ => 1.0,
+    };
 
     /// <summary>
     /// True while the bar would be lying if it claimed to be moving: before
@@ -139,9 +203,11 @@ public sealed class Operation
     /// knows no more than that.
     /// </summary>
     public bool IsPulsing =>
-        IsRunning
-        && (Kind == OperationKind.UpdateAll
-            || Phase is OperationPhase.Starting or OperationPhase.Installing);
+        IsRunning && (Kind == OperationKind.UpdateAll || RowPulsing);
+
+    /// <summary>The same question for one package's own bar, batch or not.</summary>
+    public bool RowPulsing =>
+        IsRunning && Phase is OperationPhase.Starting or OperationPhase.Installing;
 
     internal void Report(string line)
     {
@@ -154,11 +220,9 @@ public sealed class Operation
         if (Milestone(line) is not { } next)
             return;
 
-        if (next == OperationPhase.Done)
-            _completed++;
-
-        // Forwards only. "Update all" runs the whole sequence again for every
-        // package, and a bar that slides backwards reads as a bug.
+        // Forwards only within one package - a bar that slides backwards reads
+        // as a bug. "Update all" runs the whole sequence again for every
+        // package, and starts each one over in BeginItem rather than here.
         if (next > Phase)
             Phase = next;
     }
@@ -311,14 +375,26 @@ public static class OperationService
     /// </param>
     public static void Paint(AppPackage package, OperationKind? shows = null)
     {
-        var operation = For(package.Id);
+        var operation = For(package.Id) ?? BatchOn(package.Id);
 
         package.IsBusy = operation is not null;
         package.Status = operation?.RowLabel ?? string.Empty;
-        package.Progress = operation?.Percent ?? 0;
-        package.IsProgressPulsing = operation?.IsPulsing ?? false;
+        package.Progress = operation?.RowPercent ?? 0;
+        package.IsProgressPulsing = operation?.RowPulsing ?? false;
         package.Error = FailureFor(package.Id, shows);
     }
+
+    /// <summary>
+    /// "Update all", if it is on this package right now. The batch runs under
+    /// its own key, so the row for the package it has reached would otherwise
+    /// find nothing and sit there looking untouched - which is what made a batch
+    /// impossible to follow, and made the order it worked in a guess.
+    /// </summary>
+    private static Operation? BatchOn(string id) =>
+        For(Operation.UpdateAllKey) is { } batch
+        && string.Equals(batch.CurrentItem, id, StringComparison.OrdinalIgnoreCase)
+            ? batch
+            : null;
 
     /// <summary>
     /// Why this package was left where it is, if anything. A batch keeps its
@@ -352,21 +428,33 @@ public static class OperationService
         For(Operation.UpdateAllKey)
         ?? (LastOutcome is { Kind: OperationKind.UpdateAll } last ? last : null);
 
+    /// <summary>Moves "update all" onto the next package down the list.</summary>
+    public static void NoteBatchStart(string id, string name) =>
+        MoveBatch(batch => batch.BeginItem(id, name));
+
     /// <summary>
-    /// Records why "update all" skipped a package. Called from the batch as it
-    /// works, on whatever thread winget's output arrived on, so it hops to the
-    /// UI thread like every other mutation here.
+    /// Marks the package "update all" has just finished with, and why it was
+    /// skipped if it was. An empty reason means it went through.
     /// </summary>
-    public static void NoteBatchFailure(string id, string reason) =>
+    public static void NoteBatchDone(string id, string reason) =>
+        MoveBatch(batch => batch.EndItem(id, reason));
+
+    /// <summary>
+    /// Both of the above. Called from the batch as it works, on whatever thread
+    /// winget's output arrived on, so it hops to the UI thread like every other
+    /// mutation here.
+    /// </summary>
+    private static void MoveBatch(Action<Operation> step) =>
         OnUi(() =>
         {
             if (For(Operation.UpdateAllKey) is not { } batch)
                 return;
 
-            batch.NoteFailure(id, reason);
+            step(batch);
 
-            // Raised so the row shows the reason as the batch moves past it,
-            // rather than only once the whole run is over.
+            // Raised so the list follows the batch package by package - the row
+            // it has reached, and the ones it is done with - rather than
+            // standing still until the whole run is over.
             Progressed?.Invoke(null, batch);
         });
 

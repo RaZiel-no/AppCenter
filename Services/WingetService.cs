@@ -403,15 +403,21 @@ public static class WingetService
     /// Sequential on purpose: two winget processes contend over the same source
     /// database, exactly as the reload path already avoids.
     /// </summary>
-    /// <param name="onFailure">
+    /// <param name="onStart">
+    /// Handed each package's id and name as its turn comes round, which is what
+    /// lets the list show the batch working down it, and the status line name
+    /// the package a silent installer is currently doing things to.
+    /// </param>
+    /// <param name="onDone">
     /// Handed the package id and winget's own reason each time one is left
-    /// behind, so the row for it can say why rather than the batch reducing it
-    /// to a name in the tally.
+    /// behind - or an empty reason when it went through - so the row for it can
+    /// say why, or go, rather than the batch reducing it to a name in the tally.
     /// </param>
     public static async Task<WingetResult> UpgradeEachAsync(
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
-        Action<string, string>? onFailure = null,
+        Action<string, string>? onStart = null,
+        Action<string, string>? onDone = null,
         CancellationToken ct = default)
     {
         var failed = new List<string>();
@@ -426,7 +432,10 @@ public static class WingetService
 
             var (id, name) = packages[i];
 
-            onOutput?.Invoke($"Updating {name} ({i + 1} of {packages.Count})…");
+            // The batch names the package it is on and counts it off itself, so
+            // there is nothing to report here: winget's own next line goes on
+            // the end of that heading rather than replacing it.
+            onStart?.Invoke(id, name);
 
             var result = await UpgradeAsync(id, onOutput, ct, includeUnknown: true)
                 .ConfigureAwait(false);
@@ -434,14 +443,17 @@ public static class WingetService
             log.Append(result.StdOut);
 
             if (result.Success)
+            {
+                onDone?.Invoke(id, string.Empty);
                 continue;
+            }
 
             failed.Add(name);
 
             if (firstFailureCode == 0)
                 firstFailureCode = result.ExitCode;
 
-            onFailure?.Invoke(id, Reason(result));
+            onDone?.Invoke(id, Reason(result));
         }
 
         var updated = packages.Count - failed.Count;
