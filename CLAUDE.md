@@ -10,8 +10,10 @@ Do not let its contents reach any tracked file. That means:
 - no links or paths pointing into `internal/` from README, docs, or code
 - no summarising, paraphrasing, or quoting what the notes say — a sentence
   sourced from the notes leaks the same information as the notes themselves
-- no describing what the folder holds, including in the `.gitignore` comment,
-  which stays a bare `internal/` entry
+- no describing what the folder holds — with one deliberate exception, the
+  comment above the `internal/` entry in `.gitignore`. That the folder exists and
+  holds working notes is not what is being protected; the contents are. It stays
+  as it is: do not extend it, and do not "fix" it back to a bare entry
 - no referencing it in commit messages or PR descriptions
 
 Read the notes freely when working — that is what they are for. Write research,
