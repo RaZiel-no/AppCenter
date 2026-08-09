@@ -172,7 +172,7 @@ public partial class DetailView : PageView
 
     private void OnInstallClick(object sender, RoutedEventArgs e)
     {
-        if (!OperationService.CanStart(_package.Id))
+        if (!OperationService.CanStart(_package.OperationKey))
             return;
 
         var confirmed = Host.ConfirmAction(
@@ -185,18 +185,26 @@ public partial class DetailView : PageView
             return;
 
         OperationService.Start(
-            _package.Id, _package.Name, OperationKind.Install,
+            _package.OperationKey, _package.Name, OperationKind.Install,
             (progress, token) => WingetService.InstallAsync(_package.Id, progress, token));
     }
 
     private void OnUninstallClick(object sender, RoutedEventArgs e)
     {
-        if (!OperationService.CanStart(_package.Id))
+        if (!OperationService.CanStart(_package.OperationKey))
             return;
 
+        // A page opened from a Manage row for a package with several versions
+        // installed is about that version, not about the id: it says which one
+        // it means, and winget is told the same.
+        var what = _package.NameAndVersion;
+
         var confirmed = Host.ConfirmAction(
-            $"Uninstall {_package.Name}?",
-            $"This removes {_package.Name} from this computer. " +
+            $"Uninstall {what}?",
+            $"This removes {what} from this computer. " +
+            (_package.IsOneOfSeveralVersions
+                ? "Other versions of it stay installed. "
+                : string.Empty) +
             "Windows may prompt for administrator permission.",
             "Uninstall");
 
@@ -204,8 +212,9 @@ public partial class DetailView : PageView
             return;
 
         OperationService.Start(
-            _package.Id, _package.Name, OperationKind.Uninstall,
-            (progress, token) => WingetService.UninstallAsync(_package.Id, progress, token));
+            _package.OperationKey, what, OperationKind.Uninstall,
+            (progress, token) => WingetService.UninstallAsync(
+                _package.Id, _package.IdentifyingVersion, progress, token));
     }
 
     // ---------------------------------------------------------------
@@ -219,8 +228,8 @@ public partial class DetailView : PageView
     /// </summary>
     private void ShowOperationState()
     {
-        var mine = OperationService.For(_package.Id);
-        var canStart = OperationService.CanStart(_package.Id);
+        var mine = OperationService.For(_package.OperationKey);
+        var canStart = OperationService.CanStart(_package.OperationKey);
 
         InstallButton.IsEnabled = canStart;
         UninstallButton.IsEnabled = canStart;
@@ -232,7 +241,7 @@ public partial class DetailView : PageView
 
         if (mine is not null)
             SetProgress(mine.Status);
-        else if (OperationService.LastOutcome is { } outcome && outcome.Key == _package.Id)
+        else if (OperationService.LastOutcome is { } outcome && outcome.Key == _package.OperationKey)
             SetProgress(outcome.Summary);
 
         // Nothing running and nothing finished recently leaves the line as it
@@ -243,7 +252,7 @@ public partial class DetailView : PageView
 
     private async void OnOperationFinished(object? sender, Operation operation)
     {
-        if (operation.Key != _package.Id)
+        if (operation.Key != _package.OperationKey)
         {
             // Somebody else's operation, but it may have freed the buttons.
             ShowOperationState();

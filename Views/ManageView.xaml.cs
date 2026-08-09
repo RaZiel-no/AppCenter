@@ -16,13 +16,6 @@ public partial class ManageView : PageView
     private List<AppPackage> _allInstalled = [];
 
     /// <summary>
-    /// Stands in for "whatever winget is doing right now" so the page-level bar
-    /// can use the same style, and the same painting, as the rows. Never shown
-    /// as a package - only its progress fields are ever read.
-    /// </summary>
-    private readonly AppPackage _overall = new();
-
-    /// <summary>
     /// Covers this page's own winget lookups only. The updates and
     /// uninstalls themselves belong to OperationService and keep running
     /// after the page is gone.
@@ -35,7 +28,6 @@ public partial class ManageView : PageView
 
         UpdatesList.ItemsSource = _updates;
         InstalledList.ItemsSource = _installed;
-        OverallBar.DataContext = _overall;
 
         OperationService.Started += OnOperationChanged;
         OperationService.Progressed += OnOperationProgressed;
@@ -78,8 +70,11 @@ public partial class ManageView : PageView
             Enrich(upgrades);
             Enrich(installed);
 
+            // Whatever closes the app goes to the bottom of the list, which is
+            // also the bottom of the batch: "update all" works down the rows in
+            // the order they are shown. See SelfPackages.
             _updates.Clear();
-            foreach (var package in upgrades)
+            foreach (var package in SelfPackages.LastInLine(upgrades))
                 _updates.Add(package);
 
             _allInstalled = installed;
@@ -210,10 +205,19 @@ public partial class ManageView : PageView
         if (_updates.Count > 5)
             names += $", and {_updates.Count - 5} more";
 
+        // The list is already ordered so these come last, but the question still
+        // has to name them: the batch ends where they are, and being told that
+        // afterwards is exactly the position this is here to avoid.
+        var closes = _updates.Where(p => p.ClosesApp).Select(p => p.Name).ToList();
+
         var confirmed = Host.ConfirmAction(
             $"Update {_updates.Count} package{(_updates.Count == 1 ? string.Empty : "s")}?",
             $"winget will download and install updates for: {names}.\n\n" +
-            "Windows may prompt for administrator permission for some of them.",
+            "Windows may prompt for administrator permission for some of them." +
+            (closes.Count == 0
+                ? string.Empty
+                : $"\n\n{string.Join(", ", closes)} {(closes.Count == 1 ? "is" : "are")} " +
+                  $"left until last. {SelfPackages.Warning}"),
             "Update all");
 
         if (!confirmed)
@@ -224,15 +228,12 @@ public partial class ManageView : PageView
         // working through the packages the user actually confirmed.
         var batch = _updates.Select(p => (p.Id, p.Name)).ToList();
 
-        // The count is also what makes "update all" measurable: each package
-        // that comes back updated is a real fraction of a known total.
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
             (progress, token) => WingetService.UpgradeEachAsync(
                 batch, progress,
                 OperationService.NoteBatchStart, OperationService.NoteBatchDone,
-                token),
-            batch.Count);
+                token));
     }
 
     /// <summary>
@@ -259,7 +260,7 @@ public partial class ManageView : PageView
         // from OriginalSource. See TreeSearch.FindAncestor.
         var button = TreeSearch.FindAncestor<Button>(e.OriginalSource as DependencyObject);
 
-        if (button?.DataContext is not AppPackage package || !OperationService.CanStart(package.Id))
+        if (button?.DataContext is not AppPackage package || !OperationService.CanStart(package.OperationKey))
             return;
 
         var action = button.Tag as string;
@@ -269,30 +270,46 @@ public partial class ManageView : PageView
             var confirmed = Host.ConfirmAction(
                 $"Update {package.Name}?",
                 $"winget will install {package.AvailableVersion} over the installed {package.Version}.\n\n" +
-                "Windows may prompt for administrator permission.",
+                "Windows may prompt for administrator permission." +
+                (package.ClosesApp ? $"\n\n{SelfPackages.Warning}" : string.Empty),
                 "Update");
 
             if (!confirmed)
                 return;
 
             OperationService.Start(
-                package.Id, package.Name, OperationKind.Update,
+                package.OperationKey, package.Name, OperationKind.Update,
                 (progress, token) => WingetService.UpgradeAsync(package.Id, progress, token));
         }
         else if (action == "uninstall")
         {
+            // A row that is one of several installed versions says which version
+            // it is - in the question, and in the heading it runs under after -
+            // because the id it shows and the id its neighbour shows are one and
+            // the same, and only one of them is going.
+            var what = package.NameAndVersion;
+
             var confirmed = Host.ConfirmAction(
-                $"Uninstall {package.Name}?",
-                $"This removes {package.Name} from this computer. " +
-                "Windows may prompt for administrator permission.",
+                $"Uninstall {what}?",
+                $"This removes {what} from this computer. " +
+                (package.IsOneOfSeveralVersions
+                    ? "Other versions of it stay installed. "
+                    : string.Empty) +
+                "Windows may prompt for administrator permission." +
+                // Removing the runtime the app is running on closes it for the
+                // same reason updating it does, except that this time nothing
+                // is being put back. The row sits behind the system-package
+                // toggle rather than out of reach, so the question says so.
+                (package.ClosesApp ? $"\n\n{SelfPackages.RemovalWarning}" : string.Empty),
                 "Uninstall");
 
             if (!confirmed)
                 return;
 
             OperationService.Start(
-                package.Id, package.Name, OperationKind.Uninstall,
-                (progress, token) => WingetService.UninstallAsync(package.Id, progress, token));
+                package.OperationKey, what, OperationKind.Uninstall,
+                (progress, token) => WingetService.UninstallAsync(
+                    package.Id, package.IdentifyingVersion, progress, token));
         }
     }
 
@@ -328,7 +345,7 @@ public partial class ManageView : PageView
     {
         foreach (var (package, shows) in Rows())
         {
-            if (string.Equals(package.Id, key, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(package.OperationKey, key, StringComparison.OrdinalIgnoreCase))
                 OperationService.Paint(package, shows);
         }
     }
@@ -377,60 +394,55 @@ public partial class ManageView : PageView
     }
 
     /// <summary>
-    /// The progress line follows the newest running operation, and otherwise
-    /// keeps reporting the last one that finished. It has to survive the
-    /// reload that follows an operation: winget's closing line is often the
-    /// only explanation for what the list looks like afterwards.
+    /// The progress line says nothing while winget works: the row it is working
+    /// on is busy and drawing its own bar, and echoing every line winget printed
+    /// up here only re-flowed the page around a download URL. What is left is
+    /// the last operation's closing words, which have to survive the reload that
+    /// follows: they are often the only explanation for what the list looks like
+    /// afterwards, and by then there is no operation left to ask.
     /// </summary>
-    private void RefreshStatus()
-    {
-        var running = OperationService.Current;
-
-        SetProgress(running is not null
-            ? running.Status
-            : Unexplained(OperationService.LastOutcome));
-
-        RefreshBar();
-    }
+    private void RefreshStatus() =>
+        SetProgress(OperationService.Current is null
+            ? Unexplained(OperationService.LastOutcome)
+            : null);
 
     /// <summary>
-    /// What the finished operation still needs to say up here. Nothing, when it
-    /// failed and the row it failed on is on screen carrying the same words:
-    /// printing them twice, once in grey and once in red, reads as a glitch
+    /// What the finished operation still needs to say up here. Nothing, when
+    /// every package it has to complain about is on screen already saying it in
+    /// red: a failure belongs with the item it happened to, and printing it
+    /// twice - once in grey up here, once in red down there - reads as a glitch
     /// rather than as emphasis.
+    ///
+    /// A batch is no different. Its closing tally names the packages it could
+    /// not update, and those are exactly the rows it left in the list carrying
+    /// winget's reason; naming them again above the list says nothing new.
+    ///
+    /// What is left up here is what no row can say: how a run that went fine
+    /// ended, and a failure whose row is not there to be read - hidden by the
+    /// filter, or taken away by the reload.
     /// </summary>
     private string? Unexplained(Operation? outcome)
     {
         if (outcome is null || !outcome.Failed)
             return outcome?.Summary;
 
-        bool Listed(IEnumerable<AppPackage> rows) =>
-            rows.Any(p => string.Equals(p.Id, outcome.Key, StringComparison.OrdinalIgnoreCase));
-
-        var onARow = outcome.Kind switch
-        {
-            OperationKind.Update => Listed(_updates),
-            OperationKind.Uninstall => Listed(_installed),
-            // A batch's summary is its tally, which no row says.
-            _ => false,
-        };
+        var onARow = outcome.Kind == OperationKind.UpdateAll
+            ? outcome.FailedItems.Count > 0 && outcome.FailedItems.All(SaidByARow)
+            : SaidByARow(outcome.Key);
 
         return onARow ? null : outcome.Summary;
     }
 
     /// <summary>
-    /// Points the page-level bar at whatever is running, and hides it when
-    /// nothing is. Like the rows, it is re-derived rather than remembered, so
-    /// coming back to this page mid-install redraws the bar where it was.
+    /// Whether a row the user can actually see is already explaining this
+    /// package. The rows are asked rather than the service, because that is the
+    /// question: the same reason is painted onto a row the filter is hiding,
+    /// where it explains nothing to anybody.
     /// </summary>
-    private void RefreshBar()
-    {
-        var running = OperationService.Current;
-
-        _overall.IsBusy = running is not null;
-        _overall.Progress = running?.Percent ?? 0;
-        _overall.IsProgressPulsing = running?.IsPulsing ?? false;
-    }
+    private bool SaidByARow(string key) =>
+        _updates.Concat(_installed).Any(p =>
+            p.Error.Length > 0
+            && string.Equals(p.OperationKey, key, StringComparison.OrdinalIgnoreCase));
 
     private void OnOperationChanged(object? sender, Operation operation)
     {
@@ -441,8 +453,9 @@ public partial class ManageView : PageView
 
     private void OnOperationProgressed(object? sender, Operation operation)
     {
-        RefreshStatus();
-
+        // Nothing for the page line to do: it is quiet for as long as anything
+        // is running, and the rows are what a milestone moves.
+        //
         // A batch has no single row to repaint: it works down the list, taking
         // off the ones it has updated and leaving a reason on any it could not.
         if (operation.Kind == OperationKind.UpdateAll)
@@ -460,8 +473,13 @@ public partial class ManageView : PageView
     {
         ApplyOperations();
         RefreshButtons();
-        SetProgress(operation.Summary);
-        RefreshBar();
+
+        // Through RefreshStatus rather than straight from the operation: the
+        // rows have just been painted with whatever went wrong, and a summary
+        // they already carry has nothing to add up here - not even for the
+        // moment the reload takes, and not if the reload is cancelled before it
+        // can have its own say.
+        RefreshStatus();
 
         // Versions and the installed list have both moved on; the reload ends
         // by re-marking whatever is still running.
@@ -479,21 +497,29 @@ public partial class ManageView : PageView
     /// A batch needs the same sentence more than a single update does: it took
     /// the row off the list on its way past, and the reload has just put it
     /// back. Without a word on it, that reads as a package it skipped.
+    ///
+    /// Which restart it is matters. Reopening one app is a moment; restarting
+    /// Windows is a decision, and being told the wrong one is worse than being
+    /// told nothing - so the row only says Windows when winget said Windows.
     /// </summary>
     private void NoteUnfinishedUpdate(Operation operation)
     {
         bool WentThrough(AppPackage package) => operation.Kind switch
         {
             OperationKind.Update => !operation.Failed
-                && string.Equals(package.Id, operation.Key, StringComparison.OrdinalIgnoreCase),
+                && string.Equals(package.OperationKey, operation.Key, StringComparison.OrdinalIgnoreCase),
             OperationKind.UpdateAll => operation.WasUpdated(package.Id),
             _ => false,
         };
 
         foreach (var package in _updates)
         {
-            if (!package.IsBusy && WentThrough(package))
-                package.Status = "Restart the app to finish";
+            if (package.IsBusy || !WentThrough(package))
+                continue;
+
+            package.Status = operation.NeedsRestart(package.OperationKey)
+                ? "Restart Windows to finish"
+                : "Restart the app to finish";
         }
     }
 

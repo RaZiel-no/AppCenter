@@ -55,24 +55,19 @@
                 </StackPanel>
             </Grid>
 
-            <!--  Status and bar sit under the header row and span the full
-                  width, rather than sharing a column with the buttons: winget's
-                  messages run long, and here one wraps and is readable in full
-                  instead of being cut off at the button's edge. Both are
-                  collapsed when idle, so they take no room at all.  -->
+            <!--  Only for what no row can say: the check for updates, a list
+                  that could not be read, and how a finished run ended when the
+                  rows are not already saying it. While winget is working, the
+                  rows say it themselves - each one busy in turn, with its own
+                  bar - and a failure is theirs too, in red, beside the package
+                  it happened to. Collapsed when there is nothing left over to
+                  say, so it takes no room.  -->
             <TextBlock x:Name="ProgressText"
                        Visibility="Collapsed"
                        Margin="0,10,0,0"
                        FontSize="12.5"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap" />
-
-            <!--  Follows whatever is running, "update all" included - that one
-                  belongs to no single row. Its DataContext is a stand-in
-                  package the page paints; see ManageView's _overall.  -->
-            <ProgressBar x:Name="OverallBar"
-                         Margin="0,10,0,0"
-                         Style="{StaticResource OperationProgressBar}" />
 
             <Border x:Name="UpdatesPanel"
                     Margin="0,16,0,0"

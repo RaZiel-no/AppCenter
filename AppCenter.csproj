@@ -30,6 +30,26 @@
     <Copyright>Copyright © 2026 Arnstein Skara</Copyright>
   </PropertyGroup>
 
+  <!--  The project sits at the root of the repository and takes everything
+        below it, so the test project - which lives under it - has to be told
+        apart by hand. Without this its files are compiled into the app as well,
+        and the app goes looking for xunit.  -->
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+    <Page Remove="tests\**" />
+    <Resource Remove="tests\**" />
+    <Content Remove="tests\**" />
+  </ItemGroup>
+
+  <!--  The tests reach the parser, the operation's own transitions and the
+        batch loop directly. All three are internal because nothing outside the
+        assembly has business calling them - which is still true of the tests,
+        except that they are the assembly's account of what it promises.  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AppCenter.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="catalog.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

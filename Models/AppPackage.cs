@@ -75,12 +75,52 @@ public sealed class AppPackage : INotifyPropertyChanged
     /// <summary>True for the Windows/driver noise that Manage hides by default.</summary>
     public bool IsSystemPackage { get; set; }
 
+    /// <summary>
+    /// True when acting on this package closes App Center: it is the runtime
+    /// the app is running on, the winget it drives, or App Center itself.
+    /// Decided from the id as the list is read - see <c>SelfPackages</c>.
+    /// </summary>
+    public bool ClosesApp { get; set; }
+
     private string _version = string.Empty;
     public string Version
     {
         get => _version;
         set => Set(ref _version, value);
     }
+
+    /// <summary>
+    /// True when the installed list held more than one version of this id, so
+    /// the id on its own names two installs rather than this one.
+    /// </summary>
+    public bool IsOneOfSeveralVersions { get; set; }
+
+    /// <summary>
+    /// The version winget has to be told about to act on this row instead of on
+    /// the id, or null when the id already names one thing on the machine.
+    /// </summary>
+    public string? IdentifyingVersion => IsOneOfSeveralVersions ? Version : null;
+
+    /// <summary>
+    /// What an operation on this row is keyed by. Two versions of one package
+    /// are two rows with the same id, and keying by id alone would make them one
+    /// row as far as the service is concerned: uninstalling either marks both
+    /// busy and hands both the same failure to explain.
+    /// </summary>
+    public string OperationKey => IsOneOfSeveralVersions ? $"{Id}@{Version}" : Id;
+
+    /// <summary>
+    /// What to call this row where the name alone would name two installs -
+    /// "7-Zip 26.02". Names that already carry their version are left as they
+    /// are: Add/Remove Programs puts it in the name for most of the packages
+    /// that end up installed twice, and saying it again reads as a stutter.
+    /// </summary>
+    public string NameAndVersion =>
+        !IsOneOfSeveralVersions
+        || Version.Length == 0
+        || Name.Contains(Version, StringComparison.OrdinalIgnoreCase)
+            ? Name
+            : $"{Name} {Version}";
 
     private string _availableVersion = string.Empty;
     public string AvailableVersion

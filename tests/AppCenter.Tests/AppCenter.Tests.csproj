@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--  Matches the app: it is a WPF assembly, and half of what is under test
+          hands back types from PresentationCore.  -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>AppCenter.Tests</RootNamespace>
+    <AssemblyName>AppCenter.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\AppCenter.csproj" />
+  </ItemGroup>
+
+  <!--  The real catalogue and the real icon geometries, tested as data. Both
+        are hand-maintained, and a dangling id or a mistyped icon key fails
+        quietly in the app - an empty category page, a placeholder glyph - so
+        the only place it can be made loud is here.  -->
+  <ItemGroup>
+    <Content Include="..\..\catalog.json" Link="catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Themes\Icons.xaml" Link="Icons.xaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

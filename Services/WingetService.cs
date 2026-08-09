@@ -6,9 +6,60 @@ using AppCenter.Models;
 
 namespace AppCenter.Services;
 
+/// <summary>
+/// What an exit code says about restarting Windows.
+///
+/// There is no telling in advance: winget publishes nothing about it, and no
+/// manifest field says a package will want the machine restarted. The installer
+/// finding a file locked is what decides it, which is why the only honest moment
+/// to say so is after the installer has run.
+/// </summary>
+public enum RestartNeed
+{
+    /// <summary>Nothing to restart for.</summary>
+    None,
+
+    /// <summary>It went in, but Windows has to restart before it is really finished.</summary>
+    ToFinish,
+
+    /// <summary>It did not go in, and will not until Windows has been restarted.</summary>
+    ToRetry,
+
+    /// <summary>The installer has already asked Windows to restart.</summary>
+    Underway,
+}
+
 public sealed record WingetResult(int ExitCode, string StdOut, string StdErr)
 {
+    // winget's own documented return codes.
+    private const int RebootRequiredToFinish = unchecked((int)0x8A150109);
+    private const int RebootRequiredForInstall = unchecked((int)0x8A15010A);
+    private const int RebootInitiated = unchecked((int)0x8A15010B);
+
+    // Windows Installer's, for the packages whose manifests count them as
+    // success codes and so hand them through winget untranslated.
+    private const int RebootRequiredMsi = 3010;   // ERROR_SUCCESS_REBOOT_REQUIRED
+    private const int RebootInitiatedMsi = 1641;  // ERROR_SUCCESS_REBOOT_INITIATED
+
     public bool Success => ExitCode == 0;
+
+    /// <summary>Whether Windows has to restart, and whether it already is.</summary>
+    public RestartNeed Restart => ExitCode switch
+    {
+        RebootRequiredToFinish or RebootRequiredMsi => RestartNeed.ToFinish,
+        RebootRequiredForInstall => RestartNeed.ToRetry,
+        RebootInitiated or RebootInitiatedMsi => RestartNeed.Underway,
+        _ => RestartNeed.None,
+    };
+
+    /// <summary>
+    /// Whether the package went in. Wanting a restart afterwards is not a
+    /// failure: the files are in place and winget says as much - "Restart your
+    /// PC to finish installation" - it just cannot be finished from here.
+    /// Counting that as failed puts a red line under a package that installed
+    /// correctly, and names it in the tally as one that did not.
+    /// </summary>
+    public bool Installed => Success || Restart is RestartNeed.ToFinish or RestartNeed.Underway;
 }
 
 /// <summary>One parsed row of winget's fixed-width table output.</summary>
@@ -273,7 +324,7 @@ public static class WingetService
     {
         var result = await RunAsync(["list", .. CommonArgs], ct: ct).ConfigureAwait(false);
 
-        return ParseTable(result.StdOut)
+        var packages = ParseTable(result.StdOut)
             .Where(r => !string.IsNullOrWhiteSpace(r.Name))
             .Select(r => new AppPackage
             {
@@ -284,8 +335,44 @@ public static class WingetService
                 Source = r.Source,
                 IsInstalled = true,
                 IsSystemPackage = LooksLikeSystemPackage(r.Name, r.Id),
+                ClosesApp = SelfPackages.Includes(r.Id),
             })
             .ToList();
+
+        MarkSeveralVersions(packages);
+
+        return packages;
+    }
+
+    /// <summary>
+    /// Marks the rows whose id does not say which install is meant.
+    ///
+    /// `winget list` prints one row per installed version, so a machine with
+    /// 7-Zip 22.01 and 26.02 on it gets two rows of 7zip.7zip - and
+    /// `uninstall --id 7zip.7zip` refuses both with 0x8A150016 rather than
+    /// choosing between them. The version is what tells the rows apart, so from
+    /// here on each of them carries it: winget gets told which one, and the two
+    /// rows stop sharing one operation between them.
+    ///
+    /// Rows that share a version as well as an id are left alone. The version
+    /// cannot separate those either, and passing it would only move winget's
+    /// refusal rather than answer it.
+    /// </summary>
+    internal static void MarkSeveralVersions(IReadOnlyList<AppPackage> packages)
+    {
+        foreach (var sameId in packages.GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            if (sameId.Count() < 2)
+                continue;
+
+            foreach (var sameVersion in sameId.GroupBy(p => p.Version, StringComparer.OrdinalIgnoreCase))
+            {
+                if (sameVersion.Count() > 1 || string.IsNullOrWhiteSpace(sameVersion.Key))
+                    continue;
+
+                sameVersion.Single().IsOneOfSeveralVersions = true;
+            }
+        }
     }
 
     public static async Task<List<AppPackage>> ListUpgradesAsync(CancellationToken ct = default)
@@ -304,6 +391,7 @@ public static class WingetService
                 AvailableVersion = r.Available,
                 Source = r.Source,
                 IsInstalled = true,
+                ClosesApp = SelfPackages.Includes(r.Id),
             })
             .ToList();
     }
@@ -360,8 +448,24 @@ public static class WingetService
             ],
             onOutput, ct);
 
-    public static Task<WingetResult> UninstallAsync(string id, Action<string>? onOutput, CancellationToken ct = default) =>
-        RunAsync(["uninstall", "--id", id, "--exact", "--silent", .. CommonArgs], onOutput, ct);
+    /// <summary>
+    /// Removes one package. <paramref name="version"/> says which installed
+    /// version to take, for the ids that have more than one: winget will not
+    /// choose between them on its own, and refuses the whole command with
+    /// 0x8A150016 instead. Null for everything else, where the id is answer
+    /// enough and naming a version would only be one more thing to get wrong.
+    /// </summary>
+    public static Task<WingetResult> UninstallAsync(
+        string id,
+        string? version,
+        Action<string>? onOutput,
+        CancellationToken ct = default) =>
+        RunAsync(UninstallArgs(id, version), onOutput, ct);
+
+    internal static string[] UninstallArgs(string id, string? version) =>
+        string.IsNullOrWhiteSpace(version)
+            ? ["uninstall", "--id", id, "--exact", "--silent", .. CommonArgs]
+            : ["uninstall", "--id", id, "--exact", "--silent", "--version", version, .. CommonArgs];
 
     /// <summary>
     /// Upgrades one package. <paramref name="includeUnknown"/> is what "update
@@ -409,20 +513,46 @@ public static class WingetService
     /// the package a silent installer is currently doing things to.
     /// </param>
     /// <param name="onDone">
-    /// Handed the package id and winget's own reason each time one is left
-    /// behind - or an empty reason when it went through - so the row for it can
-    /// say why, or go, rather than the batch reducing it to a name in the tally.
+    /// Handed the package id, winget's own reason each time one is left behind -
+    /// or an empty reason when it went through - and whether Windows has to
+    /// restart before it counts. So the row for it can say why, or say what is
+    /// still owed, or go, rather than the batch reducing it to a name in a tally.
     /// </param>
-    public static async Task<WingetResult> UpgradeEachAsync(
+    public static Task<WingetResult> UpgradeEachAsync(
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
         Action<string, string>? onStart = null,
-        Action<string, string>? onDone = null,
-        CancellationToken ct = default)
+        Action<string, string, RestartNeed>? onDone = null,
+        CancellationToken ct = default) =>
+        UpgradeEachAsync(
+            packages, onOutput, onStart, onDone,
+            (id, output, token) => UpgradeAsync(id, output, token, includeUnknown: true),
+            ct);
+
+    /// <summary>
+    /// The batch itself, over whatever "upgrade one package" happens to mean.
+    /// The overload above passes winget. A test passes a stand-in, which is the
+    /// only way to hold the order, the carrying on past a failure and the
+    /// closing tally to account without installing software to check.
+    /// </summary>
+    internal static async Task<WingetResult> UpgradeEachAsync(
+        IReadOnlyList<(string Id, string Name)> packages,
+        Action<string>? onOutput,
+        Action<string, string>? onStart,
+        Action<string, string, RestartNeed>? onDone,
+        Func<string, Action<string>?, CancellationToken, Task<WingetResult>> upgrade,
+        CancellationToken ct,
+        ShellWatch? shell = null)
     {
         var failed = new List<string>();
+        var restarting = new List<string>();
+        var shellClosedBy = new List<string>();
         var firstFailureCode = 0;
         var log = new StringBuilder();
+
+        // Watched per package rather than around the whole run: which one closed
+        // the shell is the part a batch would otherwise lose.
+        shell ??= new ShellWatch();
 
         for (var i = 0; i < packages.Count; i++)
         {
@@ -437,14 +567,27 @@ public static class WingetService
             // the end of that heading rather than replacing it.
             onStart?.Invoke(id, name);
 
-            var result = await UpgradeAsync(id, onOutput, ct, includeUnknown: true)
-                .ConfigureAwait(false);
+            shell.Before();
+            var result = await upgrade(id, onOutput, ct).ConfigureAwait(false);
+
+            if (await shell.AfterAsync(ct).ConfigureAwait(false))
+            {
+                shellClosedBy.Add(name);
+
+                // Said as it happens as well as in the tally: the shell has just
+                // come back on a machine where the taskbar vanished, and this
+                // window is the only thing that can account for it.
+                onOutput?.Invoke(ShellWatch.Note([name]));
+            }
 
             log.Append(result.StdOut);
 
-            if (result.Success)
+            if (result.Installed)
             {
-                onDone?.Invoke(id, string.Empty);
+                if (result.Restart is not RestartNeed.None)
+                    restarting.Add(name);
+
+                onDone?.Invoke(id, string.Empty, result.Restart);
                 continue;
             }
 
@@ -453,16 +596,30 @@ public static class WingetService
             if (firstFailureCode == 0)
                 firstFailureCode = result.ExitCode;
 
-            onDone?.Invoke(id, Reason(result));
+            onDone?.Invoke(id, Reason(result), result.Restart);
         }
 
         var updated = packages.Count - failed.Count;
 
         // The last line reported becomes the operation's summary, so this is
         // where the batch says what actually happened.
-        onOutput?.Invoke(failed.Count == 0
+        var tally = failed.Count == 0
             ? $"Updated {updated} package{(updated == 1 ? string.Empty : "s")}."
-            : $"{updated} of {packages.Count} updated. {failed.Count} failed: {string.Join(", ", failed)}.");
+            : $"{updated} of {packages.Count} updated. {failed.Count} failed: {string.Join(", ", failed)}.";
+
+        // Named rather than counted. A restart is something the user has to go
+        // and do, and which packages are waiting on it is the thing that makes
+        // it worth doing now rather than at some point.
+        if (restarting.Count > 0)
+            tally += $" Restart Windows to finish: {string.Join(", ", restarting)}.";
+
+        // Kept in the closing line as well, because that is the one the page
+        // goes on showing after the run - by which point the shell is back and
+        // there would otherwise be nothing left saying it ever went.
+        if (shellClosedBy.Count > 0)
+            tally += $" {ShellWatch.Note(shellClosedBy)}";
+
+        onOutput?.Invoke(tally);
 
         return new WingetResult(firstFailureCode, log.ToString(), string.Empty);
     }

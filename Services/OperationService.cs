@@ -48,12 +48,6 @@ public sealed class Operation
     public required string PackageName { get; init; }
     public required OperationKind Kind { get; init; }
 
-    /// <summary>
-    /// How many packages "update all" set out to update, which is the one case
-    /// where there is something countable to divide by. 0 when unknown.
-    /// </summary>
-    public int TotalItems { get; init; }
-
     /// <summary>The latest line winget printed, trimmed to fit.</summary>
     public string Detail { get; private set; } = string.Empty;
 
@@ -69,9 +63,6 @@ public sealed class Operation
     /// </summary>
     public OperationPhase Phase { get; private set; } = OperationPhase.Starting;
 
-    /// <summary>Packages finished so far - only meaningful for "update all".</summary>
-    private int _completed;
-
     /// <summary>
     /// Why each package was left behind, by package id. Only "update all" fills
     /// this in: a single operation has the whole status line to explain itself,
@@ -84,9 +75,29 @@ public sealed class Operation
     /// <summary>The other half of that: the ones the batch did get through.</summary>
     private readonly HashSet<string> _updated = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The ones that went in but are not finished until Windows has restarted.
+    /// Held the same way and for the same reason as the failures: it outlives
+    /// the reload that rebuilds the row it has to be said on.
+    /// </summary>
+    private readonly HashSet<string> _needRestart = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether this package is waiting on Windows being restarted.</summary>
+    public bool NeedsRestart(string id) => _needRestart.Contains(id);
+
+    /// <summary>Whether anything here is.</summary>
+    public bool AnyNeedRestart => _needRestart.Count > 0;
+
     /// <summary>The reason this package was skipped, or empty if it was not.</summary>
     public string FailureFor(string id) =>
         _failures.TryGetValue(id, out var reason) ? reason : string.Empty;
+
+    /// <summary>
+    /// Every package the batch left behind. These are what its closing tally is
+    /// made of, and so what tells a page whether the rows have already said all
+    /// of it - each of these has a row of its own to carry the reason.
+    /// </summary>
+    public IReadOnlyCollection<string> FailedItems => _failures.Keys;
 
     /// <summary>Whether "update all" has already been through this package and updated it.</summary>
     public bool WasUpdated(string id) => _updated.Contains(id);
@@ -121,15 +132,20 @@ public sealed class Operation
     /// was left behind rather than updated. Either way it counts towards the
     /// tally: a package that failed still took its turn.
     /// </summary>
-    internal void EndItem(string id, string reason)
+    internal void EndItem(string id, string reason, RestartNeed restart = RestartNeed.None)
     {
         if (reason.Length > 0)
             _failures[id] = reason;
         else
             _updated.Add(id);
 
+        // Only for the ones that went in. A package that failed and wants a
+        // restart before it will go in is a failure, and its reason says so in
+        // winget's own words - it is not something waiting to be finished.
+        if (restart is RestartNeed.ToFinish or RestartNeed.Underway)
+            _needRestart.Add(id);
+
         CurrentItem = string.Empty;
-        _completed++;
     }
 
     public bool IsRunning { get; private set; } = true;
@@ -149,43 +165,43 @@ public sealed class Operation
     };
 
     /// <summary>
-    /// "Updating 7-Zip (3 of 22)…". A batch names the package it is on rather
-    /// than only the batch: these installers run silently and can restart the
-    /// shell or a service out from under the machine, and which package was in
-    /// flight when that happened is the whole question afterwards. The general
-    /// form is only for before the first package and between two of them.
+    /// "Updating 7-Zip…". A batch names the package it is on rather than only
+    /// itself: these installers run silently and can restart the shell or a
+    /// service out from under the machine, and which package was in flight when
+    /// that happened is the whole question afterwards. How far in it is belongs
+    /// to the list, which is where it can be seen - the rows it has finished
+    /// with are gone, and the heading above them counts what is left. The
+    /// general form is for before the first package and between two of them.
     /// </summary>
     private string BatchHeading =>
-        CurrentItem.Length > 0
-            ? $"Updating {_itemName} ({_completed + 1} of {TotalItems})…"
-            : "Updating all packages…";
+        CurrentItem.Length > 0 ? $"Updating {_itemName}…" : "Updating all packages…";
 
-    /// <summary>"Installing…" - the short label a list row has room for.</summary>
-    public string RowLabel => Kind switch
-    {
-        OperationKind.Install => "Installing…",
-        OperationKind.Uninstall => "Uninstalling…",
-        _ => "Updating…",
-    };
+    /// <summary>
+    /// "Downloading…" - the short label a list row has room for. The download is
+    /// the one phase long enough that a row saying only "Updating…" through it
+    /// looks stuck, and it is the row's job to say so now that the page line no
+    /// longer repeats winget word for word. Every other phase keeps the verb:
+    /// the bar is already showing the movement.
+    /// </summary>
+    public string RowLabel => Phase == OperationPhase.Downloading
+        ? "Downloading…"
+        : Kind switch
+        {
+            OperationKind.Install => "Installing…",
+            OperationKind.Uninstall => "Uninstalling…",
+            _ => "Updating…",
+        };
 
     public string Status => Detail.Length == 0 ? Heading : $"{Heading}  {Detail}";
 
     /// <summary>
-    /// Where to draw the page-level bar, 0 to 1. The steps are deliberately
-    /// uneven: they reflect where winget's milestones fall, not equal thirds of
-    /// anything. "Update all" is the exception - one finished package is a real
-    /// fraction of a known total, so it counts instead of guessing.
+    /// Where to draw the bar for the package this is working on, 0 to 1. The
+    /// steps are deliberately uneven: they reflect where winget's milestones
+    /// fall, not equal thirds of anything. "Update all" is no different - it
+    /// keeps the phase of whichever package it has reached, so that row fills
+    /// like any single update would, and the list is what says how far in it is.
     /// </summary>
-    public double Percent => Kind == OperationKind.UpdateAll
-        ? (TotalItems > 0 ? Math.Min(1.0, (double)_completed / TotalItems) : 0.5)
-        : RowPercent;
-
-    /// <summary>
-    /// Where to draw one package's own bar. Always the milestones, "update all"
-    /// included: the batch keeps the phase of whichever package it is on, so the
-    /// row it is working through fills like any single update would.
-    /// </summary>
-    public double RowPercent => Phase switch
+    public double Percent => Phase switch
     {
         OperationPhase.Starting => 0.04,
         OperationPhase.Located => 0.15,
@@ -199,14 +215,8 @@ public sealed class Operation
     /// True while the bar would be lying if it claimed to be moving: before
     /// winget has said anything, and through the installer's own run, which
     /// prints nothing at all between "Starting package install" and its result.
-    /// "Update all" pulses throughout, since between two finished packages it
-    /// knows no more than that.
     /// </summary>
     public bool IsPulsing =>
-        IsRunning && (Kind == OperationKind.UpdateAll || RowPulsing);
-
-    /// <summary>The same question for one package's own bar, batch or not.</summary>
-    public bool RowPulsing =>
         IsRunning && Phase is OperationPhase.Starting or OperationPhase.Installing;
 
     internal void Report(string line)
@@ -279,7 +289,12 @@ public sealed class Operation
 
         var said = Detail.Length > 0 ? Detail : Shorten(result?.StdErr ?? string.Empty);
 
-        if (result is { Success: true })
+        // A single operation is its own package, so it records the restart under
+        // its own key and every row of that package can read it back.
+        if (result is not null && result.Restart is RestartNeed.ToFinish or RestartNeed.Underway)
+            _needRestart.Add(Key);
+
+        if (result is { Installed: true })
         {
             Summary = said.Length > 0 ? said : "Done.";
             return;
@@ -375,20 +390,36 @@ public static class OperationService
     /// </param>
     public static void Paint(AppPackage package, OperationKind? shows = null)
     {
-        var operation = For(package.Id) ?? BatchOn(package.Id);
+        var operation = Touching(package);
 
         package.IsBusy = operation is not null;
         package.Status = operation?.RowLabel ?? string.Empty;
-        package.Progress = operation?.RowPercent ?? 0;
-        package.IsProgressPulsing = operation?.RowPulsing ?? false;
-        package.Error = FailureFor(package.Id, shows);
+        package.Progress = operation?.Percent ?? 0;
+        package.IsProgressPulsing = operation?.IsPulsing ?? false;
+        package.Error = FailureFor(package.OperationKey, shows);
     }
+
+    /// <summary>
+    /// What is being done to the thing this row shows, if anything.
+    ///
+    /// An operation keyed to one installed version is that row's alone: the
+    /// other version of the same package is a separate install and stays where
+    /// it is. One keyed to the package itself is on every row that shows it -
+    /// which is what an update is, and what every package in "update all" is.
+    /// winget is working on the package, so each row of it says so.
+    /// </summary>
+    private static Operation? Touching(AppPackage package) =>
+        For(package.OperationKey)
+        ?? For(package.Id)
+        ?? BatchOn(package.Id);
 
     /// <summary>
     /// "Update all", if it is on this package right now. The batch runs under
     /// its own key, so the row for the package it has reached would otherwise
     /// find nothing and sit there looking untouched - which is what made a batch
-    /// impossible to follow, and made the order it worked in a guess.
+    /// impossible to follow, and made the order it worked in a guess. It works
+    /// from the updates list, where an id names one thing, so what it is on is
+    /// always a package rather than one installed version of one.
     /// </summary>
     private static Operation? BatchOn(string id) =>
         For(Operation.UpdateAllKey) is { } batch
@@ -433,11 +464,12 @@ public static class OperationService
         MoveBatch(batch => batch.BeginItem(id, name));
 
     /// <summary>
-    /// Marks the package "update all" has just finished with, and why it was
-    /// skipped if it was. An empty reason means it went through.
+    /// Marks the package "update all" has just finished with, why it was skipped
+    /// if it was, and what it still owes Windows. An empty reason means it went
+    /// through.
     /// </summary>
-    public static void NoteBatchDone(string id, string reason) =>
-        MoveBatch(batch => batch.EndItem(id, reason));
+    public static void NoteBatchDone(string id, string reason, RestartNeed restart) =>
+        MoveBatch(batch => batch.EndItem(id, reason, restart));
 
     /// <summary>
     /// Both of the above. Called from the batch as it works, on whatever thread
@@ -480,8 +512,7 @@ public static class OperationService
         string key,
         string packageName,
         OperationKind kind,
-        Func<Action<string>, CancellationToken, Task<WingetResult>> command,
-        int totalItems = 0)
+        Func<Action<string>, CancellationToken, Task<WingetResult>> command)
     {
         if (!CanStart(key))
             return null;
@@ -491,7 +522,6 @@ public static class OperationService
             Key = key,
             PackageName = packageName,
             Kind = kind,
-            TotalItems = totalItems,
         };
 
         InFlight.Add(operation);
@@ -507,15 +537,26 @@ public static class OperationService
         Operation operation,
         Func<Action<string>, CancellationToken, Task<WingetResult>> command)
     {
+        // Every command runs an installer, and any installer can take the shell
+        // down with it. A batch watches package by package and puts it back
+        // before this ever sees it, so what is left here is the single install,
+        // update or uninstall that did it.
+        var shell = new ShellWatch();
+
         try
         {
-            var result = await command(
-                line => OnUi(() =>
-                {
-                    operation.Report(line);
-                    Progressed?.Invoke(null, operation);
-                }),
-                CancellationToken.None);
+            void Report(string line) => OnUi(() =>
+            {
+                operation.Report(line);
+                Progressed?.Invoke(null, operation);
+            });
+
+            shell.Before();
+
+            var result = await command(Report, CancellationToken.None);
+
+            if (await shell.AfterAsync())
+                Report(ShellWatch.Note([operation.PackageName]));
 
             OnUi(() => Finish(operation, result, null));
         }
@@ -536,6 +577,21 @@ public static class OperationService
         LastOutcome = operation;
 
         Finished?.Invoke(null, operation);
+    }
+
+    /// <summary>
+    /// Forgets everything, including who was listening. The service is static on
+    /// purpose - an install has to outlive the page that started it - and that
+    /// leaves a test no other way back to a known state. Nothing in the app
+    /// calls this.
+    /// </summary>
+    internal static void Reset()
+    {
+        InFlight.Clear();
+        LastOutcome = null;
+        Started = null;
+        Progressed = null;
+        Finished = null;
     }
 
     private static void OnUi(Action action)
