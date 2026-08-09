@@ -45,6 +45,8 @@
     <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}" />
     <SolidColorBrush x:Key="GreenBrush" Color="{StaticResource GreenColor}" />
     <SolidColorBrush x:Key="GreenHoverBrush" Color="{StaticResource GreenHoverColor}" />
+    <!--  Why a row was left behind, and nothing else.  -->
+    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
 
     <!--  Controls  -->
     <SolidColorBrush x:Key="ButtonBgBrush" Color="{StaticResource ButtonBgColor}" />

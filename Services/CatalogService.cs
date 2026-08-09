@@ -27,9 +27,32 @@ public sealed class CatalogBanner
     public List<string> HighlightIds { get; set; } = [];
 }
 
+/// <summary>
+/// One tile in the category picker at the foot of Explore.
+///
+/// Members are named by id rather than repeated as entries, so a package can
+/// sit in several categories without its description being copied about. A
+/// category may instead name one of the editorial sections, which is how
+/// Featured and Games stay in step with the lists the sidebar already shows.
+/// </summary>
+public sealed class CatalogCategory
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Key of a 24x24 geometry in Themes/Icons.xaml.</summary>
+    public string Icon { get; set; } = string.Empty;
+
+    /// <summary>Takes its members from this section instead of from Ids.</summary>
+    public string? Section { get; set; }
+
+    public List<string> Ids { get; set; } = [];
+}
+
 public sealed class CatalogRoot
 {
     public CatalogBanner Banner { get; set; } = new();
+    public List<CatalogCategory> Categories { get; set; } = [];
     public List<CatalogEntry> Explore { get; set; } = [];
     public List<CatalogEntry> Featured { get; set; } = [];
     public List<CatalogEntry> Productivity { get; set; } = [];
@@ -101,6 +124,35 @@ public static class CatalogService
 
         return entries.Select(ToPackage).ToList();
     }
+
+    /// <summary>
+    /// The categories worth showing - the ones with something in them. A
+    /// category listing nothing yet (Finance has no entries in the catalogue)
+    /// stays in the file so it starts working the moment one is added, but a
+    /// tile that opens an empty page is a dead end, so it is not offered.
+    /// </summary>
+    public static List<CatalogCategory> Categories() =>
+        Load().Categories.Where(category => Category(category).Count > 0).ToList();
+
+    public static List<AppPackage> Category(CatalogCategory category)
+    {
+        if (!string.IsNullOrWhiteSpace(category.Section))
+            return Section(category.Section);
+
+        var all = AllById();
+
+        // Silently skipping ids the catalogue no longer carries: a card for a
+        // package with no entry would have nothing to draw and would fail on
+        // install anyway.
+        return category.Ids
+            .Where(all.ContainsKey)
+            .Select(id => ToPackage(all[id]))
+            .ToList();
+    }
+
+    public static CatalogCategory? CategoryById(string id) =>
+        Load().Categories.FirstOrDefault(category =>
+            string.Equals(category.Id, id, StringComparison.OrdinalIgnoreCase));
 
     public static AppPackage ToPackage(CatalogEntry entry) => new()
     {

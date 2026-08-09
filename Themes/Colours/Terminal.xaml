@@ -34,6 +34,9 @@
     <Color x:Key="AccentHoverColor">#FFFFC94D</Color>
     <Color x:Key="GreenColor">#FF17A63F</Color>
     <Color x:Key="GreenHoverColor">#FF1FCC4E</Color>
+    <!--  The third phosphor. Loud on purpose - it only ever appears on a row
+          that failed, and it has to win against all this green.  -->
+    <Color x:Key="ErrorColor">#FFFF4136</Color>
 
     <!--  Controls  -->
     <Color x:Key="ButtonBgColor">#FF07240F</Color>

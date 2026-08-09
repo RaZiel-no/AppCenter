@@ -33,6 +33,8 @@
     <Color x:Key="AccentHoverColor">#FF60A5FA</Color>
     <Color x:Key="GreenColor">#FF238636</Color>
     <Color x:Key="GreenHoverColor">#FF2EA043</Color>
+    <!--  The danger red this palette's GitHub-dark lineage uses.  -->
+    <Color x:Key="ErrorColor">#FFF85149</Color>
 
     <!--  Controls  -->
     <Color x:Key="ButtonBgColor">#FF21262D</Color>

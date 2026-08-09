@@ -83,7 +83,8 @@
                 <ItemsControl x:Name="UpdatesList"
                               AlternationCount="4096"
                               ItemTemplate="{StaticResource UpdateRowTemplate}"
-                              Button.Click="OnRowButtonClick" />
+                              Button.Click="OnRowButtonClick"
+                              MouseLeftButtonUp="OnRowClick" />
             </Border>
 
             <Border x:Name="UpdatesEmpty"

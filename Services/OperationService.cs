@@ -72,6 +72,21 @@ public sealed class Operation
     /// <summary>Packages finished so far - only meaningful for "update all".</summary>
     private int _completed;
 
+    /// <summary>
+    /// Why each package was left behind, by package id. Only "update all" fills
+    /// this in: a single operation has the whole status line to explain itself,
+    /// whereas a batch would otherwise reduce a failure to a name in a list.
+    /// It lives here rather than on the row because the rows are rebuilt by the
+    /// reload that follows the batch, and this outlives that as LastOutcome.
+    /// </summary>
+    private readonly Dictionary<string, string> _failures = new(StringComparer.OrdinalIgnoreCase);
+
+    internal void NoteFailure(string id, string reason) => _failures[id] = reason;
+
+    /// <summary>The reason this package was skipped, or empty if it was not.</summary>
+    public string FailureFor(string id) =>
+        _failures.TryGetValue(id, out var reason) ? reason : string.Empty;
+
     public bool IsRunning { get; private set; } = true;
 
     /// <summary>How it ended. Empty until it does.</summary>
@@ -208,6 +223,15 @@ public sealed class Operation
 
         Failed = true;
 
+        // "Update all" finishes with a tally of its own: it worked through every
+        // package and can name the ones that failed, which is worth more than
+        // the exit code of whichever failed first.
+        if (Kind == OperationKind.UpdateAll && said.Length > 0)
+        {
+            Summary = said;
+            return;
+        }
+
         var code = result?.ExitCode ?? -1;
 
         // winget's own failures are the 0x8A15xxxx family, which is how they
@@ -279,7 +303,13 @@ public static class OperationService
     /// remembers an operation. Call it when a page loads and whenever the
     /// service raises anything.
     /// </summary>
-    public static void Paint(AppPackage package)
+    /// <param name="shows">
+    /// The action this row's button offers, so it only explains failures of that
+    /// kind. Without it a package that is both upgradable and installed would
+    /// carry an update failure into the installed list as well, where the
+    /// button says Uninstall and the message makes no sense. Null shows any.
+    /// </param>
+    public static void Paint(AppPackage package, OperationKind? shows = null)
     {
         var operation = For(package.Id);
 
@@ -287,7 +317,58 @@ public static class OperationService
         package.Status = operation?.RowLabel ?? string.Empty;
         package.Progress = operation?.Percent ?? 0;
         package.IsProgressPulsing = operation?.IsPulsing ?? false;
+        package.Error = FailureFor(package.Id, shows);
     }
+
+    /// <summary>
+    /// Why this package was left where it is, if anything. A batch keeps its
+    /// failures by package; a single operation is its own. Both are read back
+    /// from the service rather than remembered by the row, which is what lets a
+    /// reason survive the reload that rebuilt it.
+    /// </summary>
+    private static string FailureFor(string id, OperationKind? shows)
+    {
+        // A batch only ever fails at updating, so its reasons belong on the rows
+        // that offer one.
+        if (shows is null or OperationKind.Update
+            && Batch?.FailureFor(id) is { Length: > 0 } why)
+            return why;
+
+        // A single failure says its piece in the status line as well, but that
+        // line only describes the last thing that happened. Once the user is
+        // reading a list, the row it happened to is where they will look.
+        return LastOutcome is { Failed: true, Kind: not OperationKind.UpdateAll } last
+               && (shows is null || last.Kind == shows)
+               && string.Equals(last.Key, id, StringComparison.OrdinalIgnoreCase)
+            ? last.Summary
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// The "update all" currently running, or the last one to finish. Anything
+    /// else starting clears LastOutcome, which is what retires its failures.
+    /// </summary>
+    private static Operation? Batch =>
+        For(Operation.UpdateAllKey)
+        ?? (LastOutcome is { Kind: OperationKind.UpdateAll } last ? last : null);
+
+    /// <summary>
+    /// Records why "update all" skipped a package. Called from the batch as it
+    /// works, on whatever thread winget's output arrived on, so it hops to the
+    /// UI thread like every other mutation here.
+    /// </summary>
+    public static void NoteBatchFailure(string id, string reason) =>
+        OnUi(() =>
+        {
+            if (For(Operation.UpdateAllKey) is not { } batch)
+                return;
+
+            batch.NoteFailure(id, reason);
+
+            // Raised so the row shows the reason as the batch moves past it,
+            // rather than only once the whole run is over.
+            Progressed?.Invoke(null, batch);
+        });
 
     /// <summary>
     /// A package can only have one command running against it, and "update

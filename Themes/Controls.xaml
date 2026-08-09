@@ -3,6 +3,26 @@
                     xmlns:ctrl="clr-namespace:AppCenter.Controls">
 
     <ctrl:EmptyStringToCollapsedConverter x:Key="EmptyToCollapsed" />
+    <ctrl:IconKeyConverter x:Key="IconKey" />
+
+    <!--  ============================================================
+          A list row that opens something when it is clicked.
+
+          Background is Transparent rather than left unset on purpose: a
+          null Background is invisible to hit-testing, so without it only
+          the text and the icon inside the row would answer a click and
+          the gaps between them would not.
+          ============================================================  -->
+
+    <Style x:Key="ClickableRow" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource RowHoverBgBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 
     <!--  ============================================================
           Operation progress bar

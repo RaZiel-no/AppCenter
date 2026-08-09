@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using AppCenter.Models;
 using AppCenter.Services;
@@ -12,12 +13,30 @@ public partial class CategoryView : PageView
 {
     private readonly List<AppPackage> _packages;
 
+    /// <summary>A sidebar section: Featured, Productivity, Development.</summary>
     public CategoryView(string section, string title)
+        : this(title, CatalogService.Section(section), false)
+    {
+    }
+
+    /// <summary>
+    /// A category picked from Explore. It gets a Back button the sidebar pages
+    /// have no use for - the sidebar is its own way back, but nothing in the
+    /// chrome says where a category came from.
+    /// </summary>
+    public CategoryView(CatalogCategory category)
+        : this(category.Name, CatalogService.Category(category), true)
+    {
+    }
+
+    private CategoryView(string title, List<AppPackage> packages, bool showBack)
     {
         InitializeComponent();
 
         Title.Text = title;
-        _packages = CatalogService.Section(section);
+        _packages = packages;
+
+        BackButton.Visibility = showBack ? Visibility.Visible : Visibility.Collapsed;
 
         Cards.ItemsSource = _packages;
         Cards.ItemClick += package => Host.ShowDetail(package);
@@ -28,6 +47,8 @@ public partial class CategoryView : PageView
             Cards.ShowEmpty(true);
         }
     }
+
+    private void OnBackClick(object sender, RoutedEventArgs e) => Host.GoBack();
 
     public override Task LoadAsync()
     {

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using AppCenter.Controls;
 using AppCenter.Models;
 using AppCenter.Services;
@@ -220,11 +221,35 @@ public partial class ManageView : PageView
         if (!confirmed)
             return;
 
-        // The count is the one thing that makes "update all" measurable: each
-        // package winget finishes is a real fraction of a known total.
+        // Snapshotted before the operation starts: the list is rebuilt by the
+        // reload that follows every finished update, and the batch has to keep
+        // working through the packages the user actually confirmed.
+        var batch = _updates.Select(p => (p.Id, p.Name)).ToList();
+
+        // The count is also what makes "update all" measurable: each package
+        // that comes back updated is a real fraction of a known total.
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
-            WingetService.UpgradeAllAsync, _updates.Count);
+            (progress, token) => WingetService.UpgradeEachAsync(
+                batch, progress, OperationService.NoteBatchFailure, token),
+            batch.Count);
+    }
+
+    /// <summary>
+    /// Opens the clicked row's page. Back returns here: the shell keeps the
+    /// sidebar destination while a detail page is showing, so there is nothing
+    /// to remember on this side.
+    /// </summary>
+    private void OnRowClick(object sender, MouseButtonEventArgs e)
+    {
+        // A click on Update or Uninstall is theirs, not the row's. Button marks
+        // its own mouse events handled, so one should never arrive here - the
+        // check is what makes that a stated assumption rather than a hope.
+        if (TreeSearch.FindAncestor<Button>(e.OriginalSource as DependencyObject) is not null)
+            return;
+
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is AppPackage package)
+            Host.ShowDetail(package);
     }
 
     private void OnRowButtonClick(object sender, RoutedEventArgs e)
@@ -282,9 +307,17 @@ public partial class ManageView : PageView
     /// </summary>
     private void ApplyOperations()
     {
-        foreach (var package in _updates.Concat(_allInstalled))
-            OperationService.Paint(package);
+        foreach (var (package, shows) in Rows())
+            OperationService.Paint(package, shows);
     }
+
+    /// <summary>
+    /// Every row the page holds, each with the action its button offers - which
+    /// is what decides the failures it is entitled to explain.
+    /// </summary>
+    private IEnumerable<(AppPackage Package, OperationKind Shows)> Rows() =>
+        _updates.Select(p => (p, OperationKind.Update))
+            .Concat(_allInstalled.Select(p => (p, OperationKind.Uninstall)));
 
     /// <summary>
     /// Repaints one row, for the progress lines that arrive while an operation
@@ -293,10 +326,10 @@ public partial class ManageView : PageView
     /// </summary>
     private void PaintRow(string key)
     {
-        foreach (var package in _updates.Concat(_allInstalled))
+        foreach (var (package, shows) in Rows())
         {
             if (string.Equals(package.Id, key, StringComparison.OrdinalIgnoreCase))
-                OperationService.Paint(package);
+                OperationService.Paint(package, shows);
         }
     }
 
@@ -314,8 +347,38 @@ public partial class ManageView : PageView
     /// </summary>
     private void RefreshStatus()
     {
-        SetProgress(OperationService.Current?.Status ?? OperationService.LastOutcome?.Summary);
+        var running = OperationService.Current;
+
+        SetProgress(running is not null
+            ? running.Status
+            : Unexplained(OperationService.LastOutcome));
+
         RefreshBar();
+    }
+
+    /// <summary>
+    /// What the finished operation still needs to say up here. Nothing, when it
+    /// failed and the row it failed on is on screen carrying the same words:
+    /// printing them twice, once in grey and once in red, reads as a glitch
+    /// rather than as emphasis.
+    /// </summary>
+    private string? Unexplained(Operation? outcome)
+    {
+        if (outcome is null || !outcome.Failed)
+            return outcome?.Summary;
+
+        bool Listed(IEnumerable<AppPackage> rows) =>
+            rows.Any(p => string.Equals(p.Id, outcome.Key, StringComparison.OrdinalIgnoreCase));
+
+        var onARow = outcome.Kind switch
+        {
+            OperationKind.Update => Listed(_updates),
+            OperationKind.Uninstall => Listed(_installed),
+            // A batch's summary is its tally, which no row says.
+            _ => false,
+        };
+
+        return onARow ? null : outcome.Summary;
     }
 
     /// <summary>
@@ -342,7 +405,13 @@ public partial class ManageView : PageView
     private void OnOperationProgressed(object? sender, Operation operation)
     {
         RefreshStatus();
-        PaintRow(operation.Key);
+
+        // A batch has no single row to repaint: it moves through the list and
+        // leaves a reason on any row it could not update.
+        if (operation.Kind == OperationKind.UpdateAll)
+            ApplyOperations();
+        else
+            PaintRow(operation.Key);
     }
 
     private async void OnOperationFinished(object? sender, Operation operation)

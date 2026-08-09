@@ -17,6 +17,21 @@ public partial class MainWindow : Window, IShellHost
     /// <summary>The sidebar entry to fall back to when the search box is cleared.</summary>
     private string _currentDestination = "explore";
 
+    /// <summary>
+    /// The category currently being browsed, if any. The shell keeps no history
+    /// stack, and a category is the one place that needs remembering: it has no
+    /// sidebar entry, so without this a detail page opened from a category
+    /// would send Back to Explore and lose the user's place.
+    /// </summary>
+    private string? _categoryReturn;
+
+    /// <summary>
+    /// How far down each page was when it was left, by <see cref="PageView.ScrollKey"/>.
+    /// Pages are rebuilt on every navigation, so this is the only thing that
+    /// carries a reading position across one.
+    /// </summary>
+    private readonly Dictionary<string, double> _scrollOffsets = [];
+
     public IconService Icons { get; } = new();
 
     public MainWindow()
@@ -119,9 +134,12 @@ public partial class MainWindow : Window, IShellHost
         button.IsChecked = true;
     }
 
-    private async Task NavigateAsync(string destination)
+    private async Task NavigateAsync(string destination, bool resume = false)
     {
         _currentDestination = destination;
+
+        // Reaching a section by any route ends the trip a category started.
+        _categoryReturn = null;
 
         PageView page = destination switch
         {
@@ -134,11 +152,21 @@ public partial class MainWindow : Window, IShellHost
             _ => new ExploreView(),
         };
 
-        await ShowPageAsync(page);
+        page.ScrollKey = destination;
+
+        await ShowPageAsync(page, resume);
     }
 
-    private async Task ShowPageAsync(PageView page)
+    /// <summary>
+    /// Puts a page in the content area and loads it. <paramref name="resume"/>
+    /// is for stepping back: it puts the page back where the user left it,
+    /// whereas arriving somewhere fresh - from the sidebar, or by opening an app
+    /// - should start at the top.
+    /// </summary>
+    private async Task ShowPageAsync(PageView page, bool resume = false)
     {
+        RememberScroll();
+
         page.Host = this;
         PageHost.Content = page;
 
@@ -150,17 +178,70 @@ public partial class MainWindow : Window, IShellHost
         {
             // The page was replaced while it was still loading.
         }
+
+        if (resume)
+            RestoreScroll(page);
+    }
+
+    /// <summary>Files the outgoing page's position under whatever it is.</summary>
+    private void RememberScroll()
+    {
+        if (PageHost.Content is PageView { ScrollKey: { } key } page && page.Scroller is { } scroller)
+            _scrollOffsets[key] = scroller.VerticalOffset;
+    }
+
+    private void RestoreScroll(PageView page)
+    {
+        if (page.ScrollKey is not { } key
+            || !_scrollOffsets.TryGetValue(key, out var offset)
+            || offset <= 0
+            || page.Scroller is not { } scroller)
+            return;
+
+        // Measured first: a list the page filled in LoadAsync has no scrollable
+        // height yet, and scrolling past the extent would just clamp to the top.
+        scroller.UpdateLayout();
+        scroller.ScrollToVerticalOffset(offset);
     }
 
     public async void ShowDetail(AppPackage package) =>
         await ShowPageAsync(new DetailView(package));
 
+    public async void ShowCategory(string categoryId) => await ShowCategoryAsync(categoryId);
+
+    private async Task ShowCategoryAsync(string categoryId, bool resume = false)
+    {
+        if (CatalogService.CategoryById(categoryId) is not { } category)
+            return;
+
+        _categoryReturn = categoryId;
+
+        await ShowPageAsync(
+            new CategoryView(category) { ScrollKey = $"category:{categoryId}" },
+            resume);
+    }
+
     public async void GoBack()
     {
+        // Every branch here is a step back, so each one resumes where the page
+        // was left rather than starting it again from the top.
         if (SearchBox.Text.Trim().Length >= 2)
-            await ShowPageAsync(new SearchView(SearchBox.Text.Trim()));
-        else
-            await NavigateAsync(_currentDestination);
+        {
+            var query = SearchBox.Text.Trim();
+            await ShowPageAsync(new SearchView(query) { ScrollKey = $"search:{query}" }, resume: true);
+            return;
+        }
+
+        // A detail page opened from a category goes back to that category. The
+        // category itself falls through to the sidebar section that offered it,
+        // which is also what clears the trip.
+        if (PageHost.Content is DetailView && _categoryReturn is { } category)
+        {
+            await ShowCategoryAsync(category, resume: true);
+            return;
+        }
+
+        await NavigateAsync(_currentDestination, resume: true);
     }
 
     // ---------------------------------------------------------------
@@ -201,15 +282,18 @@ public partial class MainWindow : Window, IShellHost
 
         if (query.Length == 0)
         {
-            // Back to whichever section the sidebar has selected.
-            await NavigateAsync(_currentDestination);
+            // Back to whichever section the sidebar has selected - a return
+            // rather than an arrival, so it resumes where that page was left.
+            await NavigateAsync(_currentDestination, resume: true);
             return;
         }
 
         if (query.Length < 2)
             return;
 
-        await ShowPageAsync(new SearchView(query));
+        // A new set of results always starts at the top; the key is only there
+        // so returning from an app's page can come back to the same spot.
+        await ShowPageAsync(new SearchView(query) { ScrollKey = $"search:{query}" });
     }
 
     // ---------------------------------------------------------------

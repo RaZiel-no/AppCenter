@@ -7,6 +7,26 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
 
+            <!--  Only shown for a category reached from Explore; the sidebar
+                  pages are their own way back.  -->
+            <Button x:Name="BackButton"
+                    Style="{StaticResource PillButton}"
+                    Visibility="Collapsed"
+                    HorizontalAlignment="Left"
+                    Margin="0,4,0,18"
+                    Height="34"
+                    Padding="14,0"
+                    Click="OnBackClick">
+                <StackPanel Orientation="Horizontal">
+                    <Viewbox Width="16" Height="16">
+                        <Path Style="{StaticResource Icon}"
+                              Data="{StaticResource IconArrowLeft}"
+                              Stroke="{DynamicResource TextPrimaryBrush}" />
+                    </Viewbox>
+                    <TextBlock Text="Back" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
             <TextBlock x:Name="Title" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
 
             <StackPanel Orientation="Horizontal" Margin="0,18,0,0">

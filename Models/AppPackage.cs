@@ -170,6 +170,17 @@ public sealed class AppPackage : INotifyPropertyChanged
         set => Set(ref _isProgressPulsing, value);
     }
 
+    /// <summary>
+    /// Why "update all" passed this package over, shown under its row. Empty
+    /// for everything that went fine, which is what collapses the line.
+    /// </summary>
+    private string _error = string.Empty;
+    public string Error
+    {
+        get => _error;
+        set => Set(ref _error, value);
+    }
+
     /// <summary>Shown in the icon tile when no real icon could be fetched.</summary>
     public string Initial =>
         string.IsNullOrWhiteSpace(Name) ? "?" : Name.TrimStart()[..1].ToUpperInvariant();

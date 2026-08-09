@@ -341,6 +341,56 @@
     </DataTemplate>
 
     <!--  ============================================================
+          Category tile - one entry in the picker at the foot of Explore
+          ============================================================  -->
+
+    <Style x:Key="CategoryTileButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Tile"
+                            Background="Transparent"
+                            CornerRadius="6"
+                            Padding="7,8">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Tile" Property="Background" Value="{DynamicResource RowHoverBgBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <DataTemplate x:Key="CategoryTileTemplate">
+        <!--  The content is a panel, so the button has no text of its own to be
+              named by: screen readers and automation get the name from here.  -->
+        <Button Style="{StaticResource CategoryTileButton}"
+                AutomationProperties.Name="{Binding Name}">
+            <StackPanel Orientation="Horizontal">
+                <Viewbox Width="17" Height="17" VerticalAlignment="Center">
+                    <!--  The glyph is named by the catalogue, so IconKey looks
+                          it up rather than the template hard-coding one.  -->
+                    <Path Style="{StaticResource Icon}"
+                          Data="{Binding Icon, Converter={StaticResource IconKey}}"
+                          Stroke="{DynamicResource TextSecondaryBrush}" />
+                </Viewbox>
+                <TextBlock Text="{Binding Name}"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           FontFamily="{StaticResource AppFont}"
+                           FontSize="13"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Button>
+    </DataTemplate>
+
+    <!--  ============================================================
           Small icon tile reused by the Manage rows and detail header
           ============================================================  -->
 
@@ -361,7 +411,11 @@
           ============================================================  -->
 
     <DataTemplate x:Key="UpdateRowTemplate">
+        <!--  The row opens the package's page; ManageView.OnRowClick picks the
+              click up off the list. The buttons handle their own and never
+              reach it.  -->
         <Border x:Name="Row"
+                Style="{StaticResource ClickableRow}"
                 BorderBrush="{DynamicResource DividerBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="16,10">
@@ -371,8 +425,10 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <!--  Everything below defaults to row 0; row 1 is the bar.  -->
+                <!--  Everything below defaults to row 0; row 1 is the bar, and
+                      row 2 the reason an update was passed over.  -->
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -407,6 +463,21 @@
                                TextTrimming="CharacterEllipsis"
                                Text="{Binding VersionTransition}" />
                 </StackPanel>
+
+                <!--  Why "update all" left this one behind, in winget's own
+                      words. Indented to the name it belongs to, wrapped rather
+                      than trimmed - a reason nobody can finish reading is no
+                      better than no reason - and gone entirely when empty.  -->
+                <TextBlock Grid.Row="2"
+                           Grid.Column="1"
+                           Grid.ColumnSpan="2"
+                           Margin="14,8,0,0"
+                           FontFamily="{StaticResource AppFont}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource ErrorBrush}"
+                           Text="{Binding Error}"
+                           Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}" />
 
                 <!--  The status sits beside the button rather than over it: a
                       row can be idle and still have something to say, like an
@@ -468,8 +539,10 @@
                     <ColumnDefinition Width="180" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <!--  Everything below defaults to row 0; row 1 is the bar.  -->
+                <!--  Everything below defaults to row 0; row 1 is the bar, and
+                      row 2 the reason an uninstall could not go through.  -->
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -534,6 +607,17 @@
                              Grid.ColumnSpan="4"
                              Margin="0,10,0,0"
                              Style="{StaticResource OperationProgressBar}" />
+
+                <TextBlock Grid.Row="2"
+                           Grid.Column="1"
+                           Grid.ColumnSpan="3"
+                           Margin="14,8,0,0"
+                           FontFamily="{StaticResource AppFont}"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource ErrorBrush}"
+                           Text="{Binding Error}"
+                           Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}" />
             </Grid>
         </Border>
 

@@ -8,6 +8,335 @@
       "Valve.Steam"
     ]
   },
+  "categories": [
+    {
+      "id": "art-and-design",
+      "name": "Art and Design",
+      "icon": "IconPalette",
+      "ids": [
+        "BlenderFoundation.Blender",
+        "darktable.darktable",
+        "Figma.Figma",
+        "FreeCAD.FreeCAD",
+        "GIMP.GIMP",
+        "Inkscape.Inkscape",
+        "KDE.Krita",
+        "OpenSCAD.OpenSCAD",
+        "RawTherapee.RawTherapee"
+      ]
+    },
+    {
+      "id": "books-and-reference",
+      "name": "Books and Reference",
+      "icon": "IconBook",
+      "ids": [
+        "Adobe.Acrobat.Reader.64-bit",
+        "calibre.calibre",
+        "DigitalScholar.Zotero",
+        "SumatraPDF.SumatraPDF",
+        "Zettlr.Zettlr"
+      ]
+    },
+    {
+      "id": "development",
+      "name": "Development",
+      "icon": "IconCode",
+      "ids": [
+        "Alacritty.Alacritty",
+        "ArduinoSA.IDE.stable",
+        "Atlassian.Sourcetree",
+        "AutoHotkey.AutoHotkey",
+        "DenoLand.Deno",
+        "Docker.DockerDesktop",
+        "EclipseAdoptium.Temurin.21.JDK",
+        "Git.Git",
+        "GitHub.GitHubDesktop",
+        "GNU.Emacs",
+        "GodotEngine.GodotEngine",
+        "GoLang.Go",
+        "Gyan.FFmpeg",
+        "Insomnia.Insomnia",
+        "JetBrains.IntelliJIDEA.Community",
+        "JetBrains.PyCharm.Community",
+        "JetBrains.Toolbox",
+        "Meld.Meld",
+        "Microsoft.DotNet.SDK.9",
+        "Microsoft.PowerShell",
+        "Microsoft.VisualStudio.2022.Community",
+        "Microsoft.VisualStudioCode",
+        "Microsoft.WindowsTerminal",
+        "MongoDB.Compass.Full",
+        "Neovim.Neovim",
+        "Notepad++.Notepad++",
+        "Ollama.Ollama",
+        "OpenJS.NodeJS.LTS",
+        "Oracle.VirtualBox",
+        "Oven-sh.Bun",
+        "Postman.Postman",
+        "PostgreSQL.PostgreSQL.17",
+        "Python.Python.3.12",
+        "Rustlang.Rustup",
+        "SublimeHQ.SublimeText.4",
+        "TortoiseSVN.TortoiseSVN",
+        "Unity.UnityHub",
+        "vim.vim",
+        "WinMerge.WinMerge",
+        "Yarn.Yarn",
+        "ZedIndustries.Zed"
+      ]
+    },
+    {
+      "id": "devices-and-iot",
+      "name": "Devices and IoT",
+      "icon": "IconChip",
+      "ids": [
+        "ArduinoSA.IDE.stable",
+        "Balena.Etcher",
+        "FreeCAD.FreeCAD",
+        "KiCad.KiCad",
+        "OpenSCAD.OpenSCAD",
+        "Prusa3D.PrusaSlicer",
+        "Rufus.Rufus",
+        "Ultimaker.Cura",
+        "Ventoy.Ventoy"
+      ]
+    },
+    {
+      "id": "education",
+      "name": "Education",
+      "icon": "IconGraduation",
+      "ids": [
+        "Anaconda.Anaconda3",
+        "Anki.Anki",
+        "DigitalScholar.Zotero",
+        "GeoGebra.Classic",
+        "GNU.Octave",
+        "Musescore.Musescore",
+        "OSGeo.QGIS",
+        "RProject.R",
+        "Stellarium.Stellarium"
+      ]
+    },
+    {
+      "id": "entertainment",
+      "name": "Entertainment",
+      "icon": "IconScreen",
+      "ids": [
+        "clsid2.mpc-hc",
+        "Libretro.RetroArch",
+        "OBSProject.OBSStudio",
+        "Spotify.Spotify",
+        "Valve.Steam",
+        "VideoLAN.VLC"
+      ]
+    },
+    {
+      "id": "featured",
+      "name": "Featured",
+      "icon": "IconStar",
+      "section": "featured"
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "icon": "IconBanknote",
+      "ids": []
+    },
+    {
+      "id": "games",
+      "name": "Games",
+      "icon": "IconGamepad",
+      "section": "games"
+    },
+    {
+      "id": "health-and-fitness",
+      "name": "Health and Fitness",
+      "icon": "IconHeart",
+      "ids": []
+    },
+    {
+      "id": "music-and-audio",
+      "name": "Music and Audio",
+      "icon": "IconMusicNote",
+      "ids": [
+        "AIMP.AIMP",
+        "Audacity.Audacity",
+        "LMMS.LMMS",
+        "Musescore.Musescore",
+        "PeterPawlowski.foobar2000",
+        "Spotify.Spotify"
+      ]
+    },
+    {
+      "id": "news-and-weather",
+      "name": "News and Weather",
+      "icon": "IconNewspaper",
+      "ids": []
+    },
+    {
+      "id": "personalisation",
+      "name": "Personalisation",
+      "icon": "IconSliders",
+      "ids": [
+        "AutoHotkey.AutoHotkey",
+        "Flow-Launcher.Flow-Launcher",
+        "Microsoft.PowerToys"
+      ]
+    },
+    {
+      "id": "photo-and-video",
+      "name": "Photo and Video",
+      "icon": "IconCamera",
+      "ids": [
+        "darktable.darktable",
+        "Flameshot.Flameshot",
+        "GIMP.GIMP",
+        "Greenshot.Greenshot",
+        "Gyan.FFmpeg",
+        "HandBrake.HandBrake",
+        "IrfanSkiljan.IrfanView",
+        "KDE.Kdenlive",
+        "Meltytech.Shotcut",
+        "OBSProject.OBSStudio",
+        "OpenShot.OpenShot",
+        "RawTherapee.RawTherapee",
+        "ShareX.ShareX",
+        "VideoLAN.VLC",
+        "XnSoft.XnViewMP"
+      ]
+    },
+    {
+      "id": "productivity",
+      "name": "Productivity",
+      "icon": "IconChecklist",
+      "ids": [
+        "Adobe.Acrobat.Reader.64-bit",
+        "Brave.Brave",
+        "calibre.calibre",
+        "Doist.Todoist",
+        "Dropbox.Dropbox",
+        "Evernote.Evernote",
+        "Google.Chrome",
+        "Joplin.Joplin",
+        "LibreWolf.LibreWolf",
+        "Logseq.Logseq",
+        "Microsoft.Edge",
+        "Microsoft.OneDrive",
+        "Mozilla.Firefox",
+        "Mozilla.Thunderbird",
+        "Nextcloud.NextcloudDesktop",
+        "Notion.Notion",
+        "Obsidian.Obsidian",
+        "ONLYOFFICE.DesktopEditors",
+        "Opera.Opera",
+        "StandardNotes.StandardNotes",
+        "SumatraPDF.SumatraPDF",
+        "Syncthing.Syncthing",
+        "TheDocumentFoundation.LibreOffice",
+        "Vivaldi.Vivaldi",
+        "Zen-Team.Zen-Browser",
+        "Zettlr.Zettlr"
+      ]
+    },
+    {
+      "id": "science",
+      "name": "Science",
+      "icon": "IconFlask",
+      "ids": [
+        "Anaconda.Anaconda3",
+        "FreeCAD.FreeCAD",
+        "GeoGebra.Classic",
+        "GNU.Octave",
+        "KiCad.KiCad",
+        "OpenSCAD.OpenSCAD",
+        "OSGeo.QGIS",
+        "RProject.R",
+        "Stellarium.Stellarium"
+      ]
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "icon": "IconShield",
+      "ids": [
+        "Bitwarden.Bitwarden",
+        "GnuPG.Gpg4win",
+        "IDRIX.VeraCrypt",
+        "KeePassXCTeam.KeePassXC",
+        "LibreWolf.LibreWolf",
+        "Malwarebytes.Malwarebytes",
+        "Proton.ProtonVPN",
+        "Tailscale.Tailscale",
+        "TorProject.TorBrowser",
+        "WireGuard.WireGuard",
+        "WiresharkFoundation.Wireshark"
+      ]
+    },
+    {
+      "id": "server-and-cloud",
+      "name": "Server and Cloud",
+      "icon": "IconServer",
+      "ids": [
+        "Docker.DockerDesktop",
+        "Hashicorp.Terraform",
+        "Helm.Helm",
+        "Kubernetes.kubectl",
+        "MongoDB.Compass.Full",
+        "Nextcloud.NextcloudDesktop",
+        "Oracle.VirtualBox",
+        "PostgreSQL.PostgreSQL.17",
+        "PuTTY.PuTTY",
+        "Syncthing.Syncthing",
+        "Tailscale.Tailscale",
+        "WinSCP.WinSCP",
+        "WireGuard.WireGuard"
+      ]
+    },
+    {
+      "id": "social",
+      "name": "Social",
+      "icon": "IconChat",
+      "ids": [
+        "Discord.Discord",
+        "Element.Element",
+        "Ferdium.Ferdium",
+        "Mattermost.MattermostDesktop",
+        "Microsoft.Teams",
+        "OpenWhisperSystems.Signal",
+        "SlackTechnologies.Slack",
+        "Telegram.TelegramDesktop",
+        "Zoom.Zoom"
+      ]
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "icon": "IconToolbox",
+      "ids": [
+        "7zip.7zip",
+        "AntibodySoftware.WizTree",
+        "Balena.Etcher",
+        "CPUID.CPU-Z",
+        "CrystalDewWorld.CrystalDiskInfo",
+        "FilesCommunity.Files",
+        "Malwarebytes.Malwarebytes",
+        "Microsoft.PowerToys",
+        "Microsoft.Sysinternals.Autoruns",
+        "Microsoft.Sysinternals.ProcessExplorer",
+        "Piriform.CCleaner",
+        "qBittorrent.qBittorrent",
+        "RARLab.WinRAR",
+        "REALiX.HWiNFO",
+        "Rufus.Rufus",
+        "TechPowerUp.GPU-Z",
+        "Transmission.Transmission",
+        "Ventoy.Ventoy",
+        "voidtools.Everything",
+        "Wagnardsoft.DisplayDriverUninstaller",
+        "WinDirStat.WinDirStat"
+      ]
+    }
+  ],
   "explore": [
     {
       "id": "Microsoft.PowerToys",

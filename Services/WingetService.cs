@@ -363,21 +363,134 @@ public static class WingetService
     public static Task<WingetResult> UninstallAsync(string id, Action<string>? onOutput, CancellationToken ct = default) =>
         RunAsync(["uninstall", "--id", id, "--exact", "--silent", .. CommonArgs], onOutput, ct);
 
-    public static Task<WingetResult> UpgradeAsync(string id, Action<string>? onOutput, CancellationToken ct = default) =>
-        RunAsync(
+    /// <summary>
+    /// Upgrades one package. <paramref name="includeUnknown"/> is what "update
+    /// all" passes: without it winget refuses any package whose installed
+    /// version it cannot read, which is how a batch loses a package to
+    /// 0x8A15002B rather than to anything actually going wrong.
+    /// </summary>
+    public static Task<WingetResult> UpgradeAsync(
+        string id,
+        Action<string>? onOutput,
+        CancellationToken ct = default,
+        bool includeUnknown = false)
+    {
+        string[] args = includeUnknown
+            ?
+            [
+                "upgrade", "--id", id, "--exact", "--silent", "--include-unknown",
+                "--accept-package-agreements", .. CommonArgs,
+            ]
+            :
             [
                 "upgrade", "--id", id, "--exact", "--silent",
                 "--accept-package-agreements", .. CommonArgs,
-            ],
-            onOutput, ct);
+            ];
 
-    public static Task<WingetResult> UpgradeAllAsync(Action<string>? onOutput, CancellationToken ct = default) =>
-        RunAsync(
-            [
-                "upgrade", "--all", "--silent", "--include-unknown",
-                "--accept-package-agreements", .. CommonArgs,
-            ],
-            onOutput, ct);
+        return RunAsync(args, onOutput, ct);
+    }
+
+    /// <summary>
+    /// Updates every package in the list, one winget process each, and carries
+    /// on past the ones that fail.
+    ///
+    /// This used to be a single `winget upgrade --all`, which handed the whole
+    /// batch to winget and left the app no say in what happened after the first
+    /// failure. Driving the list here makes "keep going" ours to guarantee, and
+    /// it means the failures can be named at the end instead of arriving as one
+    /// exit code for the lot.
+    ///
+    /// Sequential on purpose: two winget processes contend over the same source
+    /// database, exactly as the reload path already avoids.
+    /// </summary>
+    /// <param name="onFailure">
+    /// Handed the package id and winget's own reason each time one is left
+    /// behind, so the row for it can say why rather than the batch reducing it
+    /// to a name in the tally.
+    /// </param>
+    public static async Task<WingetResult> UpgradeEachAsync(
+        IReadOnlyList<(string Id, string Name)> packages,
+        Action<string>? onOutput,
+        Action<string, string>? onFailure = null,
+        CancellationToken ct = default)
+    {
+        var failed = new List<string>();
+        var firstFailureCode = 0;
+        var log = new StringBuilder();
+
+        for (var i = 0; i < packages.Count; i++)
+        {
+            // Cancellation is the one thing that does stop the batch: it means
+            // the app is going away, not that a package misbehaved.
+            ct.ThrowIfCancellationRequested();
+
+            var (id, name) = packages[i];
+
+            onOutput?.Invoke($"Updating {name} ({i + 1} of {packages.Count})…");
+
+            var result = await UpgradeAsync(id, onOutput, ct, includeUnknown: true)
+                .ConfigureAwait(false);
+
+            log.Append(result.StdOut);
+
+            if (result.Success)
+                continue;
+
+            failed.Add(name);
+
+            if (firstFailureCode == 0)
+                firstFailureCode = result.ExitCode;
+
+            onFailure?.Invoke(id, Reason(result));
+        }
+
+        var updated = packages.Count - failed.Count;
+
+        // The last line reported becomes the operation's summary, so this is
+        // where the batch says what actually happened.
+        onOutput?.Invoke(failed.Count == 0
+            ? $"Updated {updated} package{(updated == 1 ? string.Empty : "s")}."
+            : $"{updated} of {packages.Count} updated. {failed.Count} failed: {string.Join(", ", failed)}.");
+
+        return new WingetResult(firstFailureCode, log.ToString(), string.Empty);
+    }
+
+    /// <summary>
+    /// What went wrong with one package, in winget's own words plus its code.
+    /// The explanation is the last thing winget says - its preamble ("Found …",
+    /// the licence notices) comes first - and the code is kept because it is
+    /// what the documentation and every search result are indexed by.
+    /// </summary>
+    private static string Reason(WingetResult result)
+    {
+        var said = LastLine(result.StdOut);
+
+        if (said.Length == 0)
+            said = LastLine(result.StdErr);
+
+        // winget's own failures are the 0x8A15xxxx family and read as hex; an
+        // installer's own code arrives as a small positive number.
+        var code = result.ExitCode < 0
+            ? $"0x{result.ExitCode:X8}"
+            : result.ExitCode.ToString();
+
+        return said.Length > 0 ? $"{said} ({code})" : $"winget exited with {code}.";
+    }
+
+    private static string LastLine(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+
+        for (var i = lines.Length - 1; i >= 0; i--)
+        {
+            var line = lines[i].Trim();
+
+            if (line.Length > 0 && !SpinnerOnly.IsMatch(line))
+                return line;
+        }
+
+        return string.Empty;
+    }
 
     /// <summary>Whether a specific package id is currently installed.</summary>
     public static async Task<bool> IsInstalledAsync(string id, CancellationToken ct = default)

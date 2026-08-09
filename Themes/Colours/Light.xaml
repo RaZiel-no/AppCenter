@@ -34,6 +34,8 @@
     <Color x:Key="AccentHoverColor">#FFC94317</Color>
     <Color x:Key="GreenColor">#FF0E8420</Color>
     <Color x:Key="GreenHoverColor">#FF0B6B1A</Color>
+    <!--  Yaru red-4: dark enough to read as text on a white card.  -->
+    <Color x:Key="ErrorColor">#FFC01C28</Color>
 
     <!--  Controls  -->
     <Color x:Key="ButtonBgColor">#FFFFFFFF</Color>

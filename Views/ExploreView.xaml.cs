@@ -33,6 +33,8 @@ public partial class ExploreView : PageView
         Cards.ItemsSource = _packages;
         HighlightIcons.ItemsSource = _highlights;
         Cards.ItemClick += package => Host.ShowDetail(package);
+
+        Categories.ItemsSource = CatalogService.Categories();
     }
 
     public override Task LoadAsync()
@@ -44,6 +46,14 @@ public partial class ExploreView : PageView
 
     private void OnDiscoverClick(object sender, RoutedEventArgs e) =>
         Host.NavigateTo("featured");
+
+    private void OnCategoryClick(object sender, RoutedEventArgs e)
+    {
+        var tile = TreeSearch.FindAncestor<Button>(e.OriginalSource as DependencyObject);
+
+        if (tile?.DataContext is CatalogCategory category)
+            Host.ShowCategory(category.Id);
+    }
 
     private void OnHighlightClick(object sender, RoutedEventArgs e)
     {

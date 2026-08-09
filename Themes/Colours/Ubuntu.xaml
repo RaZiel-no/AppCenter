@@ -38,6 +38,9 @@
     <Color x:Key="AccentHoverColor">#FFF06A3C</Color>
     <Color x:Key="GreenColor">#FF0E8420</Color>
     <Color x:Key="GreenHoverColor">#FF12A028</Color>
+    <!--  Yaru red-1: the lighter of the reds, which is the one that reads
+          against a #242424 card rather than sinking into it.  -->
+    <Color x:Key="ErrorColor">#FFF66151</Color>
 
     <!--  Controls  -->
     <Color x:Key="ButtonBgColor">#FF383838</Color>
