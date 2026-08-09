@@ -5,6 +5,69 @@
     <ctrl:EmptyStringToCollapsedConverter x:Key="EmptyToCollapsed" />
 
     <!--  ============================================================
+          Operation progress bar
+          Expects an AppPackage as its DataContext, and takes all three
+          of its cues from there: whether to show at all, how far along
+          to draw, and whether to breathe instead of advancing. Those
+          are painted on by OperationService.Paint, so a row rebuilt
+          after navigating away picks the bar up where it left off.
+          ============================================================  -->
+
+    <Style x:Key="OperationProgressBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="3" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="Value" Value="{Binding Progress}" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Background" Value="{DynamicResource DividerBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource GreenBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <!--  Hand-rolled because the stock template paints its own
+                      gradients and border, which none of the four themes here
+                      would match. PART_Track and PART_Indicator are the names
+                      ProgressBar itself measures and sizes.  -->
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="2" />
+                        <Border x:Name="PART_Track" />
+                        <Border x:Name="PART_Indicator"
+                                HorizontalAlignment="Left"
+                                Background="{TemplateBinding Foreground}"
+                                CornerRadius="2" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <!--  Held at the last honest position and breathing: winget is
+                  inside a step that reports nothing until it ends.  -->
+            <DataTrigger Binding="{Binding IsProgressPulsing}" Value="True">
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard Name="Breathing">
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             From="1"
+                                             To="0.35"
+                                             Duration="0:0:0.85"
+                                             AutoReverse="True"
+                                             RepeatBehavior="Forever" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <StopStoryboard BeginStoryboardName="Breathing" />
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--  ============================================================
           Icons
           Geometries are authored on a 24x24 grid and drawn with
           Stretch=None so their bounds never depend on the path's ink

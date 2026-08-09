@@ -4,7 +4,10 @@
                 xmlns:views="clr-namespace:AppCenter.Views">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+        <!--  Stretch rather than Center - see ManageView: a centred panel is
+              only as wide as its widest child, so a status line arriving would
+              resize the page under the pointer.  -->
+        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,0,24,40">
 
             <Button Style="{StaticResource PillButton}"
                     HorizontalAlignment="Left"
@@ -124,6 +127,11 @@
                        FontSize="12.5"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        TextWrapping="Wrap" />
+
+            <!--  The page's DataContext is the package, so the bar already has
+                  everything it needs to draw itself.  -->
+            <ProgressBar Margin="0,10,0,0"
+                         Style="{StaticResource OperationProgressBar}" />
 
             <!--  ================= Description =================  -->
             <Border Margin="0,26,0,0"

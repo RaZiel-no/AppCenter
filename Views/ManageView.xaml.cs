@@ -15,6 +15,13 @@ public partial class ManageView : PageView
     private List<AppPackage> _allInstalled = [];
 
     /// <summary>
+    /// Stands in for "whatever winget is doing right now" so the page-level bar
+    /// can use the same style, and the same painting, as the rows. Never shown
+    /// as a package - only its progress fields are ever read.
+    /// </summary>
+    private readonly AppPackage _overall = new();
+
+    /// <summary>
     /// Covers this page's own winget lookups only. The updates and
     /// uninstalls themselves belong to OperationService and keep running
     /// after the page is gone.
@@ -27,6 +34,7 @@ public partial class ManageView : PageView
 
         UpdatesList.ItemsSource = _updates;
         InstalledList.ItemsSource = _installed;
+        OverallBar.DataContext = _overall;
 
         OperationService.Started += OnOperationChanged;
         OperationService.Progressed += OnOperationProgressed;
@@ -212,9 +220,11 @@ public partial class ManageView : PageView
         if (!confirmed)
             return;
 
+        // The count is the one thing that makes "update all" measurable: each
+        // package winget finishes is a real fraction of a known total.
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
-            WingetService.UpgradeAllAsync);
+            WingetService.UpgradeAllAsync, _updates.Count);
     }
 
     private void OnRowButtonClick(object sender, RoutedEventArgs e)
@@ -273,11 +283,20 @@ public partial class ManageView : PageView
     private void ApplyOperations()
     {
         foreach (var package in _updates.Concat(_allInstalled))
-        {
-            var operation = OperationService.For(package.Id);
+            OperationService.Paint(package);
+    }
 
-            package.IsBusy = operation is not null;
-            package.Status = operation?.RowLabel ?? string.Empty;
+    /// <summary>
+    /// Repaints one row, for the progress lines that arrive while an operation
+    /// runs - a new milestone moves that row's bar and nothing else. "Update
+    /// all" matches no row, and shows on the page-level bar instead.
+    /// </summary>
+    private void PaintRow(string key)
+    {
+        foreach (var package in _updates.Concat(_allInstalled))
+        {
+            if (string.Equals(package.Id, key, StringComparison.OrdinalIgnoreCase))
+                OperationService.Paint(package);
         }
     }
 
@@ -293,8 +312,25 @@ public partial class ManageView : PageView
     /// reload that follows an operation: winget's closing line is often the
     /// only explanation for what the list looks like afterwards.
     /// </summary>
-    private void RefreshStatus() =>
+    private void RefreshStatus()
+    {
         SetProgress(OperationService.Current?.Status ?? OperationService.LastOutcome?.Summary);
+        RefreshBar();
+    }
+
+    /// <summary>
+    /// Points the page-level bar at whatever is running, and hides it when
+    /// nothing is. Like the rows, it is re-derived rather than remembered, so
+    /// coming back to this page mid-install redraws the bar where it was.
+    /// </summary>
+    private void RefreshBar()
+    {
+        var running = OperationService.Current;
+
+        _overall.IsBusy = running is not null;
+        _overall.Progress = running?.Percent ?? 0;
+        _overall.IsProgressPulsing = running?.IsPulsing ?? false;
+    }
 
     private void OnOperationChanged(object? sender, Operation operation)
     {
@@ -303,14 +339,18 @@ public partial class ManageView : PageView
         RefreshStatus();
     }
 
-    private void OnOperationProgressed(object? sender, Operation operation) =>
-        SetProgress(operation.Status);
+    private void OnOperationProgressed(object? sender, Operation operation)
+    {
+        RefreshStatus();
+        PaintRow(operation.Key);
+    }
 
     private async void OnOperationFinished(object? sender, Operation operation)
     {
         ApplyOperations();
         RefreshButtons();
         SetProgress(operation.Summary);
+        RefreshBar();
 
         // Versions and the installed list have both moved on; the reload ends
         // by re-marking whatever is still running.

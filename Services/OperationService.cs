@@ -1,4 +1,5 @@
 using System.Windows;
+using AppCenter.Models;
 
 namespace AppCenter.Services;
 
@@ -8,6 +9,29 @@ public enum OperationKind
     Update,
     Uninstall,
     UpdateAll,
+}
+
+/// <summary>
+/// How far winget has got, in the only terms it gives us. Ordered, because a
+/// phase is only ever allowed to move forwards.
+/// </summary>
+public enum OperationPhase
+{
+    /// <summary>Launched, and winget has not said anything recognisable yet.</summary>
+    Starting,
+
+    /// <summary>"Found &lt;name&gt; [&lt;id&gt;] Version …" - located in the source.</summary>
+    Located,
+
+    Downloading,
+
+    /// <summary>Hash checked out; the installer is about to be handed to Windows.</summary>
+    Verified,
+
+    /// <summary>The installer itself is running, and says nothing until it is done.</summary>
+    Installing,
+
+    Done,
 }
 
 /// <summary>
@@ -24,8 +48,29 @@ public sealed class Operation
     public required string PackageName { get; init; }
     public required OperationKind Kind { get; init; }
 
+    /// <summary>
+    /// How many packages "update all" set out to update, which is the one case
+    /// where there is something countable to divide by. 0 when unknown.
+    /// </summary>
+    public int TotalItems { get; init; }
+
     /// <summary>The latest line winget printed, trimmed to fit.</summary>
     public string Detail { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Where winget has got to, as far as its own output betrays.
+    ///
+    /// There is no percentage to be had: redirect winget's output and the
+    /// progress bar it draws for a terminal disappears entirely - piping an
+    /// install yields six plain lines and nothing else. So the bar advances on
+    /// the milestones winget does print, and <see cref="IsPulsing"/> covers the
+    /// stretches where the next one is genuinely unknowable rather than
+    /// inventing movement.
+    /// </summary>
+    public OperationPhase Phase { get; private set; } = OperationPhase.Starting;
+
+    /// <summary>Packages finished so far - only meaningful for "update all".</summary>
+    private int _completed;
 
     public bool IsRunning { get; private set; } = true;
 
@@ -53,7 +98,86 @@ public sealed class Operation
 
     public string Status => Detail.Length == 0 ? Heading : $"{Heading}  {Detail}";
 
-    internal void Report(string line) => Detail = Shorten(line);
+    /// <summary>
+    /// Where to draw the bar, 0 to 1. The steps are deliberately uneven: they
+    /// reflect where winget's milestones fall, not equal thirds of anything.
+    /// "Update all" is the exception - one finished package is a real fraction
+    /// of a known total, so it counts instead of guessing.
+    /// </summary>
+    public double Percent => Kind == OperationKind.UpdateAll
+        ? (TotalItems > 0 ? Math.Min(1.0, (double)_completed / TotalItems) : 0.5)
+        : Phase switch
+        {
+            OperationPhase.Starting => 0.04,
+            OperationPhase.Located => 0.15,
+            OperationPhase.Downloading => 0.40,
+            OperationPhase.Verified => 0.62,
+            OperationPhase.Installing => 0.80,
+            _ => 1.0,
+        };
+
+    /// <summary>
+    /// True while the bar would be lying if it claimed to be moving: before
+    /// winget has said anything, and through the installer's own run, which
+    /// prints nothing at all between "Starting package install" and its result.
+    /// "Update all" pulses throughout, since between two finished packages it
+    /// knows no more than that.
+    /// </summary>
+    public bool IsPulsing =>
+        IsRunning
+        && (Kind == OperationKind.UpdateAll
+            || Phase is OperationPhase.Starting or OperationPhase.Installing);
+
+    internal void Report(string line)
+    {
+        Detail = Shorten(line);
+        Advance(line);
+    }
+
+    private void Advance(string line)
+    {
+        if (Milestone(line) is not { } next)
+            return;
+
+        if (next == OperationPhase.Done)
+            _completed++;
+
+        // Forwards only. "Update all" runs the whole sequence again for every
+        // package, and a bar that slides backwards reads as a bug.
+        if (next > Phase)
+            Phase = next;
+    }
+
+    /// <summary>
+    /// winget's own milestones, matched on the English it prints. A localised
+    /// winget matches none of them and stays at <see cref="OperationPhase.Starting"/>,
+    /// which pulses - no progress claimed rather than the wrong one.
+    /// </summary>
+    private static OperationPhase? Milestone(string line)
+    {
+        if (Says(line, "Successfully installed")
+            || Says(line, "Successfully uninstalled")
+            || Says(line, "Successfully upgraded"))
+            return OperationPhase.Done;
+
+        // "Starting package install…" and "…uninstall…" both land here.
+        if (Says(line, "Starting package"))
+            return OperationPhase.Installing;
+
+        if (Says(line, "verified installer hash"))
+            return OperationPhase.Verified;
+
+        if (Says(line, "Downloading"))
+            return OperationPhase.Downloading;
+
+        if (Says(line, "Found "))
+            return OperationPhase.Located;
+
+        return null;
+    }
+
+    private static bool Says(string line, string marker) =>
+        line.Contains(marker, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Keeps winget's own last words. Detail is deliberately not cleared:
@@ -94,10 +218,17 @@ public sealed class Operation
         Summary = $"winget exited with {shown}. {said}".TrimEnd();
     }
 
+    /// <summary>
+    /// Flattens a line and caps it. The cap was 110 while the status line was a
+    /// single trimmed row; it wraps now, so winget's longer sentences - "…use
+    /// --include-unknown" and friends - fit whole rather than ending in an
+    /// ellipsis the user cannot expand anywhere. Still bounded: a pathological
+    /// line should not push the page around.
+    /// </summary>
     private static string Shorten(string text)
     {
         var trimmed = text.Replace('\n', ' ').Replace('\r', ' ').Trim();
-        return trimmed.Length <= 110 ? trimmed : trimmed[..110] + "…";
+        return trimmed.Length <= 240 ? trimmed : trimmed[..240] + "…";
     }
 }
 
@@ -139,6 +270,26 @@ public static class OperationService
         InFlight.FirstOrDefault(o => string.Equals(o.Key, key, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// Puts whatever is happening to a package onto the row that shows it -
+    /// busy, label, and how far along its bar should be.
+    ///
+    /// Rows are rebuilt from scratch by every reload and by every page that is
+    /// navigated back to, so none of this can be carried on the row: it has to
+    /// be re-derived from here, because the service is the only thing that
+    /// remembers an operation. Call it when a page loads and whenever the
+    /// service raises anything.
+    /// </summary>
+    public static void Paint(AppPackage package)
+    {
+        var operation = For(package.Id);
+
+        package.IsBusy = operation is not null;
+        package.Status = operation?.RowLabel ?? string.Empty;
+        package.Progress = operation?.Percent ?? 0;
+        package.IsProgressPulsing = operation?.IsPulsing ?? false;
+    }
+
+    /// <summary>
     /// A package can only have one command running against it, and "update
     /// all" is exclusive in both directions - it is already touching every
     /// package, so nothing else may be moving underneath it. Anything else
@@ -160,12 +311,19 @@ public static class OperationService
         string key,
         string packageName,
         OperationKind kind,
-        Func<Action<string>, CancellationToken, Task<WingetResult>> command)
+        Func<Action<string>, CancellationToken, Task<WingetResult>> command,
+        int totalItems = 0)
     {
         if (!CanStart(key))
             return null;
 
-        var operation = new Operation { Key = key, PackageName = packageName, Kind = kind };
+        var operation = new Operation
+        {
+            Key = key,
+            PackageName = packageName,
+            Kind = kind,
+            TotalItems = totalItems,
+        };
 
         InFlight.Add(operation);
         LastOutcome = null;

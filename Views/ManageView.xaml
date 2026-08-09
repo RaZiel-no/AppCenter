@@ -4,7 +4,11 @@
                 xmlns:views="clr-namespace:AppCenter.Views">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+        <!--  Stretch rather than Center: a centred panel takes the width of its
+              widest child, so every new status line resized the whole page and
+              slid it sideways. Stretched and capped, the column is always the
+              same width - and WPF still centres what MaxWidth has clamped.  -->
+        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,0,24,40">
 
             <TextBlock Text="Manage" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
 
@@ -15,17 +19,11 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock x:Name="UpdatesHeading"
-                               Style="{StaticResource SectionTitle}"
-                               Text="Updates available" />
-                    <TextBlock x:Name="ProgressText"
-                               Visibility="Collapsed"
-                               Margin="0,4,0,0"
-                               FontSize="12.5"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               TextTrimming="CharacterEllipsis" />
-                </StackPanel>
+                <TextBlock x:Name="UpdatesHeading"
+                           Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource SectionTitle}"
+                           Text="Updates available" />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="CheckButton"
@@ -56,6 +54,25 @@
                     </Button>
                 </StackPanel>
             </Grid>
+
+            <!--  Status and bar sit under the header row and span the full
+                  width, rather than sharing a column with the buttons: winget's
+                  messages run long, and here one wraps and is readable in full
+                  instead of being cut off at the button's edge. Both are
+                  collapsed when idle, so they take no room at all.  -->
+            <TextBlock x:Name="ProgressText"
+                       Visibility="Collapsed"
+                       Margin="0,10,0,0"
+                       FontSize="12.5"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       TextWrapping="Wrap" />
+
+            <!--  Follows whatever is running, "update all" included - that one
+                  belongs to no single row. Its DataContext is a stand-in
+                  package the page paints; see ManageView's _overall.  -->
+            <ProgressBar x:Name="OverallBar"
+                         Margin="0,10,0,0"
+                         Style="{StaticResource OperationProgressBar}" />
 
             <Border x:Name="UpdatesPanel"
                     Margin="0,16,0,0"

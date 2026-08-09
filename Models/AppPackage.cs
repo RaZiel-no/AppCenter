@@ -147,6 +147,29 @@ public sealed class AppPackage : INotifyPropertyChanged
         set => Set(ref _status, value);
     }
 
+    // Both of these are painted on by OperationService.Paint rather than set
+    // here: an operation outlives the row that started it, so the service is
+    // the only thing that can say where the bar should be.
+
+    /// <summary>How far the row's progress bar is along, 0 to 1.</summary>
+    private double _progress;
+    public double Progress
+    {
+        get => _progress;
+        set => Set(ref _progress, value);
+    }
+
+    /// <summary>
+    /// True while the bar should breathe instead of advancing - winget is
+    /// working but has not said anything to justify a new position.
+    /// </summary>
+    private bool _isProgressPulsing;
+    public bool IsProgressPulsing
+    {
+        get => _isProgressPulsing;
+        set => Set(ref _isProgressPulsing, value);
+    }
+
     /// <summary>Shown in the icon tile when no real icon could be fetched.</summary>
     public string Initial =>
         string.IsNullOrWhiteSpace(Name) ? "?" : Name.TrimStart()[..1].ToUpperInvariant();

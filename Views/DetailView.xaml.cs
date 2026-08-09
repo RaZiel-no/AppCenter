@@ -225,6 +225,11 @@ public partial class DetailView : PageView
         InstallButton.IsEnabled = canStart;
         UninstallButton.IsEnabled = canStart;
 
+        // Drives the progress bar bound to this page's package. Re-derived on
+        // every call, which is what lets a page opened - or returned to -
+        // halfway through an install draw the bar in the right place.
+        OperationService.Paint(_package);
+
         if (mine is not null)
             SetProgress(mine.Status);
         else if (OperationService.LastOutcome is { } outcome && outcome.Key == _package.Id)

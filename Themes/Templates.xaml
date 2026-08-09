@@ -371,6 +371,11 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+                <!--  Everything below defaults to row 0; row 1 is the bar.  -->
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
                 <Border Grid.Column="0" Style="{StaticResource RowIconTile}">
                     <Grid>
@@ -421,6 +426,14 @@
                             Padding="16,0"
                             Content="Update" />
                 </StackPanel>
+
+                <!--  Spans the row rather than sitting in the status column:
+                      the update belongs to the whole row, and a 3px line under
+                      it reads as progress without shouting.  -->
+                <ProgressBar Grid.Row="1"
+                             Grid.ColumnSpan="3"
+                             Margin="0,10,0,0"
+                             Style="{StaticResource OperationProgressBar}" />
             </Grid>
         </Border>
 
@@ -455,6 +468,11 @@
                     <ColumnDefinition Width="180" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+                <!--  Everything below defaults to row 0; row 1 is the bar.  -->
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
                 <Border Grid.Column="0" Style="{StaticResource RowIconTile}">
                     <Grid>
@@ -511,6 +529,11 @@
                             Padding="16,0"
                             Content="Uninstall" />
                 </StackPanel>
+
+                <ProgressBar Grid.Row="1"
+                             Grid.ColumnSpan="4"
+                             Margin="0,10,0,0"
+                             Style="{StaticResource OperationProgressBar}" />
             </Grid>
         </Border>
 
