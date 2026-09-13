@@ -14,10 +14,14 @@ public partial class DetailView : PageView
         public bool IsLink => Link is not null;
     }
 
-    /// <summary>Fields from `winget show` worth surfacing, in display order.</summary>
+    /// <summary>
+    /// Fields from `winget show` worth surfacing, in display order. Version is
+    /// not among them: what `show` calls the version is the newest one in the
+    /// source, and which of that and the installed one to call "the version"
+    /// depends on the install state - see <see cref="VersionRows"/>.
+    /// </summary>
     private static readonly (string Key, string Label)[] InterestingFields =
     [
-        ("Version", "Version"),
         ("Publisher", "Publisher"),
         ("Author", "Author"),
         ("License", "Licence"),
@@ -28,6 +32,12 @@ public partial class DetailView : PageView
     ];
 
     private readonly AppPackage _package;
+
+    /// <summary>What winget last said about this package being on the machine.</summary>
+    private InstallState _state = InstallState.NotInstalled;
+
+    /// <summary>The newest version in the source, as `winget show` reports it.</summary>
+    private string _latestVersion = string.Empty;
 
     /// <summary>
     /// Covers this page's own winget lookups only. Installs and uninstalls
@@ -73,11 +83,7 @@ public partial class DetailView : PageView
 
         try
         {
-            var installed = await WingetService.IsInstalledAsync(_package.Id, _cts.Token);
-            _cts.Token.ThrowIfCancellationRequested();
-
-            _package.IsInstalled = installed;
-            ShowInstallState(installed);
+            await RefreshInstallStateAsync();
 
             var fields = await WingetService.ShowAsync(_package.Id, _cts.Token);
             _cts.Token.ThrowIfCancellationRequested();
@@ -94,6 +100,38 @@ public partial class DetailView : PageView
         }
     }
 
+    /// <summary>
+    /// Asks winget what is installed under this id and paints the answer:
+    /// which buttons to offer, the state line under the publisher, and the
+    /// version rows in Details. Rerun after every operation on the package,
+    /// because installed-or-not is winget's to say, not ours to infer from an
+    /// exit code.
+    /// </summary>
+    private async Task RefreshInstallStateAsync()
+    {
+        var state = await WingetService.InstallStateAsync(_package.Id, _cts.Token);
+        _cts.Token.ThrowIfCancellationRequested();
+
+        // winget failing to answer is not winget saying "no": the page keeps
+        // what it knew rather than offering to install something it was
+        // offering to uninstall a moment ago.
+        if (state is null)
+            return;
+
+        _state = state;
+
+        _package.IsInstalled = _state.IsInstalled;
+        _package.AvailableVersion = _state.AvailableVersion;
+
+        // A page opened from a card knows no version yet; the installed one is
+        // the version of what the user actually has.
+        if (_state.InstalledVersions.Count > 0 && _package.Version.Length == 0)
+            _package.Version = _state.InstalledVersions[0];
+
+        ShowInstallState();
+        ShowVersionRows();
+    }
+
     private void ApplyFields(Dictionary<string, string> fields)
     {
         if (fields.Count == 0)
@@ -102,11 +140,11 @@ public partial class DetailView : PageView
                 ? "No description is published for this package."
                 : _package.Summary;
 
-            Metadata.ItemsSource = new[]
-            {
+            Metadata.ItemsSource = VersionRows().Concat(
+            [
                 Row("Package ID", _package.Id),
                 Row("Source", string.IsNullOrWhiteSpace(_package.Source) ? "winget" : _package.Source),
-            };
+            ]).ToList();
 
             return;
         }
@@ -131,7 +169,10 @@ public partial class DetailView : PageView
             Host.Icons.BeginLoad([_package], Dispatcher);
         }
 
-        var rows = new List<MetadataRow>();
+        if (fields.TryGetValue("Version", out var latest))
+            _latestVersion = latest.Trim();
+
+        var rows = VersionRows();
         foreach (var (key, label) in InterestingFields)
         {
             if (fields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
@@ -142,6 +183,50 @@ public partial class DetailView : PageView
         rows.Add(Row("Source", string.IsNullOrWhiteSpace(_package.Source) ? "winget" : _package.Source));
 
         Metadata.ItemsSource = rows;
+    }
+
+    /// <summary>
+    /// The version rows at the top of Details. An installed package says what
+    /// is on the machine first - every version, when there are several - and
+    /// what the source has only when that is something else. A package that is
+    /// not installed has one version to speak of.
+    /// </summary>
+    private List<MetadataRow> VersionRows()
+    {
+        var rows = new List<MetadataRow>();
+
+        if (_state.IsInstalled)
+        {
+            var installed = _state.InstalledVersions.Count > 0
+                ? string.Join(", ", _state.InstalledVersions)
+                : "Unknown";
+
+            rows.Add(Row("Installed version", installed));
+
+            var latest = _state.HasUpdate ? _state.AvailableVersion : _latestVersion;
+
+            if (latest.Length > 0 && !_state.InstalledVersions.Contains(latest, StringComparer.OrdinalIgnoreCase))
+                rows.Add(Row("Latest version", latest));
+        }
+        else if (_latestVersion.Length > 0)
+        {
+            rows.Add(Row("Version", _latestVersion));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Redraws the version rows in place, for when the install state moves
+    /// after the rest of Details is already on screen.
+    /// </summary>
+    private void ShowVersionRows()
+    {
+        if (Metadata.ItemsSource is not IEnumerable<MetadataRow> current)
+            return;
+
+        var others = current.Where(r => r.Label is not ("Installed version" or "Latest version" or "Version"));
+        Metadata.ItemsSource = VersionRows().Concat(others).ToList();
     }
 
     /// <summary>
@@ -160,10 +245,39 @@ public partial class DetailView : PageView
             : new MetadataRow(label, value);
     }
 
-    private void ShowInstallState(bool installed)
+    /// <summary>
+    /// One primary button from the state - Install, or Update when one is
+    /// waiting - with Uninstall as the quiet alternative once anything is on
+    /// the machine. The line under the publisher says the same in words.
+    /// </summary>
+    private void ShowInstallState()
     {
+        var installed = _state.IsInstalled;
+        var update = _state.HasUpdate;
+
         InstallButton.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
+        UpdateButton.Visibility = installed && update ? Visibility.Visible : Visibility.Collapsed;
         UninstallButton.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+
+        StateRow.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+
+        if (!installed)
+            return;
+
+        var versions = string.Join(", ", _state.InstalledVersions);
+
+        if (update)
+        {
+            StateDot.Fill = (System.Windows.Media.Brush)FindResource("AccentBrush");
+            StateText.Text = versions.Length > 0
+                ? $"Update available  ·  {versions} → {_state.AvailableVersion}"
+                : $"Update available  ·  {_state.AvailableVersion}";
+        }
+        else
+        {
+            StateDot.Fill = (System.Windows.Media.Brush)FindResource("GreenBrush");
+            StateText.Text = versions.Length > 0 ? $"Installed  ·  {versions}" : "Installed";
+        }
     }
 
     // ---------------------------------------------------------------
@@ -189,6 +303,30 @@ public partial class DetailView : PageView
             (progress, token) => WingetService.InstallAsync(_package.Id, progress, token));
     }
 
+    private void OnUpdateClick(object sender, RoutedEventArgs e)
+    {
+        // Keyed to the id, as an update from a Manage row is: winget upgrades
+        // the package, not one install of it, so every row of it goes busy.
+        if (!OperationService.CanStart(_package.Id))
+            return;
+
+        var from = _state.InstalledVersions.Count > 0 ? _state.InstalledVersions[0] : "installed version";
+
+        var confirmed = Host.ConfirmAction(
+            $"Update {_package.Name}?",
+            $"winget will install {_state.AvailableVersion} over the installed {from}.\n\n" +
+            "Windows may prompt for administrator permission." +
+            (SelfPackages.Includes(_package.Id) ? $"\n\n{SelfPackages.Warning}" : string.Empty),
+            "Update");
+
+        if (!confirmed)
+            return;
+
+        OperationService.Start(
+            _package.Id, _package.Name, OperationKind.Update,
+            (progress, token) => WingetService.UpgradeAsync(_package.Id, progress, token));
+    }
+
     private void OnUninstallClick(object sender, RoutedEventArgs e)
     {
         if (!OperationService.CanStart(_package.OperationKey))
@@ -205,7 +343,8 @@ public partial class DetailView : PageView
             (_package.IsOneOfSeveralVersions
                 ? "Other versions of it stay installed. "
                 : string.Empty) +
-            "Windows may prompt for administrator permission.",
+            "Windows may prompt for administrator permission." +
+            (SelfPackages.Includes(_package.Id) ? $"\n\n{SelfPackages.RemovalWarning}" : string.Empty),
             "Uninstall");
 
         if (!confirmed)
@@ -228,10 +367,11 @@ public partial class DetailView : PageView
     /// </summary>
     private void ShowOperationState()
     {
-        var mine = OperationService.For(_package.OperationKey);
-        var canStart = OperationService.CanStart(_package.OperationKey);
+        var mine = OperationService.For(_package.OperationKey) ?? OperationService.For(_package.Id);
+        var canStart = OperationService.CanStart(_package.OperationKey) && OperationService.CanStart(_package.Id);
 
         InstallButton.IsEnabled = canStart;
+        UpdateButton.IsEnabled = canStart;
         UninstallButton.IsEnabled = canStart;
 
         // Drives the progress bar bound to this page's package. Re-derived on
@@ -241,18 +381,26 @@ public partial class DetailView : PageView
 
         if (mine is not null)
             SetProgress(mine.Status);
-        else if (OperationService.LastOutcome is { } outcome && outcome.Key == _package.OperationKey)
+        else if (OperationService.LastOutcome is { } outcome && IsAboutThis(outcome))
             SetProgress(outcome.Summary);
 
         // Nothing running and nothing finished recently leaves the line as it
         // is, rather than blanking whatever it is already saying.
     }
 
+    /// <summary>
+    /// Whether an operation was on this package: keyed to this install, or to
+    /// the id - which is how an update, from here or from Manage, is keyed.
+    /// </summary>
+    private bool IsAboutThis(Operation operation) =>
+        string.Equals(operation.Key, _package.OperationKey, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(operation.Key, _package.Id, StringComparison.OrdinalIgnoreCase);
+
     private void OnOperationChanged(object? sender, Operation operation) => ShowOperationState();
 
     private async void OnOperationFinished(object? sender, Operation operation)
     {
-        if (operation.Key != _package.OperationKey)
+        if (!IsAboutThis(operation))
         {
             // Somebody else's operation, but it may have freed the buttons.
             ShowOperationState();
@@ -264,16 +412,15 @@ public partial class DetailView : PageView
 
         try
         {
-            // Installed or not is now a question for winget, not for us to
-            // infer from the exit code.
-            var installed = await WingetService.IsInstalledAsync(_package.Id, _cts.Token);
-
-            _package.IsInstalled = installed;
-            ShowInstallState(installed);
+            await RefreshInstallStateAsync();
         }
         catch (OperationCanceledException)
         {
             // Navigated away while re-checking.
+        }
+        catch (Exception ex)
+        {
+            SetProgress($"Could not re-read the install state: {ex.Message}");
         }
     }
 

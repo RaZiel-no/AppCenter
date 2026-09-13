@@ -52,17 +52,26 @@ public partial class GamesView : PageView
                 _autoAdvance.Start();
         };
 
-        Unloaded += (_, _) => _autoAdvance.Stop();
+        MachineState.Changed += OnMachineChanged;
+
+        Unloaded += (_, _) =>
+        {
+            _autoAdvance.Stop();
+            MachineState.Changed -= OnMachineChanged;
+        };
 
         ShowSlide(0);
     }
 
     public override Task LoadAsync()
     {
+        MachineState.Apply(_topRated);
         Host.Icons.BeginLoad(_topRated, Dispatcher);
         Host.Icons.BeginLoadScreenshots(_carousel, Dispatcher);
         return Task.CompletedTask;
     }
+
+    private void OnMachineChanged(object? sender, EventArgs e) => MachineState.Apply(_topRated);
 
     /// <summary>Puts the slide at <see cref="_index"/> on screen. A direction of
     /// 0 places it outright, which is what the first frame wants; anything else

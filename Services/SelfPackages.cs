@@ -28,9 +28,10 @@ public static class SelfPackages
 {
     /// <summary>
     /// App Center's own winget package, which updates by running an installer
-    /// over a running copy of itself. The id is deploy.bat's PACKAGE_ID.
+    /// over a running copy of itself - from winget, or from GitHub ahead of
+    /// winget (see AppUpdateService). Both run under this id.
     /// </summary>
-    private const string Own = "ArnsteinSkara.AppCenter";
+    private const string Own = AppInfo.PackageId;
 
     /// <summary>
     /// The ids that close the app.

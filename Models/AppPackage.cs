@@ -122,16 +122,73 @@ public sealed class AppPackage : INotifyPropertyChanged
             ? Name
             : $"{Name} {Version}";
 
+    /// <summary>
+    /// What this install is called inside its family on Manage, when several
+    /// are installed: what its name adds to the family's - "2010 x64
+    /// Redistributable" - or its version when the name adds nothing. Empty
+    /// for a package that is on its own. Set by <c>PackageFamilies.Group</c>.
+    /// </summary>
+    public string VariantLabel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The id to print on this install's row inside its family: its own,
+    /// unless that is the family's - one id installed twice - in which case
+    /// the family's row has already said it. Set alongside VariantLabel.
+    /// </summary>
+    public string VariantId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The line under <see cref="VariantLabel"/>: the version, unless the
+    /// label already says it, and the update waiting when there is one.
+    /// </summary>
+    public string VariantDetail
+    {
+        get
+        {
+            if (AvailableVersion.Length > 0)
+                return LabelSaysVersion ? $"Update available: {AvailableVersion}" : VersionTransition;
+
+            return LabelSaysVersion ? string.Empty : Version;
+        }
+    }
+
+    /// <summary>
+    /// Whether the label already carries the version: the whole of it, or a
+    /// dotted number the version merely goes on from - "14.51.36247" in the
+    /// name is the same "14.51.36247.0" winget lists.
+    /// </summary>
+    private bool LabelSaysVersion =>
+        Version.Length > 0
+        && (VariantLabel.Contains(Version, StringComparison.OrdinalIgnoreCase)
+            || VariantLabel
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Any(word => word.Contains('.') && char.IsDigit(word[0])
+                             && Version.StartsWith(word, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// The id when it is one winget knows the package by, otherwise blank.
+    /// <c>ARP\Machine\X64\{…}</c> is a handle for an install winget could
+    /// not match to any source; it tells a reader nothing and cannot be
+    /// searched for, so rows do not print it.
+    /// </summary>
+    public string DisplayId => Id.Contains('\\') ? string.Empty : Id;
+
     private string _availableVersion = string.Empty;
     public string AvailableVersion
     {
         get => _availableVersion;
         set
         {
-            if (Set(ref _availableVersion, value))
-                OnPropertyChanged(nameof(VersionTransition));
+            if (!Set(ref _availableVersion, value))
+                return;
+
+            OnPropertyChanged(nameof(VersionTransition));
+            OnPropertyChanged(nameof(HasUpdate));
         }
     }
+
+    /// <summary>Whether winget has a newer version than the one installed.</summary>
+    public bool HasUpdate => _availableVersion.Length > 0;
 
     /// <summary>Renders as "1.2.3 → 1.2.4" under the name in the updates list.</summary>
     public string VersionTransition =>

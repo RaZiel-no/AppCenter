@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Navigation;
 using AppCenter.Controls;
+using AppCenter.Models;
 using AppCenter.Services;
 
 namespace AppCenter.Views;
@@ -28,16 +28,191 @@ public partial class AboutView : PageView
 
     private sealed record Fact(string Label, string Value);
 
+    /// <summary>
+    /// A stand-in for App Center's own package, so the update card's bar and
+    /// status are painted by OperationService like any row's.
+    /// </summary>
+    private readonly AppPackage _self = new() { Id = AppInfo.PackageId, Name = "App Center" };
+
     public AboutView()
     {
         InitializeComponent();
 
-        VersionText.Text = $"Version {AppVersion()} · a winget front-end";
+        VersionText.Text = $"Version {AppInfo.Version} · a winget front-end";
 
         ShowAuthor();
 
         ThemeList.ItemsSource = ThemeService.Options;
         ShowBlurb(ThemeService.CurrentId);
+
+        UpdateBar.DataContext = _self;
+        CheckOnLaunch.IsChecked = SettingsService.Current.CheckForUpdates;
+
+        AppUpdateService.Changed += OnUpdateChanged;
+        OperationService.Started += OnOperationChanged;
+        OperationService.Progressed += OnOperationChanged;
+        OperationService.Finished += OnOperationChanged;
+
+        Unloaded += (_, _) =>
+        {
+            AppUpdateService.Changed -= OnUpdateChanged;
+            OperationService.Started -= OnOperationChanged;
+            OperationService.Progressed -= OnOperationChanged;
+            OperationService.Finished -= OnOperationChanged;
+        };
+
+        ShowUpdateState();
+    }
+
+    // ---------------------------------------------------------------
+    // Updates
+    // ---------------------------------------------------------------
+
+    private void OnUpdateChanged(object? sender, EventArgs e) => ShowUpdateState();
+
+    private void OnOperationChanged(object? sender, Operation operation) => ShowUpdateState();
+
+    /// <summary>
+    /// Paints the update card from what the service knows: checking, could not
+    /// check, newer version waiting, or up to date - and, over the top of any of
+    /// those, the download in progress or how the last one ended.
+    /// </summary>
+    private void ShowUpdateState()
+    {
+        var latest = AppUpdateService.Latest;
+        var running = OperationService.For(AppInfo.PackageId);
+        var canStart = OperationService.CanStart(AppInfo.PackageId);
+
+        OperationService.Paint(_self);
+
+        UpdateButton.Visibility = Visibility.Collapsed;
+        ReleasePageButton.Visibility = Visibility.Collapsed;
+        UpdateButton.IsEnabled = canStart;
+        CheckUpdatesButton.IsEnabled = !AppUpdateService.IsChecking && canStart;
+
+        if (AppUpdateService.IsChecking)
+        {
+            Dot("TextMutedBrush");
+            UpdateHeadline.Text = "Checking GitHub for a newer version…";
+            UpdateDetail.Text = $"This is version {AppInfo.Version}.";
+        }
+        else if (AppUpdateService.LastError is { } error)
+        {
+            Dot("ErrorBrush");
+            UpdateHeadline.Text = "Could not check for a newer version";
+            UpdateDetail.Text = $"{error} This is version {AppInfo.Version}; the releases page has the rest.";
+            ShowReleasePage("Releases on GitHub");
+        }
+        else if (latest is null)
+        {
+            Dot("TextMutedBrush");
+            UpdateHeadline.Text = $"Version {AppInfo.Version}";
+            UpdateDetail.Text = "GitHub has not been asked for a newer version yet.";
+        }
+        else if (AppUpdateService.IsAvailable)
+        {
+            Dot("AccentBrush");
+            UpdateHeadline.Text = $"Version {latest.Version} is available";
+            UpdateDetail.Text = Offer(latest);
+            ShowReleasePage("What's new");
+
+            if (AppInfo.IsInstalledCopy && latest.HasInstaller)
+            {
+                UpdateButton.Content = $"Update to {latest.Version}";
+                UpdateButton.Visibility = Visibility.Visible;
+            }
+        }
+        else
+        {
+            Dot("GreenBrush");
+            UpdateHeadline.Text = "App Center is up to date";
+            UpdateDetail.Text =
+                $"Version {AppInfo.Version} is the latest release on GitHub"
+                + (AppUpdateService.CheckedAt is { } at ? $", checked at {at:HH:mm}." : ".");
+            ShowReleasePage("Release notes");
+        }
+
+        // The operation's line over the top, while it runs and once it is done.
+        var line = running?.Status
+            ?? (OperationService.LastOutcome is { } outcome
+                && string.Equals(outcome.Key, AppInfo.PackageId, StringComparison.OrdinalIgnoreCase)
+                ? outcome.Summary
+                : null);
+
+        UpdateProgress.Text = line ?? string.Empty;
+        UpdateProgress.Visibility = string.IsNullOrEmpty(line) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>What the newer release means for this copy, in a sentence or two.</summary>
+    private static string Offer(AppRelease latest)
+    {
+        var released = latest.PublishedAt is { } at
+            ? $"Released on GitHub on {at.LocalDateTime:d MMMM yyyy}. "
+            : "Released on GitHub. ";
+
+        if (!latest.HasInstaller)
+            return released + "The release has no installer attached, so it has to be fetched from its page.";
+
+        if (!AppInfo.IsInstalledCopy)
+            return released + "This is a portable copy: download the new one from the release page and unpack it over this folder.";
+
+        return released +
+               "Updating from here runs the same installer winget will offer once its pull request is merged - " +
+               "App Center closes while it runs and opens again on the new version.";
+    }
+
+    private void ShowReleasePage(string label)
+    {
+        ReleasePageLabel.Text = label;
+        ReleasePageButton.Visibility = Visibility.Visible;
+    }
+
+    private void Dot(string brushKey) =>
+        UpdateDot.Fill = (System.Windows.Media.Brush)FindResource(brushKey);
+
+    private void OnUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (AppUpdateService.Latest is not { } latest || !OperationService.CanStart(AppInfo.PackageId))
+            return;
+
+        var confirmed = Host.ConfirmAction(
+            $"Update App Center to {latest.Version}?",
+            $"The installer for {latest.Version} is downloaded from GitHub and run silently - the same one " +
+            "winget will offer once its pull request is merged. App Center closes while it runs and opens " +
+            "again on the new version.\n\n" +
+            "No administrator permission is needed: App Center installs per user.",
+            "Update");
+
+        if (!confirmed)
+            return;
+
+        AppUpdateService.StartUpdate();
+    }
+
+    private void OnReleasePageClick(object sender, RoutedEventArgs e) =>
+        Open(AppUpdateService.Latest?.PageUrl is { Length: > 0 } page ? page : $"{AppInfo.RepositoryUrl}/releases");
+
+    private async void OnCheckClick(object sender, RoutedEventArgs e) => await AppUpdateService.CheckAsync();
+
+    private void OnCheckOnLaunchToggled(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+            return;
+
+        SettingsService.Current.CheckForUpdates = CheckOnLaunch.IsChecked == true;
+        SettingsService.Save();
+    }
+
+    private static void Open(string target)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Could not open {target}: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -115,6 +290,11 @@ public partial class AboutView : PageView
 
     public override async Task LoadAsync()
     {
+        // Opening About is asking. A launch with the check switched off still
+        // gets an answer here, and only here.
+        if (!AppUpdateService.HasChecked && !AppUpdateService.IsChecking)
+            _ = AppUpdateService.CheckAsync();
+
         var wingetVersion = await WingetService.GetVersionAsync();
 
         var iconCache = Path.Combine(
@@ -127,7 +307,7 @@ public partial class AboutView : PageView
 
         Facts.ItemsSource = new[]
         {
-            new Fact("App Center", AppVersion()),
+            new Fact("App Center", AppInfo.Version + (AppInfo.IsInstalledCopy ? string.Empty : " (portable copy)")),
             new Fact("winget", string.IsNullOrWhiteSpace(wingetVersion)
                 ? "Not found - install App Installer from the Microsoft Store"
                 : wingetVersion),
@@ -136,27 +316,6 @@ public partial class AboutView : PageView
             new Fact("Icon cache", iconCache),
             new Fact("Runtime", Environment.Version.ToString()),
         };
-    }
-
-    /// <summary>
-    /// The number deploy.bat stamped on this build. Informational version is
-    /// asked for first because that is what <Version> in the csproj becomes
-    /// verbatim - AssemblyVersion is padded out to four parts, so 1.0.4 would
-    /// otherwise read as 1.0.4.0 here and match nothing the user was given.
-    /// </summary>
-    private static string AppVersion()
-    {
-        var assembly = Assembly.GetExecutingAssembly();
-
-        var informational = assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-
-        // A source-linked build appends "+<commit>"; the release number is the
-        // part in front of it.
-        if (!string.IsNullOrWhiteSpace(informational))
-            return informational.Split('+')[0];
-
-        return assembly.GetName().Version?.ToString(3) ?? "1.0.0";
     }
 
     private static int SectionCount(CatalogRoot catalog)

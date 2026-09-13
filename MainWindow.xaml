@@ -71,52 +71,92 @@
                 </Border>
 
                 <StackPanel Grid.Row="1" Margin="0,6,0,0">
+                    <!--  Checked is the navigation; Click is for the entry that
+                          is already checked, which Checked never fires for. See
+                          OnNavClick.  -->
                     <RadioButton x:Name="NavExplore"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="Explore"
                                  Tag="{StaticResource IconCompass}"
                                  IsChecked="True"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                     <RadioButton x:Name="NavFeatured"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="Featured"
                                  Tag="{StaticResource IconStar}"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                     <RadioButton x:Name="NavProductivity"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="Productivity"
                                  Tag="{StaticResource IconClock}"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                     <RadioButton x:Name="NavDevelopment"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="Development"
                                  Tag="{StaticResource IconPencil}"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                     <RadioButton x:Name="NavGames"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="Games"
                                  Tag="{StaticResource IconGamepad}"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Margin="0,0,0,14">
+                    <!--  What winget is doing right now, from wherever it was
+                          started. An install begun on an app's page carries on
+                          after the page is left, and this is the one place it
+                          can be seen to. The bar is the same one the rows draw,
+                          painted onto a stand-in package keyed to the operation.
+                          Stays a moment after the work ends to say how it went,
+                          then goes.  -->
+                    <Border x:Name="Activity"
+                            Visibility="Collapsed"
+                            Margin="8,0,8,10"
+                            Padding="12,10,12,11"
+                            CornerRadius="8"
+                            Background="{DynamicResource SidebarHoverBrush}">
+                        <StackPanel>
+                            <TextBlock x:Name="ActivityText"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ActivityDetail"
+                                       Margin="0,2,0,0"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource EmptyToCollapsed}}" />
+                            <ProgressBar x:Name="ActivityBar"
+                                         Margin="0,8,0,0"
+                                         Style="{StaticResource OperationProgressBar}" />
+                        </StackPanel>
+                    </Border>
+
                     <RadioButton x:Name="NavManage"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="Manage"
                                  Tag="{StaticResource IconGrid}"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                     <RadioButton x:Name="NavAbout"
                                  Style="{StaticResource NavItem}"
                                  GroupName="Nav"
                                  Content="About"
                                  Tag="{StaticResource IconAbout}"
-                                 Checked="OnNavChecked" />
+                                 Checked="OnNavChecked"
+                                 Click="OnNavClick" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -130,9 +170,12 @@
 
             <!--  Top bar doubles as the drag handle, since there is no title bar  -->
             <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="OnTitleBarMouseDown">
+                <!--  The watermark is only paint; the automation name is what
+                      a screen reader has to go on.  -->
                 <TextBox x:Name="SearchBox"
                          Style="{StaticResource SearchBox}"
                          Tag="Search for apps"
+                         AutomationProperties.Name="Search for apps"
                          Width="420"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center"

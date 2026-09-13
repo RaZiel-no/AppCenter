@@ -35,14 +35,22 @@ public partial class ExploreView : PageView
         Cards.ItemClick += package => Host.ShowDetail(package);
 
         Categories.ItemsSource = CatalogService.Categories();
+
+        // The cards say what is installed, from the one read of the machine
+        // the app shares - and follow it when it moves.
+        MachineState.Changed += OnMachineChanged;
+        Unloaded += (_, _) => MachineState.Changed -= OnMachineChanged;
     }
 
     public override Task LoadAsync()
     {
+        MachineState.Apply(_packages);
         Host.Icons.BeginLoad(_packages, Dispatcher);
         Host.Icons.BeginLoad(_highlights, Dispatcher);
         return Task.CompletedTask;
     }
+
+    private void OnMachineChanged(object? sender, EventArgs e) => MachineState.Apply(_packages);
 
     private void OnDiscoverClick(object sender, RoutedEventArgs e) =>
         Host.NavigateTo("featured");

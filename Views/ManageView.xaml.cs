@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -10,10 +11,31 @@ namespace AppCenter.Views;
 
 public partial class ManageView : PageView
 {
-    private readonly ObservableCollection<AppPackage> _updates = [];
-    private readonly ObservableCollection<AppPackage> _installed = [];
+    /// <summary>Every update winget offers, in the order the batch would take them.</summary>
+    private List<AppPackage> _allUpdates = [];
 
+    /// <summary>Every install winget listed, one per row it printed.</summary>
     private List<AppPackage> _allInstalled = [];
+
+    // What the two lists show: the above, filtered and sorted. The rows are
+    // the same AppPackage instances, so an operation painted on a package
+    // shows wherever the package is on screen.
+    private readonly ObservableCollection<AppPackage> _updates = [];
+    private readonly ObservableCollection<InstalledGroup> _installed = [];
+
+    /// <summary>
+    /// The families the user has opened, by key. The rows are rebuilt on every
+    /// filter change and every reload, so which ones were open has to be kept
+    /// apart from them.
+    /// </summary>
+    private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A stand-in for App Center's own package, for the GitHub release card:
+    /// its bar, status and reason are painted by OperationService like any
+    /// row's, under the same id a winget update of the app would run under.
+    /// </summary>
+    private readonly AppPackage _self = new() { Id = AppInfo.PackageId, Name = "App Center" };
 
     /// <summary>
     /// Covers this page's own winget lookups only. The updates and
@@ -28,18 +50,93 @@ public partial class ManageView : PageView
 
         UpdatesList.ItemsSource = _updates;
         InstalledList.ItemsSource = _installed;
+        SelfUpdateCard.DataContext = _self;
 
         OperationService.Started += OnOperationChanged;
         OperationService.Progressed += OnOperationProgressed;
         OperationService.Finished += OnOperationFinished;
+        AppUpdateService.Changed += OnAppUpdateChanged;
 
         Unloaded += (_, _) =>
         {
             OperationService.Started -= OnOperationChanged;
             OperationService.Progressed -= OnOperationProgressed;
             OperationService.Finished -= OnOperationFinished;
+            AppUpdateService.Changed -= OnAppUpdateChanged;
             _cts.Cancel();
         };
+    }
+
+    // ---------------------------------------------------------------
+    // App Center's own release
+    // ---------------------------------------------------------------
+
+    private void OnAppUpdateChanged(object? sender, EventArgs e) => RefreshSelfUpdate();
+
+    /// <summary>
+    /// The card for a newer App Center on GitHub. Only when GitHub has more
+    /// than winget is offering for the app: if winget already lists the same
+    /// version, its row below is the one to press.
+    /// </summary>
+    private void RefreshSelfUpdate()
+    {
+        var wingetOffers = _allUpdates
+            .FirstOrDefault(p => string.Equals(p.Id, AppInfo.PackageId, StringComparison.OrdinalIgnoreCase))
+            ?.AvailableVersion;
+
+        if (!AppUpdateService.OffersMoreThan(wingetOffers) || AppUpdateService.Latest is not { } latest)
+        {
+            SelfUpdateCard.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var inPlace = AppInfo.IsInstalledCopy && latest.HasInstaller;
+
+        SelfUpdateTitle.Text = $"App Center {latest.Version} is available";
+        SelfUpdateDetail.Text = inPlace
+            ? $"From GitHub, ahead of winget  ·  {AppInfo.Version} → {latest.Version}  ·  restarts App Center"
+            : $"From GitHub, ahead of winget  ·  {AppInfo.Version} → {latest.Version}  ·  download it from the release page";
+        SelfUpdateButton.Content = inPlace ? "Update" : "Open release page";
+        SelfUpdateButton.IsEnabled = OperationService.CanStart(AppInfo.PackageId);
+
+        OperationService.Paint(_self, OperationKind.Update);
+        SelfUpdateCard.Visibility = Visibility.Visible;
+    }
+
+    private void OnSelfUpdate(object sender, RoutedEventArgs e)
+    {
+        if (AppUpdateService.Latest is not { } latest)
+            return;
+
+        if (!AppInfo.IsInstalledCopy || !latest.HasInstaller)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(latest.PageUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                SetProgress($"Could not open {latest.PageUrl}: {ex.Message}");
+            }
+
+            return;
+        }
+
+        if (!OperationService.CanStart(AppInfo.PackageId))
+            return;
+
+        var confirmed = Host.ConfirmAction(
+            $"Update App Center to {latest.Version}?",
+            $"The installer for {latest.Version} is downloaded from GitHub and run silently - the same one " +
+            "winget will offer once its pull request is merged. App Center closes while it runs and opens " +
+            "again on the new version.\n\n" +
+            "No administrator permission is needed: App Center installs per user.",
+            "Update");
+
+        if (!confirmed)
+            return;
+
+        AppUpdateService.StartUpdate();
     }
 
     public override Task LoadAsync() => ReloadAsync();
@@ -48,6 +145,13 @@ public partial class ManageView : PageView
     // Loading
     // ---------------------------------------------------------------
 
+    /// <summary>
+    /// Fills the page from the last read of the machine straight away, if
+    /// there has been one, then reads again and fills it from that. The first
+    /// visit of a launch has nothing to open on, so it shows the shape of the
+    /// lists until winget answers; every visit after opens on the lists as
+    /// they were and lets the refresh land behind them.
+    /// </summary>
     private async Task ReloadAsync()
     {
         _cts.Cancel();
@@ -57,41 +161,20 @@ public partial class ManageView : PageView
         SetProgress("Checking winget for updates…");
         CheckButton.IsEnabled = false;
 
+        if (MachineState.HasLoaded)
+            ShowMachine();
+        else
+            ShowLoading(true);
+
         try
         {
-            // Sequential rather than parallel: two winget processes can
-            // contend on the same source database.
-            var upgrades = await WingetService.ListUpgradesAsync(token);
+            // One read for the whole app - the badge and the cards on the
+            // browse pages follow from the same one. See MachineState.
+            await MachineState.RefreshAsync(token);
             token.ThrowIfCancellationRequested();
 
-            var installed = await WingetService.ListInstalledAsync(token);
-            token.ThrowIfCancellationRequested();
-
-            Enrich(upgrades);
-            Enrich(installed);
-
-            // Whatever closes the app goes to the bottom of the list, which is
-            // also the bottom of the batch: "update all" works down the rows in
-            // the order they are shown. See SelfPackages.
-            _updates.Clear();
-            foreach (var package in SelfPackages.LastInLine(upgrades))
-                _updates.Add(package);
-
-            _allInstalled = installed;
-
-            RefreshUpdatesSection();
-
-            if (!WingetService.IsAvailable)
-                UpdatesEmptyText.Text = "winget could not be started. Install App Installer from the Microsoft Store.";
-
-            ApplyFilter();
-            Host.Icons.BeginLoad(upgrades, Dispatcher);
-
-            // The rows were just rebuilt from scratch, so anything winget is
-            // still working on has to be marked busy again.
-            ApplyOperations();
-            RefreshButtons();
-            RefreshStatus();
+            ShowLoading(false);
+            ShowMachine();
         }
         catch (OperationCanceledException)
         {
@@ -99,12 +182,51 @@ public partial class ManageView : PageView
         }
         catch (Exception ex)
         {
+            ShowLoading(false);
             SetProgress($"Could not read package list: {ex.Message}");
         }
         finally
         {
             CheckButton.IsEnabled = true;
         }
+    }
+
+    /// <summary>Rebuilds both lists from what MachineState currently holds.</summary>
+    private void ShowMachine()
+    {
+        var upgrades = MachineState.Upgrades.ToList();
+        var installed = MachineState.Installed.ToList();
+
+        Enrich(upgrades);
+        Enrich(installed);
+
+        // Whatever closes the app goes to the bottom of the list, which is
+        // also the bottom of the batch: "update all" works down the rows in
+        // the order they are shown. See SelfPackages.
+        _allUpdates = SelfPackages.LastInLine(upgrades);
+        _allInstalled = installed;
+
+        if (!WingetService.IsAvailable)
+            UpdatesEmptyText.Text = "winget could not be started. Install App Installer from the Microsoft Store.";
+
+        ApplyFilter();
+        RefreshSelfUpdate();
+        Host.Icons.BeginLoad(upgrades, Dispatcher);
+
+        // The rows were just rebuilt from scratch, so anything winget is
+        // still working on has to be marked busy again.
+        ApplyOperations();
+        RefreshButtons();
+        RefreshStatus();
+    }
+
+    private void ShowLoading(bool loading)
+    {
+        LoadingPanel.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
+        Lists.Visibility = loading ? Visibility.Collapsed : Visibility.Visible;
+
+        if (loading)
+            UpdateAllButton.IsEnabled = false;
     }
 
     /// <summary>
@@ -132,46 +254,109 @@ public partial class ManageView : PageView
     // Filtering
     // ---------------------------------------------------------------
 
+    /// <summary>
+    /// Rebuilds both lists from what winget said, through the filter box, the
+    /// system toggle and the sort. The filter reaches the updates as well as
+    /// the installs - typing a name is how a package is found, and it is found
+    /// wherever it is. The toggle is for the installs only: a system package
+    /// with an update waiting is exactly the kind worth seeing.
+    /// </summary>
     private void ApplyFilter()
     {
         var needle = FilterBox.Text.Trim();
         var showSystem = SystemToggle.IsChecked == true;
+        var descending = InstalledSort.SelectedIndex == 1;
 
+        bool Matches(AppPackage p) =>
+            needle.Length == 0
+            || p.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+            || p.Id.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+        // Updates: filtered, sorted, and still with whatever closes the app
+        // at the end - the order shown is the order "update all" runs in.
+        var updates = _allUpdates.Where(Matches);
+        updates = descending
+            ? updates.OrderByDescending(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+            : updates.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase);
+
+        _updates.Clear();
+        foreach (var package in SelfPackages.LastInLine(updates))
+            _updates.Add(package);
+
+        RefreshUpdatesSection(needle);
+
+        // Installs: filtered, then folded into families, then sorted by what
+        // the row will say. Folding after filtering means a family shrinks to
+        // the members that match rather than vanishing or showing the rest.
         IEnumerable<AppPackage> query = _allInstalled;
 
         if (!showSystem)
             query = query.Where(p => !p.IsSystemPackage);
 
-        if (needle.Length > 0)
-        {
-            query = query.Where(p =>
-                p.Name.Contains(needle, StringComparison.OrdinalIgnoreCase) ||
-                p.Id.Contains(needle, StringComparison.OrdinalIgnoreCase));
-        }
+        var groups = PackageFamilies.Group(query.Where(Matches));
 
-        query = InstalledSort.SelectedIndex == 1
-            ? query.OrderByDescending(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-            : query.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase);
-
-        var results = query.ToList();
+        groups = (descending
+            ? groups.OrderByDescending(g => g.Title, StringComparer.CurrentCultureIgnoreCase)
+            : groups.OrderBy(g => g.Title, StringComparer.CurrentCultureIgnoreCase)).ToList();
 
         _installed.Clear();
-        foreach (var package in results)
-            _installed.Add(package);
+        foreach (var group in groups)
+        {
+            group.IsExpanded = _expanded.Contains(group.Key);
+            group.PropertyChanged += OnGroupChanged;
+            _installed.Add(group);
+        }
 
-        var hidden = _allInstalled.Count - results.Count;
-        InstalledStatus.Text = hidden > 0
-            ? $"Showing {results.Count} of {_allInstalled.Count} packages ({hidden} hidden by the current filter)."
-            : $"Showing {results.Count} packages.";
+        var shown = groups.Sum(g => g.Members.Count);
+        var hidden = _allInstalled.Count - shown;
+        var families = groups.Count(g => g.IsGroup);
+
+        // An empty list is a card that says why, not a hairline.
+        InstalledPanel.Visibility = groups.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        InstalledEmpty.Visibility = groups.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+        InstalledEmptyText.Text = _allInstalled.Count == 0
+            ? "winget lists nothing as installed."
+            : needle.Length > 0
+                ? $"No installed apps match “{needle}”." + (showSystem ? string.Empty : " System packages are hidden.")
+                : "Every installed package is a system package. Turn on “System packages” to see them.";
+
+        InstalledStatus.Text =
+            (hidden > 0
+                ? $"Showing {shown} of {_allInstalled.Count} packages ({hidden} hidden by the current filter)"
+                : $"Showing {shown} packages")
+            + (families > 0
+                ? $", with {families} installed in several versions."
+                : ".");
 
         // Only the visible rows are worth fetching icons for.
-        Host.Icons.BeginLoad(results.Take(60), Dispatcher);
+        Host.Icons.BeginLoad(groups.Take(60).Select(g => g.Lead), Dispatcher);
+    }
+
+    /// <summary>Keeps a family's open state across the rebuilds that follow.</summary>
+    private void OnGroupChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not InstalledGroup group || e.PropertyName != nameof(InstalledGroup.IsExpanded))
+            return;
+
+        if (group.IsExpanded)
+            _expanded.Add(group.Key);
+        else
+            _expanded.Remove(group.Key);
     }
 
     private void OnFilterChanged(object sender, TextChangedEventArgs e)
     {
         if (IsLoaded)
             ApplyFilter();
+    }
+
+    private void OnFilterKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape)
+            return;
+
+        FilterBox.Clear();
+        e.Handled = true;
     }
 
     private void OnFilterToggled(object sender, RoutedEventArgs e)
@@ -190,28 +375,29 @@ public partial class ManageView : PageView
     // Actions that change the machine
     // ---------------------------------------------------------------
 
-    private async void OnCheckForUpdates(object sender, RoutedEventArgs e)
-    {
-        await ReloadAsync();
-        Host.RefreshUpdateBadge();
-    }
+    /// <summary>The badge follows the same read, so nothing else to ask for.</summary>
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await ReloadAsync();
 
     private void OnUpdateAll(object sender, RoutedEventArgs e)
     {
-        if (_updates.Count == 0 || !OperationService.CanStart(Operation.UpdateAllKey))
+        // Everything winget offers, not only what the filter is showing: the
+        // button says "all", and the question that follows names them.
+        var all = _allUpdates;
+
+        if (all.Count == 0 || !OperationService.CanStart(Operation.UpdateAllKey))
             return;
 
-        var names = string.Join(", ", _updates.Take(5).Select(p => p.Name));
-        if (_updates.Count > 5)
-            names += $", and {_updates.Count - 5} more";
+        var names = string.Join(", ", all.Take(5).Select(p => p.Name));
+        if (all.Count > 5)
+            names += $", and {all.Count - 5} more";
 
         // The list is already ordered so these come last, but the question still
         // has to name them: the batch ends where they are, and being told that
         // afterwards is exactly the position this is here to avoid.
-        var closes = _updates.Where(p => p.ClosesApp).Select(p => p.Name).ToList();
+        var closes = all.Where(p => p.ClosesApp).Select(p => p.Name).ToList();
 
         var confirmed = Host.ConfirmAction(
-            $"Update {_updates.Count} package{(_updates.Count == 1 ? string.Empty : "s")}?",
+            $"Update {all.Count} package{(all.Count == 1 ? string.Empty : "s")}?",
             $"winget will download and install updates for: {names}.\n\n" +
             "Windows may prompt for administrator permission for some of them." +
             (closes.Count == 0
@@ -226,7 +412,7 @@ public partial class ManageView : PageView
         // Snapshotted before the operation starts: the list is rebuilt by the
         // reload that follows every finished update, and the batch has to keep
         // working through the packages the user actually confirmed.
-        var batch = _updates.Select(p => (p.Id, p.Name)).ToList();
+        var batch = all.Select(p => (p.Id, p.Name)).ToList();
 
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
@@ -237,33 +423,44 @@ public partial class ManageView : PageView
     }
 
     /// <summary>
-    /// Opens the clicked row's page. Back returns here: the shell keeps the
-    /// sidebar destination while a detail page is showing, so there is nothing
-    /// to remember on this side.
+    /// A press on a row, or on one of the buttons inside a row - the rows are
+    /// buttons too, tagged "row", so a press anywhere on one arrives here the
+    /// same way. An update row and a package on its own open the package's
+    /// page; a family's row opens the family out. Back returns here: the shell
+    /// keeps the sidebar destination while a detail page is showing, so there
+    /// is nothing to remember on this side.
     /// </summary>
-    private void OnRowClick(object sender, MouseButtonEventArgs e)
-    {
-        // A click on Update or Uninstall is theirs, not the row's. Button marks
-        // its own mouse events handled, so one should never arrive here - the
-        // check is what makes that a stated assumption rather than a hope.
-        if (TreeSearch.FindAncestor<Button>(e.OriginalSource as DependencyObject) is not null)
-            return;
-
-        if ((e.OriginalSource as FrameworkElement)?.DataContext is AppPackage package)
-            Host.ShowDetail(package);
-    }
-
     private void OnRowButtonClick(object sender, RoutedEventArgs e)
     {
         // Not e.Source: WPF re-maps it to the ItemsControl on the way out of
         // the item template, so the Button is only reachable by walking up
-        // from OriginalSource. See TreeSearch.FindAncestor.
+        // from OriginalSource. See TreeSearch.FindAncestor. The walk finds
+        // the innermost button, so Update inside a row is Update, not the row.
         var button = TreeSearch.FindAncestor<Button>(e.OriginalSource as DependencyObject);
+        var action = button?.Tag as string;
+
+        if (action == "row")
+        {
+            switch (button!.DataContext)
+            {
+                case InstalledGroup { IsGroup: true } family:
+                    family.IsExpanded = !family.IsExpanded;
+                    break;
+
+                case InstalledGroup single:
+                    Host.ShowDetail(single.Lead);
+                    break;
+
+                case AppPackage opened:
+                    Host.ShowDetail(opened);
+                    break;
+            }
+
+            return;
+        }
 
         if (button?.DataContext is not AppPackage package || !OperationService.CanStart(package.OperationKey))
             return;
-
-        var action = button.Tag as string;
 
         if (action == "update")
         {
@@ -321,11 +518,25 @@ public partial class ManageView : PageView
     /// Marks every row winget is currently working on. The rows are rebuilt
     /// on each reload, so their busy state has to be re-derived rather than
     /// carried - the service is the only thing that remembers.
+    ///
+    /// A family with a member that is busy, or has a reason to show, opens so
+    /// the member can be seen: a bar or a red line inside a closed family is a
+    /// bar or a red line nobody is looking at.
     /// </summary>
     private void ApplyOperations()
     {
         foreach (var (package, shows) in Rows())
             OperationService.Paint(package, shows);
+
+        OperationService.Paint(_self, OperationKind.Update);
+        SelfUpdateButton.IsEnabled = OperationService.CanStart(AppInfo.PackageId);
+
+        foreach (var group in _installed)
+        {
+            if (group.IsGroup && !group.IsExpanded
+                && group.Members.Any(m => m.IsBusy || m.Error.Length > 0))
+                group.IsExpanded = true;
+        }
     }
 
     /// <summary>
@@ -333,7 +544,7 @@ public partial class ManageView : PageView
     /// is what decides the failures it is entitled to explain.
     /// </summary>
     private IEnumerable<(AppPackage Package, OperationKind Shows)> Rows() =>
-        _updates.Select(p => (p, OperationKind.Update))
+        _allUpdates.Select(p => (p, OperationKind.Update))
             .Concat(_allInstalled.Select(p => (p, OperationKind.Uninstall)));
 
     /// <summary>
@@ -359,38 +570,47 @@ public partial class ManageView : PageView
     /// </summary>
     private void DropUpdated(Operation batch)
     {
-        var dropped = false;
+        var dropped = _allUpdates.RemoveAll(p => batch.WasUpdated(p.Id)) > 0;
 
         // Backwards, so removing a row does not move the one after it out from
         // under the loop. Most calls find nothing: this runs on every line
         // winget prints, not only on the ones that end a package.
         for (var i = _updates.Count - 1; i >= 0; i--)
         {
-            if (!batch.WasUpdated(_updates[i].Id))
-                continue;
-
-            _updates.RemoveAt(i);
-            dropped = true;
+            if (batch.WasUpdated(_updates[i].Id))
+                _updates.RemoveAt(i);
         }
 
         if (dropped)
-            RefreshUpdatesSection();
+            RefreshUpdatesSection(FilterBox.Text.Trim());
     }
 
-    /// <summary>The heading and the empty card, from whatever the list holds now.</summary>
-    private void RefreshUpdatesSection()
+    /// <summary>
+    /// The heading, the button and the empty card, from whatever the lists
+    /// hold now. The count is of every update, not of the ones the filter is
+    /// showing - that is what "update all" would do.
+    /// </summary>
+    private void RefreshUpdatesSection(string needle)
     {
-        var any = _updates.Count > 0;
+        var total = _allUpdates.Count;
+        var shown = _updates.Count;
 
-        UpdatesHeading.Text = $"Updates available ({_updates.Count})";
-        UpdatesPanel.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
-        UpdatesEmpty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
+        UpdatesHeading.Text = $"Updates available ({total})";
+        UpdateAllLabel.Text = total > 0 ? $"Update all ({total})" : "Update all";
+
+        UpdatesPanel.Visibility = shown > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdatesEmpty.Visibility = shown > 0 ? Visibility.Collapsed : Visibility.Visible;
+
+        if (shown == 0 && WingetService.IsAvailable)
+            UpdatesEmptyText.Text = total == 0
+                ? "Everything is up to date."
+                : $"None of the {total} updates match “{needle}”.";
     }
 
     private void RefreshButtons()
     {
         UpdateAllButton.IsEnabled =
-            _updates.Count > 0 && OperationService.CanStart(Operation.UpdateAllKey);
+            _allUpdates.Count > 0 && OperationService.CanStart(Operation.UpdateAllKey);
     }
 
     /// <summary>
@@ -440,7 +660,7 @@ public partial class ManageView : PageView
     /// where it explains nothing to anybody.
     /// </summary>
     private bool SaidByARow(string key) =>
-        _updates.Concat(_installed).Any(p =>
+        _updates.Concat(_installed.SelectMany(g => g.Members)).Any(p =>
             p.Error.Length > 0
             && string.Equals(p.OperationKey, key, StringComparison.OrdinalIgnoreCase));
 
@@ -512,7 +732,7 @@ public partial class ManageView : PageView
             _ => false,
         };
 
-        foreach (var package in _updates)
+        foreach (var package in _allUpdates)
         {
             if (package.IsBusy || !WentThrough(package))
                 continue;

@@ -58,6 +58,8 @@
 
     <!--  Filled glyphs, used inside the small publisher badges  -->
     <StreamGeometry x:Key="GlyphCheck">M 4.2,8.4 L 7.1,11.3 L 12.4,4.9</StreamGeometry>
+    <!--  The card chip for an update waiting: up, where the version is going.  -->
+    <StreamGeometry x:Key="GlyphArrowUp">M 8,13 L 8,3.4 M 4,7.4 L 8,3.4 L 12,7.4</StreamGeometry>
     <StreamGeometry x:Key="GlyphStarSolid">M 8,2.6 L 9.7,6.1 L 13.5,6.6 L 10.7,9.3 L 11.4,13.1 L 8,11.3 L 4.6,13.1 L 5.3,9.3 L 2.5,6.6 L 6.3,6.1 Z</StreamGeometry>
 
 </ResourceDictionary>

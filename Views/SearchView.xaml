@@ -4,17 +4,23 @@
                 xmlns:views="clr-namespace:AppCenter.Views"
                 xmlns:ctrl="clr-namespace:AppCenter.Controls">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Style="{StaticResource PageHeader}">
+            <StackPanel MaxWidth="900" HorizontalAlignment="Stretch">
+                <TextBlock x:Name="Title" Style="{StaticResource PageTitle}" TextTrimming="CharacterEllipsis" />
 
-            <TextBlock x:Name="Title" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
+                <TextBlock x:Name="Status"
+                           Margin="0,8,0,0"
+                           FontSize="13.5"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
 
-            <TextBlock x:Name="Status"
-                       Margin="0,10,0,0"
-                       FontSize="13.5"
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
-
-            <ctrl:AppGrid x:Name="Cards" Margin="0,22,0,0" />
-        </StackPanel>
-    </ScrollViewer>
+        <ScrollViewer Style="{StaticResource PageBody}">
+            <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,10,24,40">
+                <ctrl:AppGrid x:Name="Cards" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </views:PageView>

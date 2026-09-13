@@ -3,163 +3,318 @@
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 xmlns:views="clr-namespace:AppCenter.Views">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <!--  Stretch rather than Center: a centred panel takes the width of its
-              widest child, so every new status line resized the whole page and
-              slid it sideways. Stretched and capped, the column is always the
-              same width - and WPF still centres what MaxWidth has clamped.  -->
-        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,0,24,40">
+    <DockPanel>
 
-            <TextBlock Text="Manage" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
+        <!--  ================= Header =================
+              Pinned. The filter and the sort reach both lists, and a page
+              of several hundred rows wants them within reach from anywhere
+              in it, which is the whole reason the header stays.  -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource PageHeader}">
+            <Grid MaxWidth="900" HorizontalAlignment="Stretch">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <!--  ================= Updates =================  -->
-            <Grid Margin="0,28,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
+                    <TextBlock Grid.Column="0"
+                               Text="Manage"
+                               Style="{StaticResource PageTitle}"
+                               VerticalAlignment="Center" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="CheckButton"
+                                Style="{StaticResource PillButton}"
+                                Click="OnCheckForUpdates">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="16" Height="16">
+                                    <Path Style="{StaticResource Icon}"
+                                          Data="{StaticResource IconRefresh}"
+                                          Stroke="{DynamicResource TextPrimaryBrush}" />
+                                </Viewbox>
+                                <TextBlock Text="Check for updates" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="UpdateAllButton"
+                                Style="{StaticResource GreenButton}"
+                                Margin="10,0,0,0"
+                                Click="OnUpdateAll">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="16" Height="16">
+                                    <Path Style="{StaticResource Icon}"
+                                          Data="{StaticResource IconDownload}"
+                                          Stroke="White" />
+                                </Viewbox>
+                                <TextBlock x:Name="UpdateAllLabel"
+                                           Text="Update all"
+                                           Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="White" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="1" Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox x:Name="FilterBox"
+                             Grid.Column="0"
+                             Style="{StaticResource SmallSearchBox}"
+                             Tag="Filter by name or id"
+                             AutomationProperties.Name="Filter installed apps"
+                             Width="220"
+                             TextChanged="OnFilterChanged"
+                             KeyDown="OnFilterKeyDown" />
+
+                    <!--  "System packages" rather than "Show system packages": the
+                          switch is the verb, and the row has to fit the window's
+                          minimum width beside the filter and the sort.  -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,16,0" VerticalAlignment="Center">
+                        <TextBlock Text="System packages"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"
+                                   FontSize="13.5"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <CheckBox x:Name="SystemToggle"
+                                  Style="{StaticResource ToggleSwitch}"
+                                  VerticalAlignment="Center"
+                                  AutomationProperties.Name="Show system packages"
+                                  Checked="OnFilterToggled"
+                                  Unchecked="OnFilterToggled" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Sort by"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"
+                                   FontSize="13.5"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <ComboBox x:Name="InstalledSort"
+                                  Style="{StaticResource AppComboBox}"
+                                  AutomationProperties.Name="Sort installed apps"
+                                  Width="176"
+                                  SelectedIndex="0"
+                                  SelectionChanged="OnSortChanged">
+                            <ComboBoxItem Content="Alphabetical (A to Z)" />
+                            <ComboBoxItem Content="Alphabetical (Z to A)" />
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+
+                <!--  Only for what no row can say: the check for updates, a list
+                      that could not be read, and how a finished run ended when the
+                      rows are not already saying it. While winget is working, the
+                      rows say it themselves - each one busy in turn, with its own
+                      bar - and a failure is theirs too, in red, beside the package
+                      it happened to. Collapsed when there is nothing left over to
+                      say, so it takes no room.  -->
+                <TextBlock x:Name="ProgressText"
+                           Grid.Row="2"
+                           Visibility="Collapsed"
+                           Margin="0,14,0,0"
+                           FontSize="12.5"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
+        <!--  ================= Body =================  -->
+        <ScrollViewer Style="{StaticResource PageBody}">
+            <!--  Stretch rather than Center: a centred panel takes the width of its
+                  widest child, so every new status line resized the whole page and
+                  slid it sideways. Stretched and capped, the column is always the
+                  same width - and WPF still centres what MaxWidth has clamped.  -->
+            <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,6,24,40">
+
+                <!--  The first visit has nothing to show until winget answers,
+                      which takes a few seconds; the shape of what is coming
+                      stands in. Later visits open on the last answer and
+                      refresh behind it, so this is seen once per launch.  -->
+                <StackPanel x:Name="LoadingPanel" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Updates available" />
+                    <Border Style="{StaticResource SkeletonPanel}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="180" />
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="130" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Installed apps" Margin="0,34,0,0" />
+                    <Border Style="{StaticResource SkeletonPanel}" Margin="0,14,0,0">
+                        <StackPanel>
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="210" />
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="150" />
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="240" />
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="120" />
+                            <ContentControl Template="{StaticResource SkeletonRow}" Tag="190" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel x:Name="Lists">
+
+                <!--  ================= App Center itself =================
+                      A newer App Center on GitHub, ahead of the winget package
+                      - shown only when GitHub has more than winget offers, so
+                      it never doubles a row below. It restarts the app, so it
+                      sits apart from the batch rather than in it.  -->
+                <Border x:Name="SelfUpdateCard"
+                        Visibility="Collapsed"
+                        Margin="0,0,0,26"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Width="38" Height="38" CornerRadius="9" Background="White">
+                            <Image Width="26"
+                                   Height="26"
+                                   RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.Source>
+                                    <BitmapImage UriSource="/AppCenter.ico" DecodePixelWidth="48" />
+                                </Image.Source>
+                            </Image>
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Margin="14,0,14,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="SelfUpdateTitle"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="SelfUpdateDetail"
+                                       Margin="0,2,0,0"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Margin="0,0,12,0"
+                                       VerticalAlignment="Center"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Text="{Binding Status}"
+                                       Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+                            <Button x:Name="SelfUpdateButton"
+                                    Style="{StaticResource GreenButton}"
+                                    Height="32"
+                                    Padding="16,0"
+                                    Content="Update"
+                                    Click="OnSelfUpdate" />
+                        </StackPanel>
+
+                        <ProgressBar Grid.Row="1"
+                                     Grid.ColumnSpan="3"
+                                     Margin="0,10,0,0"
+                                     Style="{StaticResource OperationProgressBar}" />
+
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="1"
+                                   Grid.ColumnSpan="2"
+                                   Margin="14,8,0,0"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource ErrorBrush}"
+                                   Text="{Binding Error}"
+                                   Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}" />
+                    </Grid>
+                </Border>
+
+                <!--  ================= Updates =================  -->
                 <TextBlock x:Name="UpdatesHeading"
-                           Grid.Column="0"
-                           VerticalAlignment="Center"
                            Style="{StaticResource SectionTitle}"
                            Text="Updates available" />
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="CheckButton"
-                            Style="{StaticResource PillButton}"
-                            Click="OnCheckForUpdates">
-                        <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="16" Height="16">
-                                <Path Style="{StaticResource Icon}"
-                                      Data="{StaticResource IconRefresh}"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" />
-                            </Viewbox>
-                            <TextBlock Text="Check for updates" Margin="9,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
+                <Border x:Name="UpdatesPanel"
+                        Margin="0,14,0,0"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                    <ItemsControl x:Name="UpdatesList"
+                                  AlternationCount="4096"
+                                  ItemTemplate="{StaticResource UpdateRowTemplate}"
+                                  Button.Click="OnRowButtonClick" />
+                </Border>
 
-                    <Button x:Name="UpdateAllButton"
-                            Style="{StaticResource GreenButton}"
-                            Margin="10,0,0,0"
-                            Click="OnUpdateAll">
-                        <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="16" Height="16">
-                                <Path Style="{StaticResource Icon}"
-                                      Data="{StaticResource IconDownload}"
-                                      Stroke="White" />
-                            </Viewbox>
-                            <TextBlock Text="Update all" Margin="9,0,0,0" VerticalAlignment="Center" Foreground="White" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Grid>
-
-            <!--  Only for what no row can say: the check for updates, a list
-                  that could not be read, and how a finished run ended when the
-                  rows are not already saying it. While winget is working, the
-                  rows say it themselves - each one busy in turn, with its own
-                  bar - and a failure is theirs too, in red, beside the package
-                  it happened to. Collapsed when there is nothing left over to
-                  say, so it takes no room.  -->
-            <TextBlock x:Name="ProgressText"
-                       Visibility="Collapsed"
-                       Margin="0,10,0,0"
-                       FontSize="12.5"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       TextWrapping="Wrap" />
-
-            <Border x:Name="UpdatesPanel"
-                    Margin="0,16,0,0"
-                    Background="{DynamicResource CardBgBrush}"
-                    BorderBrush="{DynamicResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="10">
-                <ItemsControl x:Name="UpdatesList"
-                              AlternationCount="4096"
-                              ItemTemplate="{StaticResource UpdateRowTemplate}"
-                              Button.Click="OnRowButtonClick"
-                              MouseLeftButtonUp="OnRowClick" />
-            </Border>
-
-            <Border x:Name="UpdatesEmpty"
-                    Visibility="Collapsed"
-                    Margin="0,16,0,0"
-                    Background="{DynamicResource CardBgBrush}"
-                    BorderBrush="{DynamicResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="20,22">
-                <TextBlock x:Name="UpdatesEmptyText"
-                           Text="Everything is up to date."
-                           FontSize="13.5"
-                           Foreground="{DynamicResource TextSecondaryBrush}" />
-            </Border>
-
-            <!--  ================= Installed =================  -->
-            <TextBlock Text="Installed apps" Style="{StaticResource SectionTitle}" Margin="0,38,0,0" />
-
-            <Grid Margin="0,16,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBox x:Name="FilterBox"
-                         Grid.Column="0"
-                         Style="{StaticResource SmallSearchBox}"
-                         Tag="Search installed apps"
-                         Width="230"
-                         TextChanged="OnFilterChanged" />
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="18,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="Show system packages"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0"
+                <Border x:Name="UpdatesEmpty"
+                        Visibility="Collapsed"
+                        Margin="0,14,0,0"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="20,22">
+                    <TextBlock x:Name="UpdatesEmptyText"
+                               Text="Everything is up to date."
                                FontSize="13.5"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                    <CheckBox x:Name="SystemToggle"
-                              Style="{StaticResource ToggleSwitch}"
-                              VerticalAlignment="Center"
-                              Checked="OnFilterToggled"
-                              Unchecked="OnFilterToggled" />
-                </StackPanel>
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Border>
 
-                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Sort by"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0"
+                <!--  ================= Installed =================  -->
+                <TextBlock x:Name="InstalledHeading"
+                           Text="Installed apps"
+                           Style="{StaticResource SectionTitle}"
+                           Margin="0,34,0,0" />
+
+                <Border x:Name="InstalledPanel"
+                        Margin="0,14,0,0"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                    <ItemsControl x:Name="InstalledList"
+                                  Grid.IsSharedSizeScope="True"
+                                  AlternationCount="4096"
+                                  ItemTemplate="{StaticResource InstalledRowTemplate}"
+                                  Button.Click="OnRowButtonClick" />
+                </Border>
+
+                <Border x:Name="InstalledEmpty"
+                        Visibility="Collapsed"
+                        Margin="0,14,0,0"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="20,22">
+                    <TextBlock x:Name="InstalledEmptyText"
                                FontSize="13.5"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                    <ComboBox x:Name="InstalledSort"
-                              Style="{StaticResource AppComboBox}"
-                              Width="190"
-                              SelectedIndex="0"
-                              SelectionChanged="OnSortChanged">
-                        <ComboBoxItem Content="Alphabetical (A to Z)" />
-                        <ComboBoxItem Content="Alphabetical (Z to A)" />
-                    </ComboBox>
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <TextBlock x:Name="InstalledStatus"
+                           Margin="4,14,0,0"
+                           FontSize="12.5"
+                           Foreground="{DynamicResource TextMutedBrush}" />
+
                 </StackPanel>
-            </Grid>
-
-            <Border x:Name="InstalledPanel"
-                    Margin="0,16,0,0"
-                    Background="{DynamicResource CardBgBrush}"
-                    BorderBrush="{DynamicResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="10">
-                <ItemsControl x:Name="InstalledList"
-                              AlternationCount="4096"
-                              ItemTemplate="{StaticResource InstalledRowTemplate}"
-                              Button.Click="OnRowButtonClick" />
-            </Border>
-
-            <TextBlock x:Name="InstalledStatus"
-                       Margin="4,14,0,0"
-                       FontSize="12.5"
-                       Foreground="{DynamicResource TextMutedBrush}" />
-        </StackPanel>
-    </ScrollViewer>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </views:PageView>

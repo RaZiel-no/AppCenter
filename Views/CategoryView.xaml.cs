@@ -46,15 +46,21 @@ public partial class CategoryView : PageView
             Cards.EmptyText = "No apps are listed in this category yet.";
             Cards.ShowEmpty(true);
         }
+
+        MachineState.Changed += OnMachineChanged;
+        Unloaded += (_, _) => MachineState.Changed -= OnMachineChanged;
     }
 
     private void OnBackClick(object sender, RoutedEventArgs e) => Host.GoBack();
 
     public override Task LoadAsync()
     {
+        MachineState.Apply(_packages);
         Host.Icons.BeginLoad(_packages, Dispatcher);
         return Task.CompletedTask;
     }
+
+    private void OnMachineChanged(object? sender, EventArgs e) => MachineState.Apply(_packages);
 
     private void OnSortChanged(object sender, SelectionChangedEventArgs e)
     {

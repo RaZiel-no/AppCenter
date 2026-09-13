@@ -4,8 +4,11 @@
                 xmlns:views="clr-namespace:AppCenter.Views"
                 xmlns:ctrl="clr-namespace:AppCenter.Controls">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+    <!--  No pinned header: the banner is the page's opening, and it scrolls
+          with the rest. Styled as a body all the same, so its column sits
+          exactly where every other page's does.  -->
+    <ScrollViewer Style="{StaticResource PageBody}">
+        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,4,24,40">
 
             <!--  ================= Featured banner =================  -->
             <Border Height="232"

@@ -95,8 +95,18 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; App Center updating itself from a GitHub release runs this setup silently
+; and exits so its files can be replaced; /RELAUNCH=1 asks to be started again
+; when that is done. Nothing else passes the switch, so a hand-run or winget
+; install is unaffected.
+Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: RelaunchRequested
 
 [Code]
+
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
 
 { ---- .NET 10 Desktop Runtime -------------------------------------------------
 

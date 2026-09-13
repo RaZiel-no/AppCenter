@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using AppCenter.Models;
 using AppCenter.Services;
@@ -36,7 +37,17 @@ public interface IShellHost
     bool ConfirmAction(string title, string message, string confirmLabel);
 }
 
-/// <summary>Base for every page hosted in the content area.</summary>
+/// <summary>
+/// Base for every page hosted in the content area.
+///
+/// A page is a header over a scrolling body. The header - the title, the
+/// primary actions, a filter bar - stays put while the body scrolls under it,
+/// so a long list can be filtered from anywhere in it and an app can be
+/// installed from anywhere in its description. Pages lay that out themselves
+/// as a DockPanel with a <c>PageHeader</c> Border docked top and a ScrollViewer
+/// filling the rest; a page with nothing to pin, like Explore, is a bare
+/// ScrollViewer.
+/// </summary>
 public class PageView : UserControl
 {
     public IShellHost Host { get; set; } = null!;
@@ -50,11 +61,43 @@ public class PageView : UserControl
     public string? ScrollKey { get; set; }
 
     /// <summary>
-    /// The page's scroll area. Every page wraps its content in one, and it is
-    /// the UserControl's own content, so this needs no tree walking and works
-    /// before the page has been laid out.
+    /// True once the body has scrolled under the header. The header's style
+    /// reads it to draw the hairline that says so: at the top, header and body
+    /// read as one page, and the line would only be a stripe across it.
     /// </summary>
-    public ScrollViewer? Scroller => Content as ScrollViewer;
+    public static readonly DependencyProperty IsScrolledProperty =
+        DependencyProperty.Register(nameof(IsScrolled), typeof(bool), typeof(PageView), new PropertyMetadata(false));
+
+    public bool IsScrolled
+    {
+        get => (bool)GetValue(IsScrolledProperty);
+        private set => SetValue(IsScrolledProperty, value);
+    }
+
+    /// <summary>
+    /// The page's scroll area: the body of the DockPanel, or the whole content
+    /// for a page without a header. Found by shape rather than by name, so a
+    /// page needs no code of its own to take part in scroll memory.
+    /// </summary>
+    public ScrollViewer? Scroller => Content switch
+    {
+        ScrollViewer scroller => scroller,
+        Panel panel => panel.Children.OfType<ScrollViewer>().FirstOrDefault(),
+        _ => null,
+    };
+
+    public PageView()
+    {
+        // The body's ScrollChanged bubbles up here. Popups - a combo box's
+        // list - route through here too, so only the page's own scroller counts.
+        AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnBodyScrolled));
+    }
+
+    private void OnBodyScrolled(object sender, ScrollChangedEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, Scroller))
+            IsScrolled = e.VerticalOffset > 0;
+    }
 
     /// <summary>Called once after the page is placed in the content area.</summary>
     public virtual Task LoadAsync() => Task.CompletedTask;

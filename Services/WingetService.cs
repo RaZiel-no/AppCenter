@@ -71,6 +71,95 @@ public sealed record WingetRow(
     string Source);
 
 /// <summary>
+/// What `winget list --id` said about one package: a row per installed
+/// version, or none. Read by a package's own page to decide between Install,
+/// Update and Uninstall, and to say which version is on the machine.
+/// </summary>
+public sealed record InstallState(IReadOnlyList<WingetRow> Installs)
+{
+    public static readonly InstallState NotInstalled = new([]);
+
+    public bool IsInstalled => Installs.Count > 0;
+
+    /// <summary>
+    /// The installed versions, newest first as far as a string sort can tell,
+    /// with blanks and duplicates dropped. Usually one; two or more when a
+    /// package is legitimately installed side by side, like an SDK.
+    /// </summary>
+    public IReadOnlyList<string> InstalledVersions =>
+        Installs
+            .Select(r => r.Version.Trim())
+            .Where(v => v.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(v => v, VersionOrder.Instance)
+            .ToList();
+
+    /// <summary>
+    /// The update winget offers, or empty. winget only ever fills Available on
+    /// one row per id - the newest install - which is the one an upgrade acts on.
+    /// </summary>
+    public string AvailableVersion =>
+        Installs.Select(r => r.Available.Trim()).FirstOrDefault(v => v.Length > 0) ?? string.Empty;
+
+    public bool HasUpdate => AvailableVersion.Length > 0;
+}
+
+/// <summary>
+/// Orders version strings the way a person reads them - "10.0.2" after
+/// "9.0.317" - rather than the way a string sort does. Numeric runs compare as
+/// numbers and everything else as text; "1.2" comes before "1.2.1" but after
+/// "1.2-rc.1", because a trailing word is a pre-release. Not a full semver
+/// parser: winget's own versions are not semver either, and this only has to
+/// order what one id's installs look like.
+/// </summary>
+public sealed class VersionOrder : IComparer<string>
+{
+    public static readonly VersionOrder Instance = new();
+
+    private static readonly Regex Part = new(@"\d+|[^\d.\-+ ]+", RegexOptions.Compiled);
+
+    public int Compare(string? x, string? y)
+    {
+        var a = Part.Matches(x ?? string.Empty);
+        var b = Part.Matches(y ?? string.Empty);
+        var shared = Math.Min(a.Count, b.Count);
+
+        for (var i = 0; i < shared; i++)
+        {
+            var pa = a[i].Value;
+            var pb = b[i].Value;
+
+            var na = long.TryParse(pa, out var va);
+            var nb = long.TryParse(pb, out var vb);
+
+            var result = (na, nb) switch
+            {
+                (true, true) => va.CompareTo(vb),
+                // A number outranks a word in the same place: 10.0.100 is
+                // newer than 10.0.rc1.
+                (true, false) => 1,
+                (false, true) => -1,
+                _ => string.Compare(pa, pb, StringComparison.OrdinalIgnoreCase),
+            };
+
+            if (result != 0)
+                return result;
+        }
+
+        if (a.Count == b.Count)
+            return 0;
+
+        // One is a prefix of the other. What the longer one goes on with
+        // decides: a number extends it (1.2 < 1.2.1), a word pre-releases it
+        // (1.2-rc.1 < 1.2).
+        var (longer, sign) = a.Count > b.Count ? (a, 1) : (b, -1);
+        var next = longer[shared].Value;
+
+        return long.TryParse(next, out _) ? sign : -sign;
+    }
+}
+
+/// <summary>
 /// Thin async wrapper over winget.exe.
 ///
 /// winget has no machine-readable output for search/list, so we parse the
@@ -661,18 +750,31 @@ public static class WingetService
         return string.Empty;
     }
 
-    /// <summary>Whether a specific package id is currently installed.</summary>
-    public static async Task<bool> IsInstalledAsync(string id, CancellationToken ct = default)
+    /// <summary>
+    /// What is on the machine under one id: every installed version, each with
+    /// the update winget has for it, if any. Empty when it is not installed,
+    /// and null when winget could not say - which is not the same thing, and
+    /// is left to the caller to keep whatever it knew before.
+    ///
+    /// This is the same `winget list --id` that used to answer "installed or
+    /// not?" with a bool - and threw away the Available column on the way,
+    /// which is why a package's own page could offer Uninstall while Manage
+    /// was offering an update for it. The rows carry both, so both are kept.
+    /// </summary>
+    public static async Task<InstallState?> InstallStateAsync(string id, CancellationToken ct = default)
     {
         var result = await RunAsync(
             ["list", "--id", id, "--exact", .. CommonArgs],
             ct: ct).ConfigureAwait(false);
 
         if (!result.Success)
-            return false;
+            return null;
 
-        return ParseTable(result.StdOut)
-            .Any(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase));
+        var rows = ParseTable(result.StdOut)
+            .Where(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return new InstallState(rows);
     }
 
     public static async Task<string> GetVersionAsync(CancellationToken ct = default)

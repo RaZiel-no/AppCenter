@@ -161,6 +161,19 @@ call :render yaml            || goto :fail
 call :render installer.yaml  || goto :fail
 call :render locale.en-US.yaml || goto :fail
 
+rem ---- published hash --------------------------------------------------------
+
+rem  The same digest the manifest carries, as a file to attach to the GitHub
+rem  release beside the installer. App Center updating itself from GitHub - ahead
+rem  of winget - downloads the installer and checks it against this before
+rem  running it. Standard sha256sum layout, lower-case, two spaces, file name.
+set "SHASUM=%SETUP%.sha256"
+powershell -NoProfile -Command "[System.IO.File]::WriteAllText('%SHASUM%', '%SHA256%'.ToLowerInvariant() + '  ' + [System.IO.Path]::GetFileName('%SETUP%') + [char]10, (New-Object System.Text.UTF8Encoding($false)))"
+if errorlevel 1 (
+  echo ERROR: could not write "%SHASUM%".
+  goto :fail
+)
+
 rem ---- record the version ----------------------------------------------------
 
 rem  Last, and only on the way to success: from here on this number is spent,
@@ -181,7 +194,7 @@ rem ---- summary ---------------------------------------------------------------
 echo.
 echo === done ===
 echo.
-for %%f in ("%SETUP%" "%ZIP%") do echo    %%~nxf   %%~zf bytes
+for %%f in ("%SETUP%" "%SHASUM%" "%ZIP%") do echo    %%~nxf   %%~zf bytes
 echo.
 echo    SHA256      !SHA256!
 echo    Manifests   %MANIFESTS%
@@ -192,9 +205,12 @@ echo Smoke-test the installer the way winget will run it:
 echo    "%SETUP%" /VERYSILENT
 echo    winget validate --manifest "%MANIFESTS%"
 echo.
-echo Then attach the installer to a release at
+echo Then attach the installer, its .sha256 and the portable zip to a release
+echo tagged v%VERSION% - the installer has to be reachable at
 echo    %APP_URL%/releases/download/v%VERSION%/AppCenter-%VERSION%-Setup.exe
-echo and open a PR on microsoft/winget-pkgs with the manifest folder.
+echo - and open a PR on microsoft/winget-pkgs with the manifest folder. Copies
+echo of App Center already out there offer the release from GitHub as soon as
+echo it is published, and check the download against the .sha256.
 echo.
 exit /b 0
 

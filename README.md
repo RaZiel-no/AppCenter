@@ -38,6 +38,7 @@ Everything lands in `releases\`:
 | | |
 | --- | --- |
 | `AppCenter-<v>-Setup.exe` | Inno Setup installer, per-user, no UAC |
+| `AppCenter-<v>-Setup.exe.sha256` | its digest, for copies of App Center updating themselves from GitHub |
 | `AppCenter-<v>-portable.zip` | the publish folder, unpacked and run anywhere |
 | `winget\<v>\*.yaml` | the three manifests, hash and version already filled in |
 
@@ -50,11 +51,29 @@ else goes into `%LOCALAPPDATA%\Programs\AppCenter`.
 runs. Version, publisher, licence and project URL come from the config block at
 the top of the script and from `<Version>` in `AppCenter.csproj`.
 
-To ship a version: run `deploy.bat`, attach the setup exe to a release under that
-same URL, then open a PR on
-[microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) with the
+To ship a version: run `deploy.bat`, attach the setup exe, its `.sha256` and the
+portable zip to a release tagged `v<version>` under that same URL, then open a
+PR on [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) with the
 `releases\winget\<v>` folder dropped into `manifests\a\<Publisher>\AppCenter\<v>`.
 `winget validate --manifest releases\winget\<v>` checks them before you do.
+
+### Updating App Center from GitHub
+
+The winget PR takes weeks to be merged; the GitHub release is live the moment it
+is published. So App Center offers its own newer releases from GitHub, ahead of
+winget: on launch (one request to `api.github.com`, switchable off in About)
+it reads the latest release, and when that is newer than the running build,
+About says so and Manage shows it above the winget updates. Pressing Update
+downloads `AppCenter-<v>-Setup.exe` from the release, checks it against the
+`.sha256` published beside it, runs it silently with `/RELAUNCH=1`, and exits so
+the installer can replace its files; the installer starts the new version when
+it is done. It is the same installer winget will offer later, so winget sees a
+version at least as new as its manifest and has nothing to redo.
+
+A portable copy (no `unins000.exe` beside the exe) is offered the release page
+instead: there is no installer to run over it. GitHub is only ever asked when a
+winget update of the same version is not already on offer, so the two routes do
+not show the same release twice.
 
 ## What it does
 
@@ -71,6 +90,39 @@ Install, update and uninstall run **real winget commands against this machine**.
 Every one of them goes through a confirmation dialog first, and Windows itself
 raises the UAC prompt when an installer needs elevation. Nothing is executed
 without an explicit click.
+
+`winget upgrade` and `winget list` are read once, shared, and re-read after
+every operation (`Services/MachineState.cs`). That one read drives the update
+count on the sidebar, the Manage page, and the *Installed* / *Update* chip on
+every card, so browsing shows what is already on the machine. An app's own page
+asks `winget list --id` itself, and offers Install, Update or Uninstall from
+what comes back.
+
+### Manage
+
+`winget list` prints one row per install, which on Windows means eight rows of
+Visual C++ redistributables and one per .NET SDK. Manage folds those into
+families — one row each, opening to list the installs underneath, every one
+with its own Uninstall. A family is decided from the id with its trailing
+version, architecture and channel segments removed (`Microsoft.VCRedist.2010.x64`
+and `Microsoft.VCRedist.2015+.x86` are both `Microsoft.VCRedist`), or, for the
+`ARP\…` and `MSIX\…` handles winget makes up for installs it could not match,
+from the name. The family's name is the words its members share
+("Microsoft Visual C++ Redistributable"); each member is named by what its own
+name adds ("2013 (x64)"). There is no list of known families anywhere — see
+`Services/PackageFamilies.cs`.
+
+The filter box reaches both lists; the system-package switch only the installed
+one. "Update all" always means every update, whatever the filter is showing, and
+the confirmation names them.
+
+### Keyboard
+
+| | |
+| --- | --- |
+| `Ctrl+F`, `Ctrl+K` | search |
+| `Esc`, `Backspace`, `Alt+←`, mouse back button | back from an app's page, a category or a search |
+| `Tab`, `Enter`, `Space` | every card, row and button is reachable; keyboard focus draws a ring |
 
 ## Layout
 
@@ -93,15 +145,21 @@ Themes/
   Templates.xaml          app card + Manage row templates
 
 Models/AppPackage.cs      one package; notifies so late-arriving data lands
+Models/InstalledGroup.cs  one Manage row: a package, or a family of installs
 Services/
   WingetService.cs        async wrapper + fixed-width table parser
+  MachineState.cs         the one shared read of what winget lists as installed
+  AppInfo.cs              this build's version, repository and package id
+  AppUpdateService.cs     App Center's own releases from GitHub, ahead of winget
+  PackageFamilies.cs      folds the installed list into families
   CatalogService.cs       loads catalog.json
   IconService.cs          favicon fetch + disk cache
 Controls/
   AppGrid.xaml            the shared two-column card grid
   ConfirmDialog.xaml      dark confirmation prompt
   Nav.cs, Converters.cs   sidebar badge plumbing
-Views/                    one file per page, all deriving from PageView
+Views/                    one file per page, all deriving from PageView:
+                          a pinned header over a scrolling body
 tools/make_icon.py        redraws the app icon (needs Pillow + numpy)
 ```
 

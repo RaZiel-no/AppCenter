@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AppCenter.Controls;
@@ -12,7 +13,16 @@ namespace AppCenter;
 public partial class MainWindow : Window, IShellHost
 {
     private readonly DispatcherTimer _searchDebounce;
-    private CancellationTokenSource? _badgeCts;
+
+    /// <summary>
+    /// A stand-in for whatever operation is running, so the sidebar's bar can
+    /// be painted by OperationService the way every row's is: its Id is set to
+    /// the operation's key, and Paint does the rest.
+    /// </summary>
+    private readonly AppPackage _activity = new();
+
+    /// <summary>Takes the strip down a few seconds after the last operation ends.</summary>
+    private readonly DispatcherTimer _activityLinger;
 
     /// <summary>The sidebar entry to fall back to when the search box is cleared.</summary>
     private string _currentDestination = "explore";
@@ -41,9 +51,20 @@ public partial class MainWindow : Window, IShellHost
         _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _searchDebounce.Tick += OnSearchDebounceElapsed;
 
-        // Operations outlive the page that started them, so the badge is
-        // refreshed from here - whichever page happens to be showing.
+        _activityLinger = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        _activityLinger.Tick += (_, _) => ShowActivity();
+
+        ActivityBar.DataContext = _activity;
+        OperationService.Started += (_, _) => ShowActivity();
+        OperationService.Progressed += (_, _) => ShowActivity();
+        OperationService.Finished += (_, _) => ShowActivity();
+
+        // Operations outlive the page that started them, so the machine is
+        // re-read from here - whichever page happens to be showing - and the
+        // badge follows whatever the read says.
         OperationService.Finished += (_, _) => RefreshUpdateBadge();
+        MachineState.Changed += (_, _) => ShowBadge();
+        AppUpdateService.Changed += (_, _) => ShowBadge();
 
         StateChanged += OnWindowStateChanged;
         Loaded += OnLoaded;
@@ -71,6 +92,11 @@ public partial class MainWindow : Window, IShellHost
         HookSearchClearButton();
         await NavigateAsync("explore");
         RefreshUpdateBadge();
+
+        // App Center's own newer release, from GitHub - one request, unless
+        // switched off in About.
+        if (SettingsService.Current.CheckForUpdates)
+            _ = AppUpdateService.CheckAsync();
     }
 
     /// <summary>
@@ -98,6 +124,27 @@ public partial class MainWindow : Window, IShellHost
         if (!IsLoaded || sender is not RadioButton button)
             return;
 
+        await GoToSectionAsync(button);
+    }
+
+    /// <summary>
+    /// The section is still checked while an app's page, a category or a
+    /// search is showing - it is where the trip started - so clicking it again
+    /// raises no Checked. It should still go there: the entry under the pointer
+    /// says Explore, and Explore is what it should show.
+    /// </summary>
+    private async void OnNavClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not RadioButton { IsChecked: true } button)
+            return;
+
+        if (PageHost.Content is DetailView or SearchView
+            || (PageHost.Content is CategoryView && _categoryReturn is not null))
+            await GoToSectionAsync(button);
+    }
+
+    private async Task GoToSectionAsync(RadioButton button)
+    {
         var destination = button.Name switch
         {
             nameof(NavExplore) => "explore",
@@ -110,9 +157,14 @@ public partial class MainWindow : Window, IShellHost
             _ => "explore",
         };
 
-        // Moving to a section means leaving whatever search was showing.
+        // Moving to a section means leaving whatever search was showing. The
+        // clear starts the search debounce, which would navigate again to
+        // the same place a moment later; this is that navigation.
         if (SearchBox.Text.Length > 0)
+        {
             SearchBox.Clear();
+            _searchDebounce.Stop();
+        }
 
         await NavigateAsync(destination);
     }
@@ -261,11 +313,13 @@ public partial class MainWindow : Window, IShellHost
     {
         if (e.Key == Key.Enter)
         {
+            e.Handled = true;
             _searchDebounce.Stop();
             await RunSearchAsync();
         }
         else if (e.Key == Key.Escape)
         {
+            e.Handled = true;
             SearchBox.Clear();
         }
     }
@@ -300,25 +354,168 @@ public partial class MainWindow : Window, IShellHost
     // Update badge
     // ---------------------------------------------------------------
 
+    /// <summary>
+    /// Re-reads the machine. The badge, the Manage page and every card that
+    /// says Installed all follow from the one read, through MachineState.
+    /// </summary>
     public async void RefreshUpdateBadge()
     {
-        _badgeCts?.Cancel();
-        _badgeCts = new CancellationTokenSource();
-        var token = _badgeCts.Token;
-
         try
         {
-            var upgrades = await WingetService.ListUpgradesAsync(token);
-            if (!token.IsCancellationRequested)
-                Nav.SetBadgeCount(NavManage, upgrades.Count);
-        }
-        catch (OperationCanceledException)
-        {
-            // Superseded by a newer refresh.
+            await MachineState.RefreshAsync();
         }
         catch (Exception)
         {
             Nav.SetBadgeCount(NavManage, 0);
+        }
+    }
+
+    /// <summary>
+    /// What the Manage badge counts: winget's updates, plus App Center's own
+    /// newer release on GitHub when winget is not already offering it.
+    /// </summary>
+    private void ShowBadge()
+    {
+        var count = MachineState.Upgrades.Count;
+
+        var wingetOffers = MachineState.Upgrades
+            .FirstOrDefault(p => string.Equals(p.Id, AppInfo.PackageId, StringComparison.OrdinalIgnoreCase))
+            ?.AvailableVersion;
+
+        if (AppUpdateService.OffersMoreThan(wingetOffers))
+            count++;
+
+        Nav.SetBadgeCount(NavManage, count);
+    }
+
+    // ---------------------------------------------------------------
+    // Activity strip
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// Paints the strip from what the service is doing. Running: the newest
+    /// operation's heading, how many more there are, and its bar. Just
+    /// finished: how it went, held for a few seconds. Otherwise nothing.
+    /// </summary>
+    private void ShowActivity()
+    {
+        _activityLinger.Stop();
+
+        if (OperationService.Current is { } current)
+        {
+            _activity.Id = current.Key;
+            OperationService.Paint(_activity);
+
+            var others = OperationService.RunningCount - 1;
+
+            ActivityText.Text = current.Heading;
+            ActivityDetail.Text = others > 0 ? $"and {others} more" : string.Empty;
+            ActivityDetail.ToolTip = null;
+            Activity.Visibility = Visibility.Visible;
+            return;
+        }
+
+        _activity.Id = string.Empty;
+        OperationService.Paint(_activity);
+
+        // Nothing running. Say how the last one went, briefly - unless this is
+        // the timer taking it down, in which case the last one has been said.
+        if (OperationService.LastOutcome is { } outcome && Activity.Visibility == Visibility.Visible
+            && ActivityText.Text != Outcome(outcome))
+        {
+            ActivityText.Text = Outcome(outcome);
+            ActivityDetail.Text = outcome.Failed ? outcome.Summary : string.Empty;
+            ActivityDetail.ToolTip = outcome.Summary;
+            _activityLinger.Start();
+            return;
+        }
+
+        Activity.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>"Firefox installed", "7-Zip could not be updated".</summary>
+    private static string Outcome(Operation outcome)
+    {
+        var name = outcome.Kind == OperationKind.UpdateAll ? "Updates" : outcome.PackageName;
+
+        var verb = (outcome.Kind, outcome.Failed) switch
+        {
+            (OperationKind.Install, false) => "installed",
+            (OperationKind.Install, true) => "could not be installed",
+            (OperationKind.Uninstall, false) => "removed",
+            (OperationKind.Uninstall, true) => "could not be removed",
+            (OperationKind.UpdateAll, false) => "finished",
+            (OperationKind.UpdateAll, true) => "finished with failures",
+            (_, false) => "updated",
+            (_, true) => "could not be updated",
+        };
+
+        return $"{name} {verb}";
+    }
+
+    // ---------------------------------------------------------------
+    // Keyboard and mouse
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// Ctrl+F and Ctrl+K go to the search box. Escape, Backspace, Alt+Left and
+    /// the mouse's back button step back from a page that has somewhere to
+    /// step back to - never from a text box, whose own keys they are.
+    /// </summary>
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (e.Handled)
+            return;
+
+        var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+
+        if (ctrl && e.Key is Key.F or Key.K)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+            return;
+        }
+
+        var inText = Keyboard.FocusedElement is TextBoxBase;
+        var altLeft = e.Key == Key.System && e.SystemKey == Key.Left && Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
+
+        if (altLeft || (!inText && e.Key is Key.Escape or Key.Back))
+            e.Handled = TryGoBack();
+    }
+
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseDown(e);
+
+        if (e.ChangedButton == MouseButton.XButton1)
+            e.Handled = TryGoBack();
+    }
+
+    /// <summary>
+    /// Steps back if the page showing came from somewhere: an app's page, a
+    /// category opened from Explore, or a search. A sidebar section is where
+    /// the trip started, and there is nothing behind it.
+    /// </summary>
+    private bool TryGoBack()
+    {
+        switch (PageHost.Content)
+        {
+            case DetailView:
+            case CategoryView when _categoryReturn is not null:
+                GoBack();
+                return true;
+
+            case SearchView:
+                // Clearing the box is what leaves a search; the debounce
+                // takes it from there.
+                SearchBox.Clear();
+                return true;
+
+            default:
+                return false;
         }
     }
 

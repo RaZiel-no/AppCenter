@@ -103,15 +103,20 @@
         </DataTemplate>
     </views:PageView.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Style="{StaticResource PageHeader}">
+            <Grid MaxWidth="900" HorizontalAlignment="Stretch">
+                <TextBlock Text="Games" Style="{StaticResource PageTitle}" />
+            </Grid>
+        </Border>
 
-            <TextBlock Text="Games" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
+        <ScrollViewer Style="{StaticResource PageBody}">
+        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,6,24,40">
 
             <!--  ================= Carousel =================
                   Clipped so the two frames can drift past the edges during a
                   transition without bleeding over the page beside them.  -->
-            <Grid Height="250" Margin="0,20,0,0" ClipToBounds="True">
+            <Grid Height="250" ClipToBounds="True">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="86" />
                     <ColumnDefinition Width="*" />
@@ -171,5 +176,6 @@
             <TextBlock Text="Top Rated" Style="{StaticResource SectionTitle}" Margin="0,34,0,0" />
             <ctrl:AppGrid x:Name="Cards" Margin="0,18,0,0" />
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </DockPanel>
 </views:PageView>

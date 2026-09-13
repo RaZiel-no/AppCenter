@@ -4,50 +4,58 @@
                 xmlns:views="clr-namespace:AppCenter.Views"
                 xmlns:ctrl="clr-namespace:AppCenter.Controls">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Center" Margin="24,0,24,40">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Style="{StaticResource PageHeader}">
+            <Grid MaxWidth="900" HorizontalAlignment="Stretch">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <!--  Only shown for a category reached from Explore; the sidebar
-                  pages are their own way back.  -->
-            <Button x:Name="BackButton"
-                    Style="{StaticResource PillButton}"
-                    Visibility="Collapsed"
-                    HorizontalAlignment="Left"
-                    Margin="0,4,0,18"
-                    Height="34"
-                    Padding="14,0"
-                    Click="OnBackClick">
-                <StackPanel Orientation="Horizontal">
-                    <Viewbox Width="16" Height="16">
-                        <Path Style="{StaticResource Icon}"
-                              Data="{StaticResource IconArrowLeft}"
-                              Stroke="{DynamicResource TextPrimaryBrush}" />
-                    </Viewbox>
-                    <TextBlock Text="Back" Margin="8,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
+                <!--  Only shown for a category reached from Explore; the sidebar
+                      pages are their own way back.  -->
+                <Button x:Name="BackButton"
+                        Grid.Column="0"
+                        Style="{StaticResource IconButton}"
+                        Tag="{StaticResource IconArrowLeft}"
+                        ToolTip="Back"
+                        AutomationProperties.Name="Back"
+                        Visibility="Collapsed"
+                        VerticalAlignment="Center"
+                        Margin="0,0,16,0"
+                        Click="OnBackClick" />
 
-            <TextBlock x:Name="Title" Style="{StaticResource PageTitle}" Margin="0,4,0,0" />
-
-            <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                <TextBlock Text="Sort by"
+                <TextBlock x:Name="Title"
+                           Grid.Column="1"
+                           Style="{StaticResource PageTitle}"
                            VerticalAlignment="Center"
-                           Margin="0,0,14,0"
-                           FontSize="13.5"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                <ComboBox x:Name="SortBox"
-                          Style="{StaticResource AppComboBox}"
-                          Width="170"
-                          SelectedIndex="0"
-                          SelectionChanged="OnSortChanged">
-                    <ComboBoxItem Content="Relevance" />
-                    <ComboBoxItem Content="Name (A to Z)" />
-                    <ComboBoxItem Content="Name (Z to A)" />
-                    <ComboBoxItem Content="Publisher" />
-                </ComboBox>
-            </StackPanel>
+                           TextTrimming="CharacterEllipsis" />
 
-            <ctrl:AppGrid x:Name="Cards" Margin="0,26,0,0" />
-        </StackPanel>
-    </ScrollViewer>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <TextBlock Text="Sort by"
+                               VerticalAlignment="Center"
+                               Margin="0,0,10,0"
+                               FontSize="13.5"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <ComboBox x:Name="SortBox"
+                              Style="{StaticResource AppComboBox}"
+                              Width="170"
+                              SelectedIndex="0"
+                              SelectionChanged="OnSortChanged">
+                        <ComboBoxItem Content="Relevance" />
+                        <ComboBoxItem Content="Name (A to Z)" />
+                        <ComboBoxItem Content="Name (Z to A)" />
+                        <ComboBoxItem Content="Publisher" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Style="{StaticResource PageBody}">
+            <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,10,24,40">
+                <ctrl:AppGrid x:Name="Cards" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </views:PageView>

@@ -360,6 +360,9 @@ public static class OperationService
     /// <summary>The most recently started operation still running, if any.</summary>
     public static Operation? Current => InFlight.Count > 0 ? InFlight[^1] : null;
 
+    /// <summary>How many are running. Installs may overlap; see CanStart.</summary>
+    public static int RunningCount => InFlight.Count;
+
     /// <summary>
     /// The last operation to finish, however it went, kept so a page opened
     /// or reloaded afterwards can still say what happened. Successes matter

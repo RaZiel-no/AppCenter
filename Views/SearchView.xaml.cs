@@ -18,6 +18,9 @@ public partial class SearchView : PageView
     private readonly string _query;
     private readonly CancellationTokenSource _cts = new();
 
+    /// <summary>What is on screen, for re-marking when the machine moves.</summary>
+    private List<AppPackage> _results = [];
+
     public SearchView(string query)
     {
         InitializeComponent();
@@ -27,8 +30,16 @@ public partial class SearchView : PageView
         Status.Text = "Searching winget…";
 
         Cards.ItemClick += package => Host.ShowDetail(package);
-        Unloaded += (_, _) => _cts.Cancel();
+        MachineState.Changed += OnMachineChanged;
+
+        Unloaded += (_, _) =>
+        {
+            _cts.Cancel();
+            MachineState.Changed -= OnMachineChanged;
+        };
     }
+
+    private void OnMachineChanged(object? sender, EventArgs e) => MachineState.Apply(_results);
 
     public override async Task LoadAsync()
     {
@@ -66,6 +77,11 @@ public partial class SearchView : PageView
             Status.Text = allResults.Count > results.Count
                 ? $"{allResults.Count} packages found — showing the first {results.Count}. Narrow the search to see the rest."
                 : $"{results.Count} package{(results.Count == 1 ? string.Empty : "s")} found.";
+
+            // A search hit carries the version in the source; what the cards
+            // say about the machine comes from the machine.
+            _results = results;
+            MachineState.Apply(results);
 
             Cards.ItemsSource = results;
 

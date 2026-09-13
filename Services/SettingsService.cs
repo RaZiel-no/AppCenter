@@ -6,6 +6,12 @@ namespace AppCenter.Services;
 public sealed class Settings
 {
     public string Theme { get; set; } = ThemeService.DefaultId;
+
+    /// <summary>
+    /// Whether to ask GitHub for a newer App Center on launch. One request to
+    /// api.github.com per start; off, About still checks when asked.
+    /// </summary>
+    public bool CheckForUpdates { get; set; } = true;
 }
 
 /// <summary>
