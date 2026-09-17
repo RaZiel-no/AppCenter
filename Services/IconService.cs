@@ -8,6 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using AppCenter.Models;
+using SharpVectors.Converters;
+using SharpVectors.Renderers.Wpf;
 
 namespace AppCenter.Services;
 
@@ -22,6 +24,15 @@ namespace AppCenter.Services;
 /// names its icon on, is contacted, and the result is cached under
 /// %LOCALAPPDATA%\AppCenter\icons. Packages that yield nothing fall back to a
 /// generated letter tile drawn by the UI.
+///
+/// An SVG is as welcome as a bitmap. WPF cannot decode one, so it is drawn by
+/// SharpVectors into a bitmap of the same size everything else is brought down
+/// to, and cached as that - which is why the cache only ever holds PNGs.
+///
+/// When the homepage yields nothing and the package is listed in the
+/// Microsoft Store - a catalogue entry that names its Store id, or an
+/// installed MSIX package - the listing's own logo is the last resort, asked
+/// for through Windows' Store API rather than any website.
 /// </summary>
 public sealed class IconService
 {
@@ -49,11 +60,14 @@ public sealed class IconService
 
     /// <summary>
     /// Marks a package we have already hunted for and found nothing for, holding
-    /// the source it was hunted from. Shares the version token with
-    /// <see cref="CacheSuffix"/> so that both are swept by the same bump: a rule
-    /// change can turn a miss into a hit.
+    /// the source it was hunted from. Its version token moves with
+    /// <see cref="CacheSuffix"/> whenever that one moves - a rule that changes
+    /// which icon is chosen can turn a miss into a hit too - and on its own when
+    /// a change can only do the latter. v4 is that: SVG icons and the request
+    /// headers some sites insist on gave the hunt new places to look, and every
+    /// v3 image on disk is still the right image.
     /// </summary>
-    private const string MissSuffix = ".v3.none";
+    private const string MissSuffix = ".v4.none";
 
     /// <summary>
     /// How long such a marker is trusted before the hunt runs again. Long enough
@@ -318,6 +332,14 @@ public sealed class IconService
 
         var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(8) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("AppCenter/1.0 (+winget app browser)");
+
+        // What every browser sends and what some firewalls insist on: a request
+        // carrying neither header reads as a script and is answered 403 across
+        // the whole site, favicon.ico included - which the hunt then records as
+        // "there is none". dolphin-emu.org is one such site. Not a disguise;
+        // the user agent above still says who is asking.
+        client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,image/*,*/*;q=0.8");
+        client.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.8");
         return client;
     }
 
@@ -726,10 +748,6 @@ public sealed class IconService
             if (icon.Scheme != Uri.UriSchemeHttp && icon.Scheme != Uri.UriSchemeHttps)
                 continue;
 
-            // WPF has no SVG decoder, so fetching one only wastes a request.
-            if (icon.AbsolutePath.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
-                continue;
-
             var rank = rel.Contains("apple-touch-icon", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
             declared.Add((rank, LargestSize(Attribute(tag.Value, "sizes")), icon.AbsoluteUri));
         }
@@ -806,12 +824,89 @@ public sealed class IconService
         if (bytes.Length is < 64 or > 4 * 1024 * 1024)
             return IconResult.Answer(null);
 
-        var decoded = Decode(bytes);
+        var decoded = LooksLikeSvg(bytes) ? RasterizeSvg(bytes) : Decode(bytes);
         if (decoded is null)
             return IconResult.Answer(null);
 
         SaveToDisk(key, decoded);
         return IconResult.Answer(decoded);
+    }
+
+    /// <summary>
+    /// Told from the bytes, not the URL or the Content-Type: a site can serve
+    /// its SVG as text/xml from a path ending in .png, and a soft 404 can serve
+    /// an HTML page from one ending in .svg. What is looked for is an XML
+    /// document at the start, which an HTML page is not.
+    /// </summary>
+    internal static bool LooksLikeSvg(byte[] bytes)
+    {
+        var start = 0;
+
+        // A UTF-8 byte order mark, then any amount of whitespace.
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            start = 3;
+
+        while (start < bytes.Length && char.IsWhiteSpace((char)bytes[start]))
+            start++;
+
+        var head = System.Text.Encoding.ASCII.GetString(bytes, start, Math.Min(6, bytes.Length - start));
+        return head.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase)
+            || head.StartsWith("<svg", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Draws an SVG into a bitmap <see cref="IconDecodeWidth"/> across, fitted
+    /// to what the document actually draws rather than to its viewBox - the
+    /// margin a designer left around a mark is not worth pixels at 48px.
+    ///
+    /// Kept to itself so that SharpVectors is loaded on the first SVG met and
+    /// not at launch: nothing here is referenced until this method is compiled.
+    /// Runs on whatever thread the fetch ran on; the visual and the render
+    /// target are created and used on that same thread, and the result is
+    /// frozen before it leaves, which is all WPF asks.
+    /// </summary>
+    internal static BitmapSource? RasterizeSvg(byte[] bytes)
+    {
+        try
+        {
+            // No runtime references in the drawing, and text as geometry so
+            // that no font the page named is looked for on this machine.
+            var settings = new WpfDrawingSettings { IncludeRuntime = false, TextAsGeometry = true };
+
+            using var reader = new FileSvgReader(settings);
+            using var stream = new MemoryStream(bytes);
+
+            var drawing = reader.Read(stream);
+            if (drawing is null)
+                return null;
+
+            var bounds = drawing.Bounds;
+            if (bounds.IsEmpty || bounds.Width <= 0 || bounds.Height <= 0)
+                return null;
+
+            var scale = IconDecodeWidth / Math.Max(bounds.Width, bounds.Height);
+            var width = Math.Max(1, (int)Math.Round(bounds.Width * scale));
+            var height = Math.Max(1, (int)Math.Round(bounds.Height * scale));
+
+            var visual = new DrawingVisual();
+            using (var context = visual.RenderOpen())
+            {
+                context.PushTransform(new ScaleTransform(scale, scale));
+                context.PushTransform(new TranslateTransform(-bounds.X, -bounds.Y));
+                context.DrawDrawing(drawing);
+            }
+
+            var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch (Exception)
+        {
+            // Malformed, or drawn with something SharpVectors does not do.
+            // Either way it is no icon, same as a bitmap that will not decode.
+            return null;
+        }
     }
 
     /// <summary>

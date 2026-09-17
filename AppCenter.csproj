@@ -76,8 +76,21 @@
     <Content Include="LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!--  SharpVectors is BSD-3-Clause, which asks that its notice travel with
+          any binary that carries it. Same journey as LICENSE.  -->
+    <Content Include="THIRD-PARTY-NOTICES.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!--  ApplicationIcon covers the exe; Window.Icon needs it in the assembly too  -->
     <Resource Include="AppCenter.ico" />
+  </ItemGroup>
+
+  <!--  The one package. WPF decodes ico, png and jpg and nothing else, and
+        the favicon a modern site declares is as likely to be an SVG; this
+        draws those. Managed code only, BSD-3-Clause, and loaded on the first
+        SVG met rather than at launch - see IconService.RasterizeSvg.  -->
+  <ItemGroup>
+    <PackageReference Include="SharpVectors.Wpf" Version="1.8.6" />
   </ItemGroup>
 
 </Project>
