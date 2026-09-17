@@ -12,7 +12,24 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>AppCenter.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!--  Program.Main, ahead of the one the XAML compiler writes for App.xaml,
+          so the warm-up can start before the Application is built.  -->
+    <StartupObject>AppCenter.Program</StartupObject>
   </PropertyGroup>
+
+  <!--  Launch time. WPF itself cannot be compiled ahead of time, but the
+        app's own code can - ReadyToRun puts native code in the published
+        assembly, so what runs at launch is not compiled at launch. NLS is
+        Windows' own globalisation: the ICU library is otherwise loaded and a
+        collator built for the user's locale before the first window can be
+        created, and this is Windows, which has all of that in the kernel.
+        Sorting and dates stay locale-aware; they come from Windows instead.  -->
+  <PropertyGroup>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Globalization.UseNls" Value="true" />
+  </ItemGroup>
 
   <!--  Shipping metadata. <Version> is the last version that was released:
         deploy.bat reads it, ships the next patch, and writes that number back

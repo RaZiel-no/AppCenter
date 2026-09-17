@@ -128,10 +128,21 @@
                 </StackPanel>
 
                 <!--  One primary action - Install, or Update when one is waiting
-                      - with Uninstall beside it as the quiet alternative.  -->
+                      - with Uninstall beside it as the quiet alternative. Until
+                      the machine has been read there is no saying which, so
+                      the place holds a blank the shape of a button rather than
+                      an Install that may be about to turn into Uninstall.  -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border x:Name="ButtonPlaceholder"
+                            Style="{StaticResource SkeletonPanel}"
+                            Background="{DynamicResource ButtonBgBrush}"
+                            BorderThickness="0"
+                            CornerRadius="8"
+                            Width="120"
+                            Height="40" />
                     <Button x:Name="InstallButton"
                             Style="{StaticResource GreenButton}"
+                            Visibility="Collapsed"
                             MinWidth="120"
                             Height="40"
                             Content="Install"
@@ -187,10 +198,25 @@
                                TextWrapping="Wrap" />
                 </Border>
 
-                <!--  ================= Metadata =================  -->
+                <!--  ================= Metadata =================
+                      The shape of the rows while winget is asked for them, so
+                      the card is never an empty box; the real rows take its
+                      place when they land.  -->
                 <TextBlock Text="Details" Style="{StaticResource SectionTitle}" Margin="0,30,0,0" />
 
-                <Border Margin="0,14,0,0"
+                <Border x:Name="MetadataSkeleton" Style="{StaticResource SkeletonPanel}" Margin="0,14,0,0" Padding="6,4">
+                    <StackPanel>
+                        <ContentControl Template="{StaticResource SkeletonField}" Tag="70" />
+                        <ContentControl Template="{StaticResource SkeletonField}" Tag="150" />
+                        <ContentControl Template="{StaticResource SkeletonField}" Tag="110" />
+                        <ContentControl Template="{StaticResource SkeletonField}" Tag="230" />
+                        <ContentControl Template="{StaticResource SkeletonField}" Tag="90" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="MetadataCard"
+                        Visibility="Collapsed"
+                        Margin="0,14,0,0"
                         Background="{DynamicResource CardBgBrush}"
                         BorderBrush="{DynamicResource CardBorderBrush}"
                         BorderThickness="1"

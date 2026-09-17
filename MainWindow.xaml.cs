@@ -1,7 +1,10 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using AppCenter.Controls;
 using AppCenter.Models;
@@ -42,11 +45,13 @@ public partial class MainWindow : Window, IShellHost
     /// </summary>
     private readonly Dictionary<string, double> _scrollOffsets = [];
 
-    public IconService Icons { get; } = new();
+    public IconService Icons { get; } = Warmup.Icons;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        Logo.Source = Warmup.Logo.Result;
 
         _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _searchDebounce.Tick += OnSearchDebounceElapsed;
@@ -68,29 +73,66 @@ public partial class MainWindow : Window, IShellHost
 
         StateChanged += OnWindowStateChanged;
         Loaded += OnLoaded;
+        ContentRendered += OnFirstFrame;
     }
 
     /// <summary>
-    /// The default size is generous for a large display; on a smaller or
-    /// heavily scaled one it would open larger than the screen, so clamp it
-    /// to the work area and re-centre before the window is shown.
+    /// Back where it was closed, if that is still somewhere on screen.
+    /// Otherwise the default size, which is generous for a large display; on
+    /// a smaller or heavily scaled one it would open larger than the screen,
+    /// so clamp it to the work area and centre it. All before the window is
+    /// shown, so it appears in place rather than jumping there.
     /// </summary>
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
 
-        var work = SystemParameters.WorkArea;
+        KeepCornersSquare();
 
-        Width = Math.Min(Width, work.Width);
-        Height = Math.Min(Height, work.Height);
-        Left = work.Left + (work.Width - Width) / 2;
-        Top = work.Top + (work.Height - Height) / 2;
+        var saved = SettingsService.Current.Window;
+
+        if (!WindowPlacementService.Restore(this, saved))
+        {
+            var work = SystemParameters.WorkArea;
+
+            Width = Math.Min(Width, work.Width);
+            Height = Math.Min(Height, work.Height);
+            Left = work.Left + (work.Width - Width) / 2;
+            Top = work.Top + (work.Height - Height) / 2;
+        }
+
+        // Over whichever place it got: a window that was maximised over a
+        // monitor since unplugged is better maximised over this one than
+        // opened at a size chosen for that one.
+        if (saved?.Maximized == true)
+            WindowState = WindowState.Maximized;
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        base.OnClosing(e);
+
+        SettingsService.Current.Window = WindowPlacementService.Capture(this);
+        SettingsService.Save();
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         HookSearchClearButton();
         await NavigateAsync("explore");
+    }
+
+    /// <summary>
+    /// The first frame is on screen. What starts here is everything that
+    /// reaches outside the app - winget for the machine, GitHub for a newer
+    /// App Center - so that two winget processes are not spawned in the same
+    /// milliseconds the window is being laid out.
+    /// </summary>
+    private void OnFirstFrame(object? sender, EventArgs e)
+    {
+        ContentRendered -= OnFirstFrame;
+
+        Warmup.Release();
         RefreshUpdateBadge();
 
         // App Center's own newer release, from GitHub - one request, unless
@@ -564,6 +606,24 @@ public partial class MainWindow : Window, IShellHost
             // The button was already released; nothing to drag.
         }
     }
+
+    /// <summary>
+    /// Windows 11 rounds the corners of any window it draws the frame for,
+    /// which the glass pixel in the chrome asks it to. The window was drawn
+    /// square before that and stays square.
+    /// </summary>
+    private void KeepCornersSquare()
+    {
+        const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        const int DWMWCP_DONOTROUND = 1;
+
+        var preference = DWMWCP_DONOTROUND;
+        _ = DwmSetWindowAttribute(
+            new WindowInteropHelper(this).Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {

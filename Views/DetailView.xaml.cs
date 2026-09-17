@@ -33,8 +33,12 @@ public partial class DetailView : PageView
 
     private readonly AppPackage _package;
 
-    /// <summary>What winget last said about this package being on the machine.</summary>
-    private InstallState _state = InstallState.NotInstalled;
+    /// <summary>
+    /// What the machine read last said about this package, or null until
+    /// there has been one. Not "not installed" until then: the buttons wait
+    /// on an answer rather than offer Install and then take it back.
+    /// </summary>
+    private InstallState? _state;
 
     /// <summary>The newest version in the source, as `winget show` reports it.</summary>
     private string _latestVersion = string.Empty;
@@ -66,6 +70,13 @@ public partial class DetailView : PageView
         OperationService.Progressed += OnOperationChanged;
         OperationService.Finished += OnOperationFinished;
 
+        // Installed or not comes from the one read of the machine the cards
+        // take it from, so the page says what the card said the moment it
+        // opens. A page opened before that read has landed gets it when it
+        // does.
+        MachineState.Changed += OnMachineChanged;
+
+        ShowMachineState();
         ShowOperationState();
 
         Unloaded += (_, _) =>
@@ -73,6 +84,7 @@ public partial class DetailView : PageView
             OperationService.Started -= OnOperationChanged;
             OperationService.Progressed -= OnOperationChanged;
             OperationService.Finished -= OnOperationFinished;
+            MachineState.Changed -= OnMachineChanged;
             _cts.Cancel();
         };
     }
@@ -83,8 +95,6 @@ public partial class DetailView : PageView
 
         try
         {
-            await RefreshInstallStateAsync();
-
             var fields = await WingetService.ShowAsync(_package.Id, _cts.Token);
             _cts.Token.ThrowIfCancellationRequested();
 
@@ -93,40 +103,60 @@ public partial class DetailView : PageView
         catch (OperationCanceledException)
         {
             // Navigated away while loading.
+            return;
         }
         catch (Exception ex)
         {
             SetProgress($"Could not read package details: {ex.Message}");
+            ApplyFields([]);
+        }
+
+        if (MachineState.HasLoaded)
+            return;
+
+        // Opened before the launch read landed: wait on that one - this joins
+        // it rather than starting another - and OnMachineChanged paints it.
+        // If winget cannot read the machine at all there is no answer coming,
+        // and Install is the one thing left worth offering.
+        try
+        {
+            await MachineState.RefreshAsync(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigated away while waiting.
+        }
+        catch (Exception)
+        {
+            if (_state is null)
+                ShowState(InstallState.NotInstalled);
         }
     }
 
-    /// <summary>
-    /// Asks winget what is installed under this id and paints the answer:
-    /// which buttons to offer, the state line under the publisher, and the
-    /// version rows in Details. Rerun after every operation on the package,
-    /// because installed-or-not is winget's to say, not ours to infer from an
-    /// exit code.
-    /// </summary>
-    private async Task RefreshInstallStateAsync()
+    private void OnMachineChanged(object? sender, EventArgs e) => ShowMachineState();
+
+    /// <summary>Paints what the last read of the machine says about this package, once there has been one.</summary>
+    private void ShowMachineState()
     {
-        var state = await WingetService.InstallStateAsync(_package.Id, _cts.Token);
-        _cts.Token.ThrowIfCancellationRequested();
+        if (MachineState.StateOf(_package.Id) is { } state)
+            ShowState(state);
+    }
 
-        // winget failing to answer is not winget saying "no": the page keeps
-        // what it knew rather than offering to install something it was
-        // offering to uninstall a moment ago.
-        if (state is null)
-            return;
-
+    /// <summary>
+    /// Paints an install state: which buttons to offer, the line under the
+    /// publisher, and the version rows in Details.
+    /// </summary>
+    private void ShowState(InstallState state)
+    {
         _state = state;
 
-        _package.IsInstalled = _state.IsInstalled;
-        _package.AvailableVersion = _state.AvailableVersion;
+        _package.IsInstalled = state.IsInstalled;
+        _package.AvailableVersion = state.AvailableVersion;
 
         // A page opened from a card knows no version yet; the installed one is
         // the version of what the user actually has.
-        if (_state.InstalledVersions.Count > 0 && _package.Version.Length == 0)
-            _package.Version = _state.InstalledVersions[0];
+        if (state.InstalledVersions.Count > 0 && _package.Version.Length == 0)
+            _package.Version = state.InstalledVersions[0];
 
         ShowInstallState();
         ShowVersionRows();
@@ -146,6 +176,7 @@ public partial class DetailView : PageView
                 Row("Source", string.IsNullOrWhiteSpace(_package.Source) ? "winget" : _package.Source),
             ]).ToList();
 
+            ShowMetadata();
             return;
         }
 
@@ -183,6 +214,14 @@ public partial class DetailView : PageView
         rows.Add(Row("Source", string.IsNullOrWhiteSpace(_package.Source) ? "winget" : _package.Source));
 
         Metadata.ItemsSource = rows;
+        ShowMetadata();
+    }
+
+    /// <summary>The rows have arrived: the card in place of the shape of it.</summary>
+    private void ShowMetadata()
+    {
+        MetadataSkeleton.Visibility = Visibility.Collapsed;
+        MetadataCard.Visibility = Visibility.Visible;
     }
 
     /// <summary>
@@ -195,7 +234,7 @@ public partial class DetailView : PageView
     {
         var rows = new List<MetadataRow>();
 
-        if (_state.IsInstalled)
+        if (_state is { IsInstalled: true })
         {
             var installed = _state.InstalledVersions.Count > 0
                 ? string.Join(", ", _state.InstalledVersions)
@@ -249,9 +288,15 @@ public partial class DetailView : PageView
     /// One primary button from the state - Install, or Update when one is
     /// waiting - with Uninstall as the quiet alternative once anything is on
     /// the machine. The line under the publisher says the same in words.
+    /// Before there is a state, the blank where the button will be.
     /// </summary>
     private void ShowInstallState()
     {
+        ButtonPlaceholder.Visibility = _state is null ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_state is null)
+            return;
+
         var installed = _state.IsInstalled;
         var update = _state.HasUpdate;
 
@@ -310,11 +355,11 @@ public partial class DetailView : PageView
         if (!OperationService.CanStart(_package.Id))
             return;
 
-        var from = _state.InstalledVersions.Count > 0 ? _state.InstalledVersions[0] : "installed version";
+        var from = _state?.InstalledVersions.Count > 0 ? _state.InstalledVersions[0] : "installed version";
 
         var confirmed = Host.ConfirmAction(
             $"Update {_package.Name}?",
-            $"winget will install {_state.AvailableVersion} over the installed {from}.\n\n" +
+            $"winget will install {_state?.AvailableVersion} over the installed {from}.\n\n" +
             "Windows may prompt for administrator permission." +
             (SelfPackages.Includes(_package.Id) ? $"\n\n{SelfPackages.Warning}" : string.Empty),
             "Update");
@@ -410,9 +455,12 @@ public partial class DetailView : PageView
         SetProgress(operation.Summary);
         ShowOperationState();
 
+        // Installed-or-not is winget's to say, not ours to infer from an exit
+        // code. The window asks for the same read on the same event, and
+        // MachineState makes one read of the two; OnMachineChanged paints it.
         try
         {
-            await RefreshInstallStateAsync();
+            await MachineState.RefreshAsync(_cts.Token);
         }
         catch (OperationCanceledException)
         {

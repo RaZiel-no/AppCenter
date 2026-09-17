@@ -18,10 +18,16 @@
         TextOptions.TextFormattingMode="Ideal"
         TextOptions.TextRenderingMode="ClearType">
 
+    <!--  The one pixel of glass is what keeps WindowChrome on the DWM path.
+          With none, it draws the window's shape itself with a window region,
+          which costs tens of milliseconds at launch and again at every step of
+          a resize; with any, it asks DWM, which is free and draws the shadow
+          every other window has. The pixel is under the opaque background and
+          never seen. The corners stay square: see KeepCornersSquare.  -->
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="0"
-                            GlassFrameThickness="0"
+                            GlassFrameThickness="0,0,0,1"
                             ResizeBorderThickness="6"
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -47,20 +53,15 @@
                           centred title off centre. NavItem is Margin 8 + Padding 12 on a
                           20px icon, so its centre line is at 30; 18 + 12 puts this there.  -->
                     <Grid>
-                        <Image Width="24"
+                        <!--  Decoded by the warm-up, off the UI thread; the
+                              constructor sets it. See Warmup.DecodeLogo.  -->
+                        <Image x:Name="Logo"
+                               Width="24"
                                Height="24"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Center"
                                Margin="18,0,0,0"
-                               RenderOptions.BitmapScalingMode="HighQuality">
-                            <Image.Source>
-                                <!--  Without DecodePixelWidth the ICO decoder hands back the
-                                      16px frame and upscales it, which looks awful. 48 is
-                                      1:1 at 200% DPI and an exact halving at 100%, so it
-                                      stays sharp either way.  -->
-                                <BitmapImage UriSource="AppCenter.ico" DecodePixelWidth="48" />
-                            </Image.Source>
-                        </Image>
+                               RenderOptions.BitmapScalingMode="HighQuality" />
 
                         <TextBlock Text="App Center"
                                    HorizontalAlignment="Center"

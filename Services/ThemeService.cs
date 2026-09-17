@@ -116,8 +116,11 @@ public static class ThemeService
 
         CurrentId = id;
 
-        foreach (var option in Options)
-            option.IsSelected = option.Id == id;
+        // The picker's tiles are built when About first asks for them, with
+        // the current theme marked; built already, they are told.
+        if (_options is { } options)
+            foreach (var option in options)
+                option.IsSelected = option.Id == id;
     }
 
     /// <summary>

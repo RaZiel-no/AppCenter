@@ -71,9 +71,10 @@ public sealed record WingetRow(
     string Source);
 
 /// <summary>
-/// What `winget list --id` said about one package: a row per installed
-/// version, or none. Read by a package's own page to decide between Install,
-/// Update and Uninstall, and to say which version is on the machine.
+/// What `winget list` said about one package: a row per installed version,
+/// or none. Read by a package's own page - from the one read of the machine
+/// everything shares, see <c>MachineState.StateOf</c> - to decide between
+/// Install, Update and Uninstall, and to say which version is on the machine.
 /// </summary>
 public sealed record InstallState(IReadOnlyList<WingetRow> Installs)
 {
@@ -234,9 +235,11 @@ public static class WingetService
 
         try
         {
-            process.Start();
+            // Starting a process is tens of milliseconds of kernel work -
+            // too long for the UI thread, which is what usually calls this.
+            await Task.Run(process.Start, ct).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             IsAvailable = false;
             return new WingetResult(-1, string.Empty, $"Could not start winget.exe: {ex.Message}");
@@ -748,33 +751,6 @@ public static class WingetService
         }
 
         return string.Empty;
-    }
-
-    /// <summary>
-    /// What is on the machine under one id: every installed version, each with
-    /// the update winget has for it, if any. Empty when it is not installed,
-    /// and null when winget could not say - which is not the same thing, and
-    /// is left to the caller to keep whatever it knew before.
-    ///
-    /// This is the same `winget list --id` that used to answer "installed or
-    /// not?" with a bool - and threw away the Available column on the way,
-    /// which is why a package's own page could offer Uninstall while Manage
-    /// was offering an update for it. The rows carry both, so both are kept.
-    /// </summary>
-    public static async Task<InstallState?> InstallStateAsync(string id, CancellationToken ct = default)
-    {
-        var result = await RunAsync(
-            ["list", "--id", id, "--exact", .. CommonArgs],
-            ct: ct).ConfigureAwait(false);
-
-        if (!result.Success)
-            return null;
-
-        var rows = ParseTable(result.StdOut)
-            .Where(r => string.Equals(r.Id, id, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return new InstallState(rows);
     }
 
     public static async Task<string> GetVersionAsync(CancellationToken ct = default)

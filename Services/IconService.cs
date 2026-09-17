@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -108,6 +109,34 @@ public sealed class IconService
 
     private static readonly Regex SizePattern =
         new(@"(\d+)\s*[xX]\s*\d+", RegexOptions.Compiled);
+
+    /// <summary>
+    /// App Center's own icon, for App Center's own row. Its homepage is on
+    /// GitHub, which the hunt skips on purpose, so it would otherwise be drawn
+    /// as a letter tile - by the very exe that carries the real thing. Read from
+    /// the assembly's copy, the one Window.Icon already needs, and put through
+    /// the same decoder as everything else so it lands at the same size.
+    /// </summary>
+    private static readonly Lazy<BitmapSource?> OwnIcon = new(LoadOwnIcon);
+
+    private static BitmapSource? LoadOwnIcon()
+    {
+        try
+        {
+            var resource = Application.GetResourceStream(new Uri("AppCenter.ico", UriKind.Relative));
+            if (resource is null)
+                return null;
+
+            using var stream = resource.Stream;
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            return Decode(buffer.ToArray());
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
     private readonly string _cacheDir;
     private readonly string _screenshotDir;
@@ -523,6 +552,11 @@ public sealed class IconService
 
     private async Task<IconResult> LoadAsync(AppPackage package, string key, CancellationToken ct)
     {
+        // Ahead of the disk cache as well as the network: the cache holds what
+        // some site said, and this build knows better what it looks like.
+        if (string.Equals(package.Id, AppInfo.PackageId, StringComparison.OrdinalIgnoreCase))
+            return IconResult.Answer(OwnIcon.Value);
+
         var cached = TryLoadFromDisk(key);
         if (cached is not null)
             return IconResult.Answer(cached);

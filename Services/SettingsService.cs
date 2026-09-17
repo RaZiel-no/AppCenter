@@ -12,6 +12,12 @@ public sealed class Settings
     /// api.github.com per start; off, About still checks when asked.
     /// </summary>
     public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>
+    /// Where the main window was when it was last closed. Null until it has
+    /// been closed once.
+    /// </summary>
+    public WindowPlacement? Window { get; set; }
 }
 
 /// <summary>
@@ -21,23 +27,33 @@ public sealed class Settings
 /// </summary>
 public static class SettingsService
 {
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
-
     private static Settings? _cached;
+    private static Task<Settings>? _loading;
 
     public static string SettingsPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AppCenter",
         "settings.json");
 
-    public static Settings Current => _cached ??= Load();
+    /// <summary>
+    /// The settings, read on first use - or already read, if <see cref="Preload"/>
+    /// was called in time.
+    /// </summary>
+    public static Settings Current => _cached ??= _loading is { } loading ? loading.Result : Load();
+
+    /// <summary>
+    /// Starts reading the file on a thread-pool thread. The theme is needed
+    /// before the first pixel, and this puts the disk read alongside the
+    /// launch rather than in it.
+    /// </summary>
+    public static void Preload() => _loading ??= Task.Run(Load);
 
     public static void Save()
     {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Current, Options));
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Current, AppJsonContext.Default.Settings));
         }
         catch (Exception)
         {
@@ -51,7 +67,7 @@ public static class SettingsService
         try
         {
             if (File.Exists(SettingsPath))
-                return JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath)) ?? new Settings();
+                return JsonSerializer.Deserialize(File.ReadAllText(SettingsPath), AppJsonContext.Default.Settings) ?? new Settings();
         }
         catch (Exception)
         {

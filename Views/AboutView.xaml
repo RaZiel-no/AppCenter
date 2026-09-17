@@ -155,7 +155,7 @@
                                        LineHeight="18"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        TextWrapping="Wrap"
-                                       Text="One request to api.github.com per launch, and nothing sent but the version. Releases reach GitHub first; the winget package follows once its pull request is merged, which can take weeks." />
+                                       Text="One request to api.github.com per launch, and nothing sent but the version. Releases reach GitHub first; the winget package follows once its pull request is merged, which can take days." />
                         </StackPanel>
 
                         <CheckBox x:Name="CheckOnLaunch"

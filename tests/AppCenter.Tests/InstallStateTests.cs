@@ -4,7 +4,7 @@ using Xunit;
 namespace AppCenter.Tests;
 
 /// <summary>
-/// A package's own page reads `winget list --id` for what is on the machine.
+/// A package's own page reads what `winget list` printed under its id.
 /// It used to reduce the answer to a bool and lose the Available column with
 /// it - which is why the page could offer Uninstall for a package Manage was
 /// offering an update for. These pin down what the answer now keeps.

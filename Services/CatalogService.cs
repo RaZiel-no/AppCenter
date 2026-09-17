@@ -1,6 +1,5 @@
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using AppCenter.Models;
 
 namespace AppCenter.Services;
@@ -68,44 +67,37 @@ public sealed class CatalogRoot
 /// </summary>
 public static class CatalogService
 {
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString,
-    };
-
     private static CatalogRoot? _cached;
+    private static Task<CatalogRoot>? _loading;
 
     public static string CatalogPath =>
         Path.Combine(AppContext.BaseDirectory, "catalog.json");
 
-    public static CatalogRoot Load()
-    {
-        if (_cached is not null)
-            return _cached;
+    /// <summary>
+    /// Starts reading the file on a thread-pool thread, so that Explore finds
+    /// it read rather than reading it.
+    /// </summary>
+    public static void Preload() => _loading ??= Task.Run(Read);
 
+    public static CatalogRoot Load() => _cached ??= _loading is { } loading ? loading.Result : Read();
+
+    private static CatalogRoot Read()
+    {
         try
         {
             if (File.Exists(CatalogPath))
             {
                 var json = File.ReadAllText(CatalogPath);
-                _cached = JsonSerializer.Deserialize<CatalogRoot>(json, Options) ?? new CatalogRoot();
-            }
-            else
-            {
-                _cached = new CatalogRoot();
+                return JsonSerializer.Deserialize(json, AppJsonContext.Default.CatalogRoot) ?? new CatalogRoot();
             }
         }
         catch (Exception)
         {
             // A malformed catalog should degrade to an empty one, not take
             // the whole app down - search and Manage still work without it.
-            _cached = new CatalogRoot();
         }
 
-        return _cached;
+        return new CatalogRoot();
     }
 
     public static List<AppPackage> Section(string name)

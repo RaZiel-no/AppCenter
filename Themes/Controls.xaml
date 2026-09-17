@@ -172,6 +172,21 @@
         </Grid>
     </ControlTemplate>
 
+    <!--  One placeholder field for a package's Details: a label-length bar
+          and a value-length bar, in the columns the real rows use.  -->
+    <ControlTemplate x:Key="SkeletonField" TargetType="ContentControl">
+        <Grid Margin="16,13">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="180" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource SkeletonBar}" Width="84" />
+            <Border Grid.Column="1"
+                    Style="{StaticResource SkeletonBar}"
+                    Width="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" />
+        </Grid>
+    </ControlTemplate>
+
     <!--  ============================================================
           Operation progress bar
           Expects an AppPackage as its DataContext, and takes all three
@@ -841,7 +856,7 @@
                                     Padding="0,4"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                <ScrollViewer>
+                                <ScrollViewer PanningMode="VerticalOnly">
                                     <ItemsPresenter />
                                 </ScrollViewer>
                             </Border>

@@ -130,6 +130,26 @@ public static class MachineState
         }
     }
 
+    /// <summary>
+    /// What the last read said about one package - the rows `winget list
+    /// --id` would print for it - or null before the first read has landed.
+    /// A package's page takes its state from here rather than asking winget
+    /// again: the page then agrees with the card it was opened from, and
+    /// opening it starts no winget process of its own for the question.
+    /// </summary>
+    public static InstallState? StateOf(string id)
+    {
+        if (!HasLoaded)
+            return null;
+
+        var installs = Installed
+            .Where(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
+            .Select(p => new WingetRow(p.Name, p.Id, p.Version, p.AvailableVersion, p.Source))
+            .ToList();
+
+        return new InstallState(installs);
+    }
+
     /// <summary>Forgets everything. For tests, which share the static.</summary>
     internal static void Reset()
     {
