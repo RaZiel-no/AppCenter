@@ -79,7 +79,7 @@ not show the same release twice.
 
 | Page | Backed by |
 | --- | --- |
-| Explore | `catalog.json` — curated banner + picks |
+| Explore | `catalog.json` — curated banner + picks, categories pinned at the foot |
 | Featured / Productivity / Development | `catalog.json` sections, with sorting |
 | Games | Curated carousel + Top Rated grid |
 | Search | Live `winget search`, enriched with `winget show` |

@@ -4,63 +4,21 @@
                 xmlns:views="clr-namespace:AppCenter.Views"
                 xmlns:ctrl="clr-namespace:AppCenter.Controls">
 
-    <!--  No pinned header: the banner is the page's opening, and it scrolls
-          with the rest. Styled as a body all the same, so its column sits
-          exactly where every other page's does.  -->
-    <ScrollViewer Style="{StaticResource PageBody}">
-        <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,4,24,40">
-
-            <!--  ================= Featured banner =================  -->
-            <Border Height="232"
-                    CornerRadius="10"
-                    Background="{DynamicResource BannerGradientBrush}">
-                <Grid Margin="48,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock x:Name="BannerTitle"
-                                   FontFamily="{StaticResource DisplayFont}"
-                                   FontSize="30"
-                                   Foreground="White"
-                                   Text="Featured apps" />
-                        <Button x:Name="DiscoverButton"
-                                Style="{StaticResource GhostButton}"
-                                Margin="0,22,0,0"
-                                HorizontalAlignment="Left"
-                                Foreground="White"
-                                Content="Discover more"
-                                Click="OnDiscoverClick" />
-                    </StackPanel>
-
-                    <ItemsControl x:Name="HighlightIcons"
-                                  Grid.Column="1"
-                                  VerticalAlignment="Center"
-                                  ItemTemplate="{StaticResource BannerTileTemplate}"
-                                  Button.Click="OnHighlightClick">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </Grid>
-            </Border>
-
-            <!--  ================= Card grid =================  -->
-            <ctrl:AppGrid x:Name="Cards" Margin="0,32,0,0" />
-
-            <!--  ================= Categories =================  -->
-            <TextBlock Text="Categories" Style="{StaticResource SectionTitle}" Margin="0,38,0,0" />
-
-            <Border Margin="0,14,0,0"
+    <DockPanel>
+        <!--  ================= Categories =================
+              Pinned at the foot, not scrolled to. They used to be the last
+              thing in the scroll, which meant going past every card to find
+              out the catalogue had sections at all; docked here they keep
+              their place at the bottom and stay in view while the banner
+              and the cards scroll above them.  -->
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource PageFooter}">
+            <Border MaxWidth="900"
+                    HorizontalAlignment="Stretch"
                     Background="{DynamicResource CardBgBrush}"
                     BorderBrush="{DynamicResource CardBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="10"
-                    Padding="14,16">
+                    Padding="14,12">
                 <ItemsControl x:Name="Categories"
                               ItemTemplate="{StaticResource CategoryTileTemplate}"
                               Button.Click="OnCategoryClick">
@@ -75,6 +33,53 @@
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
             </Border>
-        </StackPanel>
-    </ScrollViewer>
+        </Border>
+
+        <ScrollViewer Style="{StaticResource PageBody}">
+            <StackPanel MaxWidth="900" HorizontalAlignment="Stretch" Margin="24,4,24,40">
+
+                <!--  ================= Featured banner =================  -->
+                <Border Height="232"
+                        CornerRadius="10"
+                        Background="{DynamicResource BannerGradientBrush}">
+                    <Grid Margin="48,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock x:Name="BannerTitle"
+                                       FontFamily="{StaticResource DisplayFont}"
+                                       FontSize="30"
+                                       Foreground="White"
+                                       Text="Featured apps" />
+                            <Button x:Name="DiscoverButton"
+                                    Style="{StaticResource GhostButton}"
+                                    Margin="0,22,0,0"
+                                    HorizontalAlignment="Left"
+                                    Foreground="White"
+                                    Content="Discover more"
+                                    Click="OnDiscoverClick" />
+                        </StackPanel>
+
+                        <ItemsControl x:Name="HighlightIcons"
+                                      Grid.Column="1"
+                                      VerticalAlignment="Center"
+                                      ItemTemplate="{StaticResource BannerTileTemplate}"
+                                      Button.Click="OnHighlightClick">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <!--  ================= Card grid =================  -->
+                <ctrl:AppGrid x:Name="Cards" Margin="0,32,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </views:PageView>

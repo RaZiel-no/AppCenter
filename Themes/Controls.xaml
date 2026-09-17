@@ -139,14 +139,34 @@
         </Style.Triggers>
     </Style>
 
+    <!--  Page footer - the header's mirror: a strip a page keeps in place
+          at its foot while the body scrolls above it. No hairline, unlike
+          the header: the picker is a bordered card with the page's own
+          background around it, so the cards scrolling up behind it already
+          read as passing under something. Explore's category picker lives
+          in one.  -->
+
+    <Style x:Key="PageFooter" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource ContentBgBrush}" />
+        <Setter Property="Padding" Value="24,14,38,16" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
     <!--  The body under a page header. Its scrollbar is always allotted its
           width - hidden rather than gone when there is nothing to scroll -
           so the content never shifts sideways by half a scrollbar between a
-          short page and a long one, and stays under the header's.  -->
+          short page and a long one, and stays under the header's.
+
+          A ScrollViewer ignores touch unless told which way it may be panned:
+          without a PanningMode a finger dragged down the page is promoted to
+          a mouse drag, which scrolls nothing. Vertical only, to match the
+          disabled horizontal bar. A tap that never moves still reaches the
+          card or button under it.  -->
 
     <Style x:Key="PageBody" TargetType="ScrollViewer">
         <Setter Property="VerticalScrollBarVisibility" Value="Visible" />
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="PanningMode" Value="VerticalOnly" />
         <Setter Property="Focusable" Value="False" />
     </Style>
 

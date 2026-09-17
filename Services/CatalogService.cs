@@ -40,7 +40,7 @@ public sealed class CatalogBanner
 }
 
 /// <summary>
-/// One tile in the category picker at the foot of Explore.
+/// One tile in the category picker pinned at the foot of Explore.
 ///
 /// Members are named by id rather than repeated as entries, so a package can
 /// sit in several categories without its description being copied about. A
