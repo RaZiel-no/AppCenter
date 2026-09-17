@@ -164,7 +164,8 @@
         "LMMS.LMMS",
         "Musescore.Musescore",
         "PeterPawlowski.foobar2000",
-        "Spotify.Spotify"
+        "Spotify.Spotify",
+        "Winamp.Winamp"
       ]
     },
     {
@@ -1276,6 +1277,13 @@
       "badge": "star",
       "homepage": "https://www.aimp.ru",
       "summary": "Audio player with a proper library behind it"
+    },
+    {
+      "id": "Winamp.Winamp",
+      "name": "Winamp",
+      "publisher": "Winamp SA",
+      "homepage": "https://www.winamp.com/",
+      "summary": "The classic desktop player, skins and all"
     },
     {
       "id": "LMMS.LMMS",
