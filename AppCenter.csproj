@@ -15,6 +15,9 @@
     <!--  Program.Main, ahead of the one the XAML compiler writes for App.xaml,
           so the warm-up can start before the Application is built.  -->
     <StartupObject>AppCenter.Program</StartupObject>
+    <!--  For the Store interop in StoreListingService: the generated COM
+          wrappers, and one method that writes HSTRINGs into a caller's array.  -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!--  Launch time. WPF itself cannot be compiled ahead of time, but the

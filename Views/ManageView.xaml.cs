@@ -247,6 +247,8 @@ public partial class ManageView : PageView
             package.Summary = entry.Summary;
             package.Homepage = entry.Homepage;
             package.IconUrl = entry.Icon;
+            package.Screenshots = entry.Screenshots;
+            package.StoreId = entry.Msstore;
         }
     }
 

@@ -35,6 +35,12 @@ public interface IShellHost
 
     /// <summary>Ask the user to confirm a change to this machine.</summary>
     bool ConfirmAction(string title, string message, string confirmLabel);
+
+    /// <summary>
+    /// Open the lightbox over the whole window on one of a page's
+    /// screenshots, with the rest a keypress away.
+    /// </summary>
+    void ShowScreenshots(IReadOnlyList<Screenshot> screenshots, int index);
 }
 
 /// <summary>

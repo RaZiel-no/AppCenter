@@ -33,6 +33,9 @@ public partial class DetailView : PageView
 
     private readonly AppPackage _package;
 
+    /// <summary>What the strip shows, in order, once it has loaded.</summary>
+    private IReadOnlyList<Screenshot> _screenshots = [];
+
     /// <summary>
     /// What the machine read last said about this package, or null until
     /// there has been one. Not "not installed" until then: the buttons wait
@@ -92,6 +95,10 @@ public partial class DetailView : PageView
     public override async Task LoadAsync()
     {
         Host.Icons.BeginLoad([_package], Dispatcher);
+
+        // Alongside `winget show`, not after it: the two have nothing to say
+        // to each other, and the strip is usually the slower of the two.
+        _ = LoadScreenshotsAsync();
 
         try
         {
@@ -480,11 +487,76 @@ public partial class DetailView : PageView
 
     private void OnBackClick(object sender, RoutedEventArgs e) => Host.GoBack();
 
-    /// <summary>Hands the URL to whatever the machine has set as its browser.</summary>
+    /// <summary>
+    /// Fills the strip: the catalogue's hand-picked screenshots if the entry
+    /// has any, else whatever the Store lists for this package. The three are
+    /// fetched together and shown together, in order, so the strip never
+    /// appears with a gap that fills in later.
+    /// </summary>
+    private async Task LoadScreenshotsAsync()
+    {
+        try
+        {
+            var urls = _package.Screenshots?.Where(url => !string.IsNullOrWhiteSpace(url)).Take(3).ToList();
+
+            if (urls is null || urls.Count == 0)
+            {
+                var listing = await StoreListings.ForPackageAsync(_package, _cts.Token);
+                urls = listing?.Screenshots.Take(3).ToList();
+            }
+
+            if (urls is null || urls.Count == 0)
+                return;
+
+            var key = _package.Id.Length > 0 ? _package.Id : _package.Name;
+            var keys = urls.Select((_, i) => $"{key}.shot{i}").ToList();
+            var loads = urls.Select((url, i) => Host.Icons.GetScreenshotAsync(url, keys[i], _cts.Token));
+            var images = await Task.WhenAll(loads);
+
+            var items = new List<Screenshot>();
+            for (var i = 0; i < urls.Count; i++)
+            {
+                if (images[i] is not null)
+                    items.Add(new Screenshot(images[i]!, urls[i], keys[i], $"Screenshot {items.Count + 1} of {_package.Name}"));
+            }
+
+            if (items.Count == 0 || _cts.IsCancellationRequested)
+                return;
+
+            _screenshots = items;
+            Screenshots.ItemsSource = items;
+            ScreenshotsSection.Visibility = Visibility.Visible;
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigated away.
+        }
+        catch (Exception)
+        {
+            // Decoration; the page is complete without it.
+        }
+    }
+
+    /// <summary>The picture large, over the whole window, with its neighbours a key away.</summary>
+    private void OnScreenshotClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: Screenshot screenshot })
+            return;
+
+        var index = _screenshots.ToList().IndexOf(screenshot);
+        if (index >= 0)
+            Host.ShowScreenshots(_screenshots, index);
+    }
+
     private void OnLinkClicked(object sender, RequestNavigateEventArgs e)
     {
-        var target = e.Uri.AbsoluteUri;
+        Open(e.Uri.AbsoluteUri);
+        e.Handled = true;
+    }
 
+    /// <summary>Hands the URL to whatever the machine has set as its browser.</summary>
+    private void Open(string target)
+    {
         try
         {
             Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
@@ -493,7 +565,5 @@ public partial class DetailView : PageView
         {
             SetProgress($"Could not open {target}: {ex.Message}");
         }
-
-        e.Handled = true;
     }
 }

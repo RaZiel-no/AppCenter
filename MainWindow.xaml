@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ctrl="clr-namespace:AppCenter.Controls"
         Title="App Center"
-        Icon="AppCenter.ico"
         Width="1340"
         Height="860"
         MinWidth="940"
@@ -205,5 +205,10 @@
 
             <ContentControl x:Name="PageHost" Grid.Row="1" />
         </Grid>
+
+        <!--  ================= Lightbox =================
+              Over both columns, sidebar included: when a screenshot is up,
+              the whole window is what goes dark behind it.  -->
+        <ctrl:Lightbox x:Name="Lightbox" Grid.ColumnSpan="2" />
     </Grid>
 </Window>

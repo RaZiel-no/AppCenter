@@ -85,6 +85,37 @@
     </Style>
 
     <!--  ============================================================
+          A screenshot thumbnail on the detail page. A Button for the
+          same reason as the row: it is a thing to press, and a picture
+          on its own is not one to a keyboard or a screen reader. No
+          chrome of its own - the content draws its rounded frame - and
+          the hover is the picture brightening a touch, not a box
+          appearing around it.
+          ============================================================  -->
+
+    <Style x:Key="ScreenshotButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter x:Name="Content" Opacity="0.92" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Content" Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  ============================================================
           Page header - the strip a page keeps in place while its body
           scrolls: title, primary actions, a filter bar.
 
@@ -644,6 +675,44 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="#CC000000" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  Lightbox arrows and close: the carousel's, larger, and drawn for
+          the dark scrim they sit on - a pale disc rather than a dark one,
+          so they read against a dark screenshot as well as a light one.
+          An arrow with nowhere to go dims rather than disappears: it still
+          says which way the set runs.  -->
+    <Style x:Key="LightboxButton" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRingRound}" />
+        <Setter Property="Width" Value="48" />
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="#2EFFFFFF" BorderBrush="#40FFFFFF" BorderThickness="1" CornerRadius="24">
+                        <Viewbox Width="22" Height="22">
+                            <Path Style="{StaticResource Icon}"
+                                  Data="{TemplateBinding Tag}"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.8" />
+                        </Viewbox>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#4DFFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#66FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.3" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

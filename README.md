@@ -1,7 +1,7 @@
 # App Center
 
 Ubuntu's App Center, rebuilt for Windows on top of **winget**. WPF on .NET 10,
-no external packages — the whole thing compiles against what ships with the SDK.
+and one external package — SharpVectors, to draw the SVG icons WPF cannot.
 
 Free software under the [GPL-3.0](LICENSE), the same licence Canonical give
 [Ubuntu's App Center](https://github.com/ubuntu/app-center) — see
@@ -83,7 +83,7 @@ not show the same release twice.
 | Featured / Productivity / Development | `catalog.json` sections, with sorting |
 | Games | Curated carousel + Top Rated grid |
 | Search | Live `winget search`, enriched with `winget show` |
-| App detail | `winget show` + `winget list` for install state |
+| App detail | `winget show` + `winget list` for install state; screenshots from the catalogue or the Store |
 | Manage | Live `winget upgrade` and `winget list` |
 
 Install, update and uninstall run **real winget commands against this machine**.
@@ -127,11 +127,12 @@ the confirmation names them.
 ## Layout
 
 ```
-AppCenter.csproj          net10.0-windows, UseWPF, zero NuGet dependencies
+AppCenter.csproj          net10.0-windows, UseWPF, one NuGet dependency (SharpVectors)
 catalog.json              the curated catalogue (edit this to change the pages)
 app.manifest              per-monitor v2 DPI awareness
 AppCenter.ico             the app icon, 16-256 (see tools/make_icon.py)
 LICENSE                   GPL-3.0; ships next to the exe, About links to it
+THIRD-PARTY-NOTICES.txt   SharpVectors' BSD-3-Clause notice; ships next to the exe too
 deploy.bat                publish + installer + winget manifests -> releases/
 
 installer/
@@ -175,21 +176,31 @@ It's drawn rather than stored: `python tools/make_icon.py` renders the artwork o
 a 1024x1024 grid at 4x supersample and downsamples into all ten sizes (16-256),
 writing `AppCenter.ico` and `docs/icon.png`. Colours are the literals from
 `Themes/Palette.xaml`, so re-theming the app and re-running the script keeps them
-in step. Pillow and numpy are needed for that script only — the app itself still
-builds with no dependencies beyond the SDK.
+in step. Pillow and numpy are needed for that script only — the app itself
+needs nothing beyond the SDK and SharpVectors.
 
 ## Icons for catalogue apps
 
-winget carries no icon data, so icons come **from each app's own homepage**, and
-are cached in `%LOCALAPPDATA%\AppCenter\icons`. No third-party icon service is
-contacted. Resolution runs in this order:
+winget carries no icon data, so icons come **from each app's own homepage** —
+or, as a last resort, from its Microsoft Store listing — and are cached in
+`%LOCALAPPDATA%\AppCenter\icons`. No third-party icon service is contacted.
+Resolution runs in this order:
 
 1. an explicit `"icon"` URL in the `catalog.json` entry, if there is one;
 2. otherwise the homepage is read and whatever it declares in
    `<link rel="apple-touch-icon">` or `<link rel="icon">` is used, best first —
-   apple-touch-icon ahead of favicon, larger ahead of smaller;
+   apple-touch-icon ahead of favicon, larger ahead of smaller. An SVG is as
+   good as a bitmap: WPF cannot decode one, so
+   [SharpVectors](https://github.com/ElinamLLC/SharpVectors) draws it into a
+   bitmap of the size everything else is brought down to;
 3. failing that, the conventional paths at the site root
-   (`/apple-touch-icon.png`, `/favicon.ico`, …).
+   (`/apple-touch-icon.png`, `/favicon.ico`, …);
+4. and when all of that yields nothing, the logo from the app's Microsoft
+   Store listing, if it has one the app can be sure of — see
+   [Screenshots on the detail page](#screenshots-on-the-detail-page) for
+   what that means and how the listing is reached. Last rather than first
+   so that the two hundred apps already served from their homepages never
+   cost the Store a query.
 
 The order matters. Guessing at the site root first is what makes
 `https://www.mozilla.org` hand back the Mozilla flag instead of Firefox's logo:
@@ -216,7 +227,9 @@ an app appearing on several pages needs the field on each of them.
 The cache filename carries a version (`<id>.v3.png`). Bump `CacheSuffix` in
 `IconService` when the rules change — without that, a fix never reaches anyone
 who already ran the app, because the wrong icon is on disk and gets returned
-before any of the new logic runs.
+before any of the new logic runs. A miss is remembered too (`<id>.v4.none`,
+for a fortnight); its version moves on its own when a change can only turn
+misses into hits, so the good icons on disk are kept.
 
 ## Screenshots in the Games carousel
 
@@ -241,9 +254,50 @@ images are redistributed with App Center. They are fetched once, decoded down to
 960px on the way in (a 1920x1080 press shot costs 8MB of bitmap held at source
 size, for a 250px-tall slide) and cached under `%LOCALAPPDATA%\AppCenter\screenshots`.
 
+## Screenshots on the detail page
+
+Under an app's details sit up to three screenshots, from one of two places:
+
+- **the catalogue.** A `"screenshots"` list on the entry — hand-picked URLs
+  from the project's own site, shown in the order given, on the same footing
+  as the carousel's `"screenshot"`. These win when present.
+- **the app's Microsoft Store listing.** Windows has a documented API for
+  reading a Store listing, `Windows.Services.Store.StoreContext` — the call an
+  app makes to read its own listing, given another app's id — and it comes
+  back with the screenshots and logos the publisher submitted. No web page is
+  scraped and no undocumented endpoint is called; the Store client on this
+  machine sends the same request.
+
+  The listing is only ever asked for by an **exact identity**, never found by
+  name: a `"msstore"` id on the catalogue entry, or the family name of an
+  installed MSIX package, which `winget list` prints in the id. Matching by
+  name is how "Anki" turns into "MemU Anki Flashcard", and no screenshot is
+  better than the wrong app's.
+
+  The API answers only for *packaged* listings — ids beginning with `9`,
+  such as `9N0DX20HK701`. The Win32 apps the Store also carries (`XP…` ids:
+  PowerToys, OBS, Discord, VS Code, Edge) return nothing through it under
+  any product kind, so they cannot be reached this way and are not listed.
+
+The Store is reached through hand-written COM interop in
+`StoreListingService` rather than the WinRT projection, which would have
+meant a Windows SDK target framework and a twenty-megabyte assembly for two
+method calls. The interfaces are declared in vtable order from the SDK
+headers, and the parameterised ones carry the IIDs the WinRT signature hash
+produces. On a Windows without the Store the first call fails and nothing is
+asked again.
+
+Screenshots are fetched once, decoded down to 960px and cached under
+`%LOCALAPPDATA%\AppCenter\screenshots`, like the carousel's. Clicking one
+opens it large over the whole window, the app dimmed behind it, with arrows
+to the next and previous, a close button on the picture's corner, and a
+click anywhere outside the picture - or Escape - to put it away. The strip's
+copy goes up at once and the full-size picture, decoded at 1920 wide, takes
+its place as it lands.
+
 ## Editing the catalogue
 
-`catalog.json` is copied next to the exe on build. It currently carries 178
+`catalog.json` is copied next to the exe on build. It currently carries 179
 distinct apps across the six sections, spanning browsers, office, creative,
 audio and video, developer tooling, system utilities, science and CAD, and
 games. Each entry needs a real winget package id; `badge` is `"verified"`
@@ -257,6 +311,12 @@ winget search --id <Package.Id> --exact --source winget
 An id that does not resolve still renders a card, but installing it fails, so
 it is worth running that check before committing a new entry. Sections may
 share apps freely; the same id appears on several pages by design.
+
+Two optional fields feed the detail page: `"msstore"`, the app's Store id
+when it has a packaged listing (`winget search --source msstore <name>`
+prints it; only ids beginning with `9` are any use — see above), and
+`"screenshots"`, a list of image URLs from the project's own site. Like
+`"icon"`, both are per-section: an app on several pages needs them on each.
 
 ## Notes on the winget layer
 
@@ -288,6 +348,10 @@ to say truthfully what this was modelled on.
 
 The Yaru palette in `Themes/Palette.xaml` is Ubuntu's, taken from the
 [Yaru theme](https://github.com/ubuntu/yaru) (GPL-3.0 / CC-BY-SA-4.0).
+
+SVG icons are drawn by [SharpVectors](https://github.com/ElinamLLC/SharpVectors),
+© Elinam LLC, under the BSD-3-Clause licence. Its notice is in
+`THIRD-PARTY-NOTICES.txt`, which ships alongside `LICENSE`.
 
 Distributing a build means passing on the source it was built from — the GPL
 asks for that, and `LICENSE` ships inside the installer and the portable zip so

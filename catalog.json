@@ -349,6 +349,7 @@
     },
     {
       "id": "Microsoft.WindowsTerminal",
+      "msstore": "9N0DX20HK701",
       "icon": "https://raw.githubusercontent.com/microsoft/terminal/main/res/terminal.ico",
       "name": "Windows Terminal",
       "publisher": "Microsoft",
@@ -374,6 +375,7 @@
     },
     {
       "id": "Mozilla.Firefox",
+      "msstore": "9NZVDKPMR9RD",
       "name": "Firefox",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -398,6 +400,7 @@
     },
     {
       "id": "Spotify.Spotify",
+      "msstore": "9NCBCSZSJRSB",
       "name": "Spotify",
       "publisher": "Spotify AB",
       "badge": "verified",
@@ -422,6 +425,7 @@
     },
     {
       "id": "GIMP.GIMP",
+      "msstore": "9PNSJCLXDZ0V",
       "name": "GIMP",
       "publisher": "The GIMP Team",
       "badge": "star",
@@ -430,6 +434,7 @@
     },
     {
       "id": "Inkscape.Inkscape",
+      "msstore": "9PD9BHGLFC7H",
       "name": "Inkscape",
       "publisher": "Inkscape",
       "badge": "star",
@@ -446,6 +451,7 @@
     },
     {
       "id": "BlenderFoundation.Blender",
+      "msstore": "9PP3C07GTVRH",
       "name": "Blender",
       "publisher": "Blender Foundation",
       "badge": "star",
@@ -494,6 +500,7 @@
     },
     {
       "id": "Bitwarden.Bitwarden",
+      "msstore": "9PJSDV0VPK04",
       "name": "Bitwarden",
       "publisher": "Bitwarden Inc.",
       "badge": "verified",
@@ -510,6 +517,7 @@
     },
     {
       "id": "ShareX.ShareX",
+      "msstore": "9NBLGGH4Z1SP",
       "name": "ShareX",
       "publisher": "ShareX Team",
       "badge": "star",
@@ -560,6 +568,7 @@
     },
     {
       "id": "Mozilla.Firefox",
+      "msstore": "9NZVDKPMR9RD",
       "name": "Firefox",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -673,6 +682,7 @@
     },
     {
       "id": "Bitwarden.Bitwarden",
+      "msstore": "9PJSDV0VPK04",
       "name": "Bitwarden",
       "publisher": "Bitwarden Inc.",
       "badge": "verified",
@@ -689,6 +699,7 @@
     },
     {
       "id": "ShareX.ShareX",
+      "msstore": "9NBLGGH4Z1SP",
       "name": "ShareX",
       "publisher": "ShareX Team",
       "badge": "star",
@@ -697,6 +708,7 @@
     },
     {
       "id": "BlenderFoundation.Blender",
+      "msstore": "9PP3C07GTVRH",
       "name": "Blender",
       "publisher": "Blender Foundation",
       "badge": "star",
@@ -705,6 +717,7 @@
     },
     {
       "id": "GIMP.GIMP",
+      "msstore": "9PNSJCLXDZ0V",
       "name": "GIMP",
       "publisher": "The GIMP Team",
       "badge": "star",
@@ -721,6 +734,7 @@
     },
     {
       "id": "Inkscape.Inkscape",
+      "msstore": "9PD9BHGLFC7H",
       "name": "Inkscape",
       "publisher": "Inkscape",
       "badge": "star",
@@ -828,6 +842,7 @@
     },
     {
       "id": "Mozilla.Firefox",
+      "msstore": "9NZVDKPMR9RD",
       "name": "Firefox",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -860,6 +875,7 @@
     },
     {
       "id": "Mozilla.Thunderbird",
+      "msstore": "9MX7TGVGQFCL",
       "name": "Thunderbird",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -868,6 +884,7 @@
     },
     {
       "id": "SlackTechnologies.Slack",
+      "msstore": "9WZDNCRDK3WP",
       "name": "Slack",
       "publisher": "Slack Technologies",
       "badge": "verified",
@@ -916,6 +933,7 @@
     },
     {
       "id": "LibreWolf.LibreWolf",
+      "msstore": "9NVN9SZ8KFD7",
       "name": "LibreWolf",
       "publisher": "LibreWolf",
       "badge": "star",
@@ -996,6 +1014,7 @@
     },
     {
       "id": "Doist.Todoist",
+      "msstore": "9MWF2DWS5Z9N",
       "name": "Todoist",
       "publisher": "Doist",
       "badge": "verified",
@@ -1028,6 +1047,7 @@
     },
     {
       "id": "Evernote.Evernote",
+      "msstore": "9WZDNCRFJ3MB",
       "name": "Evernote",
       "publisher": "Evernote Corporation",
       "badge": "verified",
@@ -1052,6 +1072,7 @@
     },
     {
       "id": "Dropbox.Dropbox",
+      "msstore": "9NK4T08DHQ80",
       "name": "Dropbox",
       "publisher": "Dropbox, Inc.",
       "badge": "verified",
@@ -1124,6 +1145,7 @@
     },
     {
       "id": "GIMP.GIMP",
+      "msstore": "9PNSJCLXDZ0V",
       "name": "GIMP",
       "publisher": "The GIMP Team",
       "badge": "star",
@@ -1132,6 +1154,7 @@
     },
     {
       "id": "Inkscape.Inkscape",
+      "msstore": "9PD9BHGLFC7H",
       "name": "Inkscape",
       "publisher": "Inkscape",
       "badge": "star",
@@ -1148,6 +1171,7 @@
     },
     {
       "id": "BlenderFoundation.Blender",
+      "msstore": "9PP3C07GTVRH",
       "name": "Blender",
       "publisher": "Blender Foundation",
       "badge": "star",
@@ -1212,6 +1236,7 @@
     },
     {
       "id": "IrfanSkiljan.IrfanView",
+      "msstore": "9NL0R0JNNZM0",
       "name": "IrfanView",
       "publisher": "Irfan Skiljan",
       "badge": "star",
@@ -1236,6 +1261,7 @@
     },
     {
       "id": "PeterPawlowski.foobar2000",
+      "msstore": "9PB51GM7M33J",
       "name": "foobar2000",
       "publisher": "Peter Pawlowski",
       "badge": "star",
@@ -1244,6 +1270,7 @@
     },
     {
       "id": "AIMP.AIMP",
+      "msstore": "9PCLLLH15SMT",
       "name": "AIMP",
       "publisher": "Artem Izmaylov",
       "badge": "star",
@@ -1301,6 +1328,7 @@
     },
     {
       "id": "ShareX.ShareX",
+      "msstore": "9NBLGGH4Z1SP",
       "name": "ShareX",
       "publisher": "ShareX Team",
       "badge": "star",
@@ -1333,6 +1361,7 @@
     },
     {
       "id": "Bitwarden.Bitwarden",
+      "msstore": "9PJSDV0VPK04",
       "name": "Bitwarden",
       "publisher": "Bitwarden Inc.",
       "badge": "verified",
@@ -1375,6 +1404,7 @@
     },
     {
       "id": "Microsoft.WindowsTerminal",
+      "msstore": "9N0DX20HK701",
       "icon": "https://raw.githubusercontent.com/microsoft/terminal/main/res/terminal.ico",
       "name": "Windows Terminal",
       "publisher": "Microsoft",
@@ -1408,6 +1438,7 @@
     },
     {
       "id": "Python.Python.3.12",
+      "msstore": "9NCVDN91XZQP",
       "name": "Python 3.12",
       "publisher": "Python Software Foundation",
       "badge": "verified",
@@ -1516,6 +1547,7 @@
     },
     {
       "id": "Microsoft.PowerShell",
+      "msstore": "9MZ1SNWT0N5D",
       "name": "PowerShell",
       "publisher": "Microsoft Corporation",
       "badge": "verified",
@@ -1676,6 +1708,7 @@
     },
     {
       "id": "ArduinoSA.IDE.stable",
+      "msstore": "9NBLGGH4RSD8",
       "name": "Arduino IDE",
       "publisher": "Arduino SA",
       "badge": "verified",
@@ -1828,6 +1861,7 @@
     },
     {
       "id": "Rufus.Rufus",
+      "msstore": "9PC3H3V7Q9CH",
       "name": "Rufus",
       "publisher": "pbatard",
       "badge": "star",
@@ -1860,6 +1894,7 @@
     },
     {
       "id": "WinDirStat.WinDirStat",
+      "msstore": "9PH1GL95P3WF",
       "name": "WinDirStat",
       "publisher": "The WinDirStat Team",
       "badge": "star",

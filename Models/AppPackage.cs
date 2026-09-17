@@ -28,7 +28,50 @@ public sealed class AppPackage : INotifyPropertyChanged
     /// </summary>
     public string? ScreenshotUrl { get; set; }
 
+    /// <summary>
+    /// Hand-picked screenshots from the catalogue, in the order they are
+    /// shown. The detail page shows these ahead of anything the Store has.
+    /// </summary>
+    public IReadOnlyList<string>? Screenshots { get; set; }
+
     public string Source { get; set; } = string.Empty;
+
+    private string? _storeId;
+
+    /// <summary>
+    /// The product's id in the Microsoft Store - <c>9N0DX20HK701</c> - when it
+    /// is listed there: from the catalogue's "msstore" field, or the id itself
+    /// for a package winget found in the msstore source. Null when there is no
+    /// listing to ask about.
+    /// </summary>
+    public string? StoreId
+    {
+        get => _storeId ?? (string.Equals(Source, "msstore", StringComparison.OrdinalIgnoreCase) ? Id : null);
+        set => _storeId = value;
+    }
+
+    /// <summary>
+    /// The family name of an installed MSIX package, read out of the id
+    /// `winget list` gives one it cannot attribute to a source:
+    /// <c>MSIX\Name_Version_Arch_Resource_PublisherId</c> names the family
+    /// <c>Name_PublisherId</c>. Null for every other kind of id.
+    /// </summary>
+    public string? PackageFamilyName => PackageFamilyFromId(Id);
+
+    internal static string? PackageFamilyFromId(string id)
+    {
+        const string prefix = "MSIX\\";
+        if (!id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var full = id[prefix.Length..];
+        var first = full.IndexOf('_');
+        var last = full.LastIndexOf('_');
+        if (first <= 0 || last <= first || last == full.Length - 1)
+            return null;
+
+        return string.Concat(full.AsSpan(0, first), "_", full.AsSpan(last + 1));
+    }
 
     // Search fills these in after the cards are already on screen, so they
     // have to raise change notifications rather than be plain properties.

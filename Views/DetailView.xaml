@@ -264,6 +264,51 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </Border>
+
+                <!--  ================= Screenshots =================
+                      Up to three, from the catalogue's own list or from the
+                      app's Microsoft Store listing. The whole section stays
+                      collapsed until the first one has actually decoded, so a
+                      package with nothing to show never shows a heading over
+                      an empty row.  -->
+                <StackPanel x:Name="ScreenshotsSection" Visibility="Collapsed">
+                    <TextBlock Text="Screenshots" Style="{StaticResource SectionTitle}" Margin="0,30,0,0" />
+
+                    <!--  Each thumbnail keeps a gutter on its right; the negative
+                          margin here puts the last one's gutter outside the row,
+                          so the strip ends where the cards above it end.  -->
+                    <ItemsControl x:Name="Screenshots" Margin="0,14,-12,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" Columns="3" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!--  The picture is the border's background rather than a
+                                      child, because a Border clips its own background to
+                                      its corners and clips nothing else.  -->
+                                <Button Style="{StaticResource ScreenshotButton}"
+                                        Click="OnScreenshotClicked"
+                                        ToolTip="Show full size"
+                                        AutomationProperties.Name="{Binding Label}">
+                                    <Border Height="158"
+                                            Margin="0,0,12,0"
+                                            CornerRadius="8"
+                                            BorderBrush="{DynamicResource CardBorderBrush}"
+                                            BorderThickness="1">
+                                        <Border.Background>
+                                            <ImageBrush ImageSource="{Binding Preview}"
+                                                        Stretch="UniformToFill"
+                                                        AlignmentY="Top"
+                                                        RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Border.Background>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

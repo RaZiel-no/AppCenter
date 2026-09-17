@@ -71,6 +71,8 @@ public partial class SearchView : PageView
                 package.Summary = entry.Summary;
                 package.Homepage = entry.Homepage;
                 package.IconUrl = entry.Icon;
+                package.Screenshots = entry.Screenshots;
+                package.StoreId = entry.Msstore;
                 package.Badge = CatalogService.ToPackage(entry).Badge;
             }
 

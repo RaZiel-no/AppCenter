@@ -524,6 +524,20 @@ public partial class MainWindow : Window, IShellHost
         var inText = Keyboard.FocusedElement is TextBoxBase;
         var altLeft = e.Key == Key.System && e.SystemKey == Key.Left && Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
 
+        // With a screenshot up, "back" means putting it away - the page
+        // under it is still the page, and it must not change behind the
+        // picture. The lightbox takes Escape and the arrows itself.
+        if (Lightbox.IsOpen)
+        {
+            if (altLeft || (!inText && e.Key is Key.Escape or Key.Back))
+            {
+                Lightbox.Close();
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (altLeft || (!inText && e.Key is Key.Escape or Key.Back))
             e.Handled = TryGoBack();
     }
@@ -532,8 +546,17 @@ public partial class MainWindow : Window, IShellHost
     {
         base.OnPreviewMouseDown(e);
 
-        if (e.ChangedButton == MouseButton.XButton1)
-            e.Handled = TryGoBack();
+        if (e.ChangedButton != MouseButton.XButton1)
+            return;
+
+        if (Lightbox.IsOpen)
+        {
+            Lightbox.Close();
+            e.Handled = true;
+            return;
+        }
+
+        e.Handled = TryGoBack();
     }
 
     /// <summary>
@@ -567,6 +590,16 @@ public partial class MainWindow : Window, IShellHost
 
     public bool ConfirmAction(string title, string message, string confirmLabel) =>
         ConfirmDialog.Show(this, title, message, confirmLabel);
+
+    // ---------------------------------------------------------------
+    // Lightbox
+    // ---------------------------------------------------------------
+
+    public void ShowScreenshots(IReadOnlyList<Screenshot> screenshots, int index)
+    {
+        Lightbox.Icons = Icons;
+        Lightbox.Show(screenshots, index);
+    }
 
     // ---------------------------------------------------------------
     // Window chrome

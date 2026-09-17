@@ -98,6 +98,15 @@ public sealed class IconService
     private const int ScreenshotDecodeWidth = 960;
 
     /// <summary>
+    /// The lightbox draws one screenshot across most of the window, where the
+    /// 960px strip copy would be stretched soft - a terminal screenshot is
+    /// text, and text shows it. Store screenshots are 1920 wide, so this is
+    /// their native size; anything larger is a press image and is brought
+    /// down to it. An 8MB bitmap, held only while the lightbox is open.
+    /// </summary>
+    private const int FullScreenshotDecodeWidth = 1920;
+
+    /// <summary>
     /// Code hosts, where every project shares one page furniture and therefore
     /// one icon: a github.com/{user}/{repo} homepage yields the Octocat, which
     /// then sits on two dozen unrelated cards claiming they are all GitHub. A
@@ -478,14 +487,45 @@ public sealed class IconService
         if (string.IsNullOrWhiteSpace(package.ScreenshotUrl))
             return Task.FromResult<BitmapSource?>(null);
 
-        var key = CacheKey(package.Id.Length > 0 ? package.Id : package.Name);
-        if (key.Length == 0)
-            return Task.FromResult<BitmapSource?>(null);
-
-        return Remember(_inFlightScreenshots, key, k => LoadScreenshotAsync(package, k, ct));
+        var key = package.Id.Length > 0 ? package.Id : package.Name;
+        return GetScreenshotAsync(package.ScreenshotUrl!, key, ct);
     }
 
-    private async Task<IconResult> LoadScreenshotAsync(AppPackage package, string key, CancellationToken ct)
+    /// <summary>
+    /// One screenshot by URL, decoded down to carousel width and cached under
+    /// the given key: the detail page's strip, where a package has several.
+    /// </summary>
+    public Task<BitmapSource?> GetScreenshotAsync(string url, string cacheKey, CancellationToken ct = default)
+    {
+        var key = CacheKey(cacheKey);
+        if (key.Length == 0 || string.IsNullOrWhiteSpace(url))
+            return Task.FromResult<BitmapSource?>(null);
+
+        return Remember(_inFlightScreenshots, key, k => LoadScreenshotAsync(url, k, ct));
+    }
+
+    /// <summary>
+    /// The same screenshot at <see cref="FullScreenshotDecodeWidth"/>, for the
+    /// lightbox. Cached on disk beside the strip copy but not remembered in
+    /// memory across calls the way the strip copy is: at 8MB apiece, the
+    /// pictures someone has looked at during a session are not worth keeping
+    /// once the lightbox has closed, and the disk copy makes the next look
+    /// cheap anyway.
+    /// </summary>
+    public Task<BitmapSource?> GetFullScreenshotAsync(string url, string cacheKey, CancellationToken ct = default)
+    {
+        var key = CacheKey(cacheKey);
+        if (key.Length == 0 || string.IsNullOrWhiteSpace(url))
+            return Task.FromResult<BitmapSource?>(null);
+
+        return Task.Run(async () =>
+            (await LoadScreenshotAsync(url, key + ".full", FullScreenshotDecodeWidth, ct).ConfigureAwait(false)).Image, ct);
+    }
+
+    private Task<IconResult> LoadScreenshotAsync(string url, string key, CancellationToken ct) =>
+        LoadScreenshotAsync(url, key, ScreenshotDecodeWidth, ct);
+
+    private async Task<IconResult> LoadScreenshotAsync(string url, string key, int decodeWidth, CancellationToken ct)
     {
         var path = Path.Combine(_screenshotDir, key + CacheSuffix);
 
@@ -502,7 +542,7 @@ public sealed class IconService
         try
         {
             using var response = await Http
-                .GetAsync(package.ScreenshotUrl!, HttpCompletionOption.ResponseContentRead, ct)
+                .GetAsync(url, HttpCompletionOption.ResponseContentRead, ct)
                 .ConfigureAwait(false);
 
             _screenshots.NoteSuccess();
@@ -538,7 +578,7 @@ public sealed class IconService
         if (bytes.Length is < 1024 or > MaxScreenshotBytes)
             return IconResult.Answer(null);
 
-        var decoded = DecodeScaled(bytes, ScreenshotDecodeWidth);
+        var decoded = DecodeScaled(bytes, decodeWidth);
         if (decoded is null)
             return IconResult.Answer(null);
 
@@ -601,9 +641,11 @@ public sealed class IconService
         var candidates = await CandidateUrlsAsync(package, ct).ConfigureAwait(false);
 
         // Nowhere to look yet - no homepage, a code host we skip on purpose,
-        // or a scheme we cannot fetch. Not an answer: a homepage may arrive
-        // later, and re-deciding this costs no requests.
-        if (candidates.Count == 0)
+        // or a scheme we cannot fetch - and no Store listing to fall back on.
+        // Not an answer: a homepage may arrive later, and re-deciding this
+        // costs no requests.
+        var askStore = StoreListings.CanAskAbout(package);
+        if (candidates.Count == 0 && !askStore)
             return IconResult.NotTried;
 
         var looked = true;
@@ -626,6 +668,23 @@ public sealed class IconService
                 return attempt;
 
             looked &= attempt.Tried;
+        }
+
+        // The homepage had nothing. The Store's logo is the app's own icon as
+        // its publisher submitted it, so it would be a fine first choice - but
+        // it is asked for last so that the two hundred packages already served
+        // from their homepages keep costing the Store nothing.
+        if (askStore && !_icons.IsQuiet)
+        {
+            var logo = (await StoreListings.ForPackageAsync(package, ct).ConfigureAwait(false))?.Logo;
+            if (logo is not null)
+            {
+                var attempt = await TryFetchAsync(logo, key, ct).ConfigureAwait(false);
+                if (attempt.Image is not null)
+                    return attempt;
+
+                looked &= attempt.Tried;
+            }
         }
 
         // Every candidate answered and none of them held an icon: that is a
@@ -1030,8 +1089,16 @@ public sealed class IconService
     /// instead of being served a conclusion drawn about a different site. That
     /// retry is deliberate and was hard won; a blanket marker would undo it.
     /// </summary>
-    private static string HuntSource(AppPackage package) =>
-        !string.IsNullOrWhiteSpace(package.IconUrl) ? package.IconUrl! : package.Homepage;
+    private static string HuntSource(AppPackage package)
+    {
+        var site = !string.IsNullOrWhiteSpace(package.IconUrl) ? package.IconUrl! : package.Homepage;
+
+        // The Store is part of where the hunt looked, so a catalogue entry
+        // that gains a Store id is hunted afresh rather than served the miss
+        // recorded before it had one.
+        var store = package.StoreId ?? package.PackageFamilyName;
+        return store is null ? site : $"{site}|store:{store}";
+    }
 
     /// <summary>
     /// Whether the hunt has already been run against this same source, recently,

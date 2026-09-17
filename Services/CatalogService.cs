@@ -16,6 +16,19 @@ public sealed class CatalogEntry
     /// <summary>Wide promotional image, used by the Games carousel.</summary>
     public string? Screenshot { get; set; }
 
+    /// <summary>
+    /// Screenshots for the detail page, hand-picked from the project's own
+    /// site, in the order they are shown. Shown ahead of the Store's.
+    /// </summary>
+    public List<string>? Screenshots { get; set; }
+
+    /// <summary>
+    /// The product's Microsoft Store id, when it is listed there. The detail
+    /// page asks the Store for its screenshots, and the icon hunt falls back
+    /// to the listing's logo when the homepage yields nothing.
+    /// </summary>
+    public string? Msstore { get; set; }
+
     public string? Badge { get; set; }
 }
 
@@ -155,6 +168,8 @@ public static class CatalogService
         Homepage = entry.Homepage,
         IconUrl = entry.Icon,
         ScreenshotUrl = entry.Screenshot,
+        Screenshots = entry.Screenshots,
+        StoreId = entry.Msstore,
         Source = "winget",
         Badge = entry.Badge?.ToLowerInvariant() switch
         {
