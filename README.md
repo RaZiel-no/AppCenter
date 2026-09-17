@@ -1,3 +1,9 @@
+**TL;DR** — an app store for Windows, on top of winget. Get it with:
+
+```
+winget install appcenter
+```
+
 # App Center
 
 Ubuntu's App Center, rebuilt for Windows on top of **winget**. WPF on .NET 10,
