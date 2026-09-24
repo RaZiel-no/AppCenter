@@ -320,6 +320,7 @@
         "CPUID.CPU-Z",
         "CrystalDewWorld.CrystalDiskInfo",
         "FilesCommunity.Files",
+        "Ghisler.TotalCommander",
         "Malwarebytes.Malwarebytes",
         "Microsoft.PowerToys",
         "Microsoft.Sysinternals.Autoruns",
@@ -608,6 +609,14 @@
       "badge": "star",
       "homepage": "https://www.7-zip.org",
       "summary": "A file archiver with a high compression ratio"
+    },
+    {
+      "id": "Ghisler.TotalCommander",
+      "name": "Total Commander",
+      "publisher": "Ghisler Software",
+      "badge": "star",
+      "homepage": "https://www.ghisler.com",
+      "summary": "The two-pane file manager, since 1993"
     },
     {
       "id": "Notepad++.Notepad++",
