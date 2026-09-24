@@ -311,14 +311,10 @@ public sealed class Operation
             return;
         }
 
-        var code = result?.ExitCode ?? -1;
-
-        // winget's own failures are the 0x8A15xxxx family, which is how they
-        // are documented and searched for; an installer's own code comes
-        // through as a small positive number and reads better in decimal.
-        var shown = code < 0 ? $"0x{code:X8}" : code.ToString();
-
-        Summary = $"winget exited with {shown}. {said}".TrimEnd();
+        // Explained where the code is a known one, else winget's own last
+        // words behind the code - see WingetErrors for why both.
+        Summary = WingetErrors.Summarise(
+            result?.ExitCode ?? -1, said, uninstalling: Kind == OperationKind.Uninstall, result?.StdOut);
     }
 
     /// <summary>

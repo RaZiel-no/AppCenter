@@ -717,10 +717,11 @@ public static class WingetService
     }
 
     /// <summary>
-    /// What went wrong with one package, in winget's own words plus its code.
-    /// The explanation is the last thing winget says - its preamble ("Found …",
-    /// the licence notices) comes first - and the code is kept because it is
-    /// what the documentation and every search result are indexed by.
+    /// What went wrong with one package: the explanation when the code is a
+    /// known one, else winget's own words plus the code. The words are the
+    /// last thing winget says - its preamble ("Found …", the licence notices)
+    /// comes first - and the code is kept because it is what the
+    /// documentation and every search result are indexed by.
     /// </summary>
     private static string Reason(WingetResult result)
     {
@@ -729,11 +730,10 @@ public static class WingetService
         if (said.Length == 0)
             said = LastLine(result.StdErr);
 
-        // winget's own failures are the 0x8A15xxxx family and read as hex; an
-        // installer's own code arrives as a small positive number.
-        var code = result.ExitCode < 0
-            ? $"0x{result.ExitCode:X8}"
-            : result.ExitCode.ToString();
+        if (WingetErrors.Explain(result.ExitCode, said, output: result.StdOut) is { } explained)
+            return explained;
+
+        var code = WingetErrors.Show(result.ExitCode);
 
         return said.Length > 0 ? $"{said} ({code})" : $"winget exited with {code}.";
     }

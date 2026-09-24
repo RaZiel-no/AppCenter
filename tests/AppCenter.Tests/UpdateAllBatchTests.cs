@@ -104,15 +104,16 @@ public class UpdateAllBatchTests
         await WingetService.UpgradeEachAsync(
             Three, null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
             Recording([], id => id == "Git.Git"
-                ? Failed(1603, "Found Git [Git.Git]\nInstaller failed with exit code 1603.")
+                ? Failed(unchecked((int)0x8A15FFFF), "Found Git [Git.Git]\nSomething new went wrong.")
                 : Ok()),
             default);
 
         var git = Assert.Single(finished, f => f.Id == "Git.Git");
 
-        // winget's explanation is its last line - the preamble comes first - and
-        // the code is kept because that is what the documentation is indexed by.
-        Assert.Equal("Installer failed with exit code 1603. (1603)", git.Reason);
+        // An unfamiliar code is quoted as winget said it: the explanation is its
+        // last line - the preamble comes first - and the code is kept because
+        // that is what the documentation is indexed by.
+        Assert.Equal("Something new went wrong. (0x8A15FFFF)", git.Reason);
     }
 
     [Fact]
@@ -125,10 +126,11 @@ public class UpdateAllBatchTests
             Recording([], _ => Failed(unchecked((int)0x8A15002B), "No applicable upgrade found.")),
             default);
 
-        // The 0x8A15xxxx family is winget's own, and reads as hex everywhere it
-        // is documented; an installer's own code is a small positive number and
-        // reads better in decimal.
-        Assert.Equal("No applicable upgrade found. (0x8A15002B)", finished[0].Reason);
+        // A known code is explained rather than quoted, and kept on the end -
+        // the 0x8A15xxxx family is winget's own and reads as hex everywhere it
+        // is documented.
+        Assert.StartsWith("winget has no update it can apply", finished[0].Reason);
+        Assert.EndsWith("(0x8A15002B)", finished[0].Reason);
     }
 
     [Fact]
@@ -138,10 +140,10 @@ public class UpdateAllBatchTests
 
         await WingetService.UpgradeEachAsync(
             [("Git.Git", "Git")], null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
-            Recording([], _ => new WingetResult(1603, string.Empty, string.Empty)),
+            Recording([], _ => new WingetResult(unchecked((int)0x8A15FFFF), string.Empty, string.Empty)),
             default);
 
-        Assert.Equal("winget exited with 1603.", finished[0].Reason);
+        Assert.Equal("winget exited with 0x8A15FFFF.", finished[0].Reason);
     }
 
     [Fact]

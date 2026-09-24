@@ -19,6 +19,13 @@ public class OperationTests
         Kind = OperationKind.Update,
     };
 
+    private static Operation Uninstall() => new()
+    {
+        Key = "QtProject.QtCreator",
+        PackageName = "Qt Creator",
+        Kind = OperationKind.Uninstall,
+    };
+
     private static Operation Batch() => new()
     {
         Key = Operation.UpdateAllKey,
@@ -182,15 +189,54 @@ public class OperationTests
     }
 
     [Fact]
-    public void Quotes_the_exit_code_and_the_explanation_when_it_fails()
+    public void Quotes_the_exit_code_and_winget_when_the_code_is_unfamiliar()
     {
         var operation = Update();
 
-        operation.Report("No applicable upgrade found.");
-        operation.Complete(new WingetResult(unchecked((int)0x8A15002B), string.Empty, string.Empty), null);
+        operation.Report("Something new went wrong.");
+        operation.Complete(new WingetResult(unchecked((int)0x8A15FFFF), string.Empty, string.Empty), null);
 
         Assert.True(operation.Failed);
-        Assert.Equal("winget exited with 0x8A15002B. No applicable upgrade found.", operation.Summary);
+        Assert.Equal("winget exited with 0x8A15FFFF. Something new went wrong.", operation.Summary);
+    }
+
+    [Fact]
+    public void Explains_a_known_code_in_plain_words_and_keeps_the_code()
+    {
+        var operation = Update();
+
+        operation.Report("A newer version was found, but the install technology is different from the current version installed. Please uninstall the package and install the newer version.");
+        operation.Complete(new WingetResult(unchecked((int)0x8A15008E), string.Empty, string.Empty), null);
+
+        Assert.True(operation.Failed);
+        Assert.StartsWith("The new version comes as a different kind of installer", operation.Summary);
+        Assert.Contains("Uninstall it, then install the new version.", operation.Summary);
+        Assert.EndsWith("(0x8A15008E)", operation.Summary);
+    }
+
+    [Fact]
+    public void Explains_a_missing_uninstaller_as_the_uninstaller()
+    {
+        var operation = Uninstall();
+
+        operation.Report("0x800401f5 : Application not found");
+        operation.Complete(new WingetResult(unchecked((int)0x800401F5), string.Empty, string.Empty), null);
+
+        Assert.StartsWith("Windows could not find the uninstaller", operation.Summary);
+        Assert.EndsWith("(0x800401F5)", operation.Summary);
+    }
+
+    [Fact]
+    public void Explains_the_installers_own_code_when_winget_wraps_it()
+    {
+        var operation = Update();
+
+        // winget's generic "the installer failed" code, with the installer's
+        // real one in the line - printed unsigned, so an HRESULT is ten digits.
+        operation.Report("Installer failed with exit code: 2147942512");
+        operation.Complete(new WingetResult(unchecked((int)0x8A150006), string.Empty, string.Empty), null);
+
+        Assert.Equal("The disk is full. Free some space and try again. (installer returned 0x80070070)", operation.Summary);
     }
 
     [Fact]
@@ -200,7 +246,8 @@ public class OperationTests
 
         operation.Complete(new WingetResult(1603, string.Empty, "Fatal error during installation."), null);
 
-        Assert.Equal("winget exited with 1603. Fatal error during installation.", operation.Summary);
+        Assert.StartsWith("The installer hit a fatal error.", operation.Summary);
+        Assert.EndsWith("(1603)", operation.Summary);
     }
 
     [Fact]
