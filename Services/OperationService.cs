@@ -232,11 +232,16 @@ public sealed class Operation
 
     /// <summary>
     /// True while the bar would be lying if it claimed to be moving: before
-    /// winget has said anything, and through the installer's own run, which
-    /// prints nothing at all between "Starting package install" and its result.
+    /// winget has said anything, through the installer's own run, which prints
+    /// nothing at all between "Starting package install" and its result - and
+    /// between "Found" and whatever comes next. That gap is usually a blink,
+    /// but winget runs one installer at a time across the whole machine, and a
+    /// command that finds its package while another is still running waits
+    /// there for as long as that one takes. A bar standing still at that
+    /// point reads as a hang.
     /// </summary>
     public bool IsPulsing =>
-        IsRunning && Phase is OperationPhase.Starting or OperationPhase.Installing;
+        IsRunning && Phase is OperationPhase.Starting or OperationPhase.Located or OperationPhase.Installing;
 
     internal void Report(string line)
     {

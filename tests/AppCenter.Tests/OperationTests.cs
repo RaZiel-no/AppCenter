@@ -110,6 +110,10 @@ public class OperationTests
         // Nothing said yet.
         Assert.True(operation.IsPulsing);
 
+        // Found, and possibly queued behind another install for who knows how long.
+        operation.Report("Found Git [Git.Git] Version 2.55.0.3");
+        Assert.True(operation.IsPulsing);
+
         operation.Report("Downloading https://example.invalid/git.exe");
         Assert.False(operation.IsPulsing);
 
