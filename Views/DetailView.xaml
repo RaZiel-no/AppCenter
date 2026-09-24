@@ -154,6 +154,16 @@
                             Height="40"
                             Content="Update"
                             Click="OnUpdateClick" />
+                    <!--  Starts the installed app, when the Start menu has it.
+                          The primary action once there is nothing to update;
+                          beside Update, the quiet one.  -->
+                    <Button x:Name="OpenButton"
+                            Style="{StaticResource GreenButton}"
+                            Visibility="Collapsed"
+                            MinWidth="120"
+                            Height="40"
+                            Content="Open"
+                            Click="OnOpenClick" />
                     <Button x:Name="UninstallButton"
                             Style="{StaticResource PillButton}"
                             Visibility="Collapsed"

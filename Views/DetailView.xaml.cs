@@ -43,6 +43,9 @@ public partial class DetailView : PageView
     /// </summary>
     private InstallState? _state;
 
+    /// <summary>What Open starts, once the Start menu has been searched for it; null hides it.</summary>
+    private StartEntry? _launch;
+
     /// <summary>The newest version in the source, as `winget show` reports it.</summary>
     private string _latestVersion = string.Empty;
 
@@ -310,6 +313,10 @@ public partial class DetailView : PageView
         InstallButton.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
         UpdateButton.Visibility = installed && update ? Visibility.Visible : Visibility.Collapsed;
         UninstallButton.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+        ShowOpen();
+
+        if (installed)
+            _ = FindLaunchAsync(_state);
 
         StateRow.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
 
@@ -332,9 +339,60 @@ public partial class DetailView : PageView
         }
     }
 
+    /// <summary>
+    /// Looks the app up in the Start menu. Every repaint of the install state
+    /// asks again - an install that has just finished has just made its
+    /// shortcut - and an answer for a state that has since been replaced is
+    /// dropped.
+    /// </summary>
+    private async Task FindLaunchAsync(InstallState state)
+    {
+        var entries = await AppLauncher.ReadAsync();
+
+        if (!ReferenceEquals(state, _state))
+            return;
+
+        _launch = AppLauncher.Find(
+            entries,
+            state.Installs.Select(i => i.Name).Append(_package.Name),
+            _package.PackageFamilyName);
+
+        ShowOpen();
+    }
+
+    /// <summary>
+    /// Open is the page's main button when the app is installed and up to
+    /// date. With an update waiting, Update is, and Open steps back beside it.
+    /// </summary>
+    private void ShowOpen()
+    {
+        var shown = _state is { IsInstalled: true } && _launch is not null;
+        var update = _state is { HasUpdate: true };
+
+        OpenButton.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+        OpenButton.Style = (Style)FindResource(update ? "PillButton" : "GreenButton");
+        OpenButton.Margin = update ? new Thickness(10, 0, 0, 0) : new Thickness(0);
+        OpenButton.ToolTip = _launch is null ? null : $"Start {_launch.Name}";
+    }
+
     // ---------------------------------------------------------------
     // Actions
     // ---------------------------------------------------------------
+
+    private void OnOpenClick(object sender, RoutedEventArgs e)
+    {
+        if (_launch is not { } launch)
+            return;
+
+        try
+        {
+            AppLauncher.Start(launch);
+        }
+        catch (Exception ex)
+        {
+            SetProgress($"Could not start {launch.Name}: {ex.Message}");
+        }
+    }
 
     private void OnInstallClick(object sender, RoutedEventArgs e)
     {
