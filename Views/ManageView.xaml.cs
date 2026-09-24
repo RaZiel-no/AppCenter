@@ -349,6 +349,14 @@ public partial class ManageView : PageView
         }
         else if (action == "uninstall")
         {
+            if (SteamGames.AppIdOf(package.Id) is { } game)
+            {
+                if (Confirm(SteamGames.UninstallQuestion(package.Name)))
+                    SteamGames.Uninstall(game);
+
+                return;
+            }
+
             if (!Confirm(ManageLists.UninstallQuestion(package)))
                 return;
 

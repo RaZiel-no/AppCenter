@@ -442,6 +442,16 @@ public partial class DetailView : PageView
         if (!OperationService.CanStart(_package.OperationKey))
             return;
 
+        if (SteamGames.AppIdOf(_package.Id) is { } game)
+        {
+            var question = SteamGames.UninstallQuestion(_package.Name);
+
+            if (Host.ConfirmAction(question.Title, question.Message, question.Confirm))
+                SteamGames.Uninstall(game);
+
+            return;
+        }
+
         // A page opened from a Manage row for a package with several versions
         // installed is about that version, not about the id: it says which one
         // it means, and winget is told the same.
