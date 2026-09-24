@@ -214,7 +214,7 @@ public class RestartTests : IDisposable
         List<(string Id, string Reason, RestartNeed Restart)> finished = [];
 
         await WingetService.UpgradeEachAsync(
-            Three, null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
+            Three, null, null, (id, reason, restart, _) => finished.Add((id, reason, restart)),
             Exits(id => id == "Docker.DockerDesktop" ? 3010 : 0),
             default);
 

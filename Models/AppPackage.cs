@@ -321,6 +321,18 @@ public sealed class AppPackage : INotifyPropertyChanged
         set => Set(ref _error, value);
     }
 
+    /// <summary>
+    /// True when that reason is a want of administrator rights, which puts a
+    /// "Retry as administrator" under it. Painted on by OperationService.Paint
+    /// like the reason itself.
+    /// </summary>
+    private bool _canRetryAsAdmin;
+    public bool CanRetryAsAdmin
+    {
+        get => _canRetryAsAdmin;
+        set => Set(ref _canRetryAsAdmin, value);
+    }
+
     /// <summary>Shown in the icon tile when no real icon could be fetched.</summary>
     public string Initial =>
         string.IsNullOrWhiteSpace(Name) ? "?" : Name.TrimStart()[..1].ToUpperInvariant();

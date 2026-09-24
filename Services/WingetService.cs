@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -260,6 +261,147 @@ public static class WingetService
 
         return new WingetResult(process.ExitCode, stdout.ToString(), stderr.ToString());
     }
+
+    /// <summary>
+    /// winget run with administrator rights, for a package that would not
+    /// update without them.
+    ///
+    /// Windows only elevates a process started through the shell, and a process
+    /// started that way cannot have its output piped back. So winget runs under
+    /// cmd, which writes its output to a file made on this side beforehand - made
+    /// here, so it is ours to read whatever the elevated side puts in it - and
+    /// the file is followed as it grows, which keeps the row's bar moving
+    /// through the same milestones as any other update. cmd hands winget's exit
+    /// code back as its own.
+    ///
+    /// The token stops the wait, not winget: an elevated process is not this
+    /// one's to kill.
+    /// </summary>
+    private static async Task<WingetResult> RunAsAdminAsync(
+        IReadOnlyList<string> args,
+        Action<string>? onOutputLine,
+        CancellationToken ct)
+    {
+        // Quoted for cmd, which reads its whole line before winget sees any of
+        // it. Inside quotes only these two still mean something to cmd, and no
+        // id or flag passed here has either.
+        if (args.Any(a => a.Contains('"') || a.Contains('%')))
+            throw new ArgumentException("An argument cmd cannot pass through unaltered.", nameof(args));
+
+        var log = Path.Combine(Path.GetTempPath(), $"AppCenter-winget-{Guid.NewGuid():N}.txt");
+        await File.WriteAllBytesAsync(log, [], ct).ConfigureAwait(false);
+
+        var command = string.Join(' ', args.Select(a => $"\"{a}\""));
+        var psi = new ProcessStartInfo
+        {
+            FileName = "cmd.exe",
+            Arguments = $"/d /s /c \"winget.exe {command} > \"{log}\" 2>&1\"",
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Hidden,
+        };
+
+        try
+        {
+            Process? process;
+
+            try
+            {
+                process = await Task.Run(() => Process.Start(psi), ct).ConfigureAwait(false);
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
+            {
+                // The permission prompt was declined. Its own code is the
+                // explanation: see WingetErrors.
+                return new WingetResult(ErrorCancelled, string.Empty, string.Empty);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return new WingetResult(-1, string.Empty, $"Could not start winget as administrator: {ex.Message}");
+            }
+
+            if (process is null)
+                return new WingetResult(-1, string.Empty, "Could not start winget as administrator.");
+
+            using (process)
+            {
+                var stdout = new StringBuilder();
+                var pending = new StringBuilder();
+
+                await using var stream = new FileStream(
+                    log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                // Lines end at \r as well as \n, as they do for ReadLine on a
+                // pipe: winget redraws its progress in place. The last piece is
+                // kept back until its end arrives - unless nothing more will.
+                void Drain(bool final)
+                {
+                    pending.Append(reader.ReadToEnd());
+
+                    var text = pending.ToString();
+                    var start = 0;
+
+                    for (var i = 0; i < text.Length; i++)
+                    {
+                        if (text[i] is '\r' or '\n')
+                        {
+                            Take(text[start..i]);
+                            start = i + 1;
+                        }
+                    }
+
+                    pending.Remove(0, start);
+
+                    if (final && pending.Length > 0)
+                    {
+                        Take(pending.ToString());
+                        pending.Clear();
+                    }
+                }
+
+                void Take(string raw)
+                {
+                    var line = Clean(raw);
+
+                    if (string.IsNullOrWhiteSpace(line))
+                        return;
+
+                    stdout.AppendLine(line);
+
+                    if (onOutputLine is not null && !SpinnerOnly.IsMatch(line))
+                        onOutputLine(line);
+                }
+
+                var exited = process.WaitForExitAsync(ct);
+
+                while (!exited.IsCompleted)
+                {
+                    Drain(final: false);
+                    await Task.WhenAny(exited, Task.Delay(250, ct)).ConfigureAwait(false);
+                }
+
+                await exited.ConfigureAwait(false);
+                Drain(final: true);
+
+                return new WingetResult(process.ExitCode, stdout.ToString(), string.Empty);
+            }
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(log);
+            }
+            catch
+            {
+                // Left in the temp folder, which Windows clears on its own.
+            }
+        }
+    }
+
+    /// <summary>ERROR_CANCELLED: what declining the permission prompt comes back as.</summary>
+    private const int ErrorCancelled = 1223;
 
     private static void TryKill(Process process)
     {
@@ -584,9 +726,23 @@ public static class WingetService
         string id,
         Action<string>? onOutput,
         CancellationToken ct = default,
-        bool includeUnknown = false)
-    {
-        string[] args = includeUnknown
+        bool includeUnknown = false) =>
+        RunAsync(UpgradeArgs(id, includeUnknown), onOutput, ct);
+
+    /// <summary>
+    /// Upgrades one package with administrator rights, which Windows asks the
+    /// user for first. Only offered for an update that failed for want of them.
+    /// Includes unknown versions: the row being retried came from a list that
+    /// did, and "update all" - where most of these failures come from - does too.
+    /// </summary>
+    public static Task<WingetResult> UpgradeAsAdminAsync(
+        string id,
+        Action<string>? onOutput,
+        CancellationToken ct = default) =>
+        RunAsAdminAsync(UpgradeArgs(id, includeUnknown: true), onOutput, ct);
+
+    internal static string[] UpgradeArgs(string id, bool includeUnknown) =>
+        includeUnknown
             ?
             [
                 "upgrade", "--id", id, "--exact", "--silent", "--include-unknown",
@@ -597,9 +753,6 @@ public static class WingetService
                 "upgrade", "--id", id, "--exact", "--silent",
                 "--accept-package-agreements", .. CommonArgs,
             ];
-
-        return RunAsync(args, onOutput, ct);
-    }
 
     /// <summary>
     /// Updates every package in the list, one winget process each, and carries
@@ -622,14 +775,16 @@ public static class WingetService
     /// <param name="onDone">
     /// Handed the package id, winget's own reason each time one is left behind -
     /// or an empty reason when it went through - and whether Windows has to
-    /// restart before it counts. So the row for it can say why, or say what is
-    /// still owed, or go, rather than the batch reducing it to a name in a tally.
+    /// restart before it counts - and whether it failed for want of
+    /// administrator rights, which a retry with them could put right. So the row
+    /// for it can say why, or say what is still owed, or go, rather than the
+    /// batch reducing it to a name in a tally.
     /// </param>
     public static Task<WingetResult> UpgradeEachAsync(
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
         Action<string, string>? onStart = null,
-        Action<string, string, RestartNeed>? onDone = null,
+        Action<string, string, RestartNeed, bool>? onDone = null,
         CancellationToken ct = default) =>
         UpgradeEachAsync(
             packages, onOutput, onStart, onDone,
@@ -646,7 +801,7 @@ public static class WingetService
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
         Action<string, string>? onStart,
-        Action<string, string, RestartNeed>? onDone,
+        Action<string, string, RestartNeed, bool>? onDone,
         Func<string, Action<string>?, CancellationToken, Task<WingetResult>> upgrade,
         CancellationToken ct,
         ShellWatch? shell = null)
@@ -694,7 +849,7 @@ public static class WingetService
                 if (result.Restart is not RestartNeed.None)
                     restarting.Add(name);
 
-                onDone?.Invoke(id, string.Empty, result.Restart);
+                onDone?.Invoke(id, string.Empty, result.Restart, false);
                 continue;
             }
 
@@ -703,7 +858,7 @@ public static class WingetService
             if (firstFailureCode == 0)
                 firstFailureCode = result.ExitCode;
 
-            onDone?.Invoke(id, Reason(result), result.Restart);
+            onDone?.Invoke(id, Reason(result), result.Restart, WantsAdmin(result));
         }
 
         var updated = packages.Count - failed.Count;
@@ -740,10 +895,7 @@ public static class WingetService
     /// </summary>
     private static string Reason(WingetResult result)
     {
-        var said = LastLine(result.StdOut);
-
-        if (said.Length == 0)
-            said = LastLine(result.StdErr);
+        var said = Said(result);
 
         if (WingetErrors.Explain(result.ExitCode, said, output: result.StdOut) is { } explained)
             return explained;
@@ -751,6 +903,17 @@ public static class WingetService
         var code = WingetErrors.Show(result.ExitCode);
 
         return said.Length > 0 ? $"{said} ({code})" : $"winget exited with {code}.";
+    }
+
+    private static bool WantsAdmin(WingetResult result) =>
+        WingetErrors.WantsAdmin(result.ExitCode, Said(result), result.StdOut);
+
+    /// <summary>winget's last words, from stderr when it said nothing on stdout.</summary>
+    private static string Said(WingetResult result)
+    {
+        var said = LastLine(result.StdOut);
+
+        return said.Length > 0 ? said : LastLine(result.StdErr);
     }
 
     private static string LastLine(string text)

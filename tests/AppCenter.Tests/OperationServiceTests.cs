@@ -217,6 +217,85 @@ public class OperationServiceTests : IDisposable
     }
 
     [Fact]
+    public void Offers_a_retry_as_administrator_under_a_batch_failure_for_want_of_it()
+    {
+        OperationService.RunningAsAdmin = () => false;
+        var wsl = new AppPackage { Id = "Microsoft.WSL", Name = "WSL" };
+        var git = new AppPackage { Id = "Git.Git", Name = "Git" };
+
+        Start(Operation.UpdateAllKey, OperationKind.UpdateAll, "all packages");
+        OperationService.NoteBatchDone("Microsoft.WSL", "Needs administrator rights. (0x80073D28)", RestartNeed.None, wantsAdmin: true);
+        OperationService.NoteBatchDone("Git.Git", "Installer failed. (1603)", RestartNeed.None);
+
+        OperationService.Paint(wsl, OperationKind.Update);
+        OperationService.Paint(git, OperationKind.Update);
+
+        Assert.True(wsl.CanRetryAsAdmin);
+        Assert.False(git.CanRetryAsAdmin);
+    }
+
+    [Fact]
+    public void Offers_no_retry_as_administrator_on_a_row_that_offers_an_uninstall()
+    {
+        OperationService.RunningAsAdmin = () => false;
+        var package = new AppPackage { Id = "Microsoft.WSL", Name = "WSL" };
+
+        Start(Operation.UpdateAllKey, OperationKind.UpdateAll, "all packages");
+        OperationService.NoteBatchDone("Microsoft.WSL", "Needs administrator rights. (0x80073D28)", RestartNeed.None, wantsAdmin: true);
+
+        OperationService.Paint(package, OperationKind.Uninstall);
+
+        Assert.False(package.CanRetryAsAdmin);
+    }
+
+    [Fact]
+    public void Offers_no_retry_as_administrator_when_app_center_already_is()
+    {
+        OperationService.RunningAsAdmin = () => true;
+        var package = new AppPackage { Id = "Microsoft.WSL", Name = "WSL" };
+
+        Start(Operation.UpdateAllKey, OperationKind.UpdateAll, "all packages");
+        OperationService.NoteBatchDone("Microsoft.WSL", "Needs administrator rights. (0x80073D28)", RestartNeed.None, wantsAdmin: true);
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        // It would run exactly as the attempt that failed.
+        Assert.False(package.CanRetryAsAdmin);
+    }
+
+    [Fact]
+    public void Offers_a_retry_as_administrator_after_a_single_update_fails_for_want_of_it()
+    {
+        OperationService.RunningAsAdmin = () => false;
+        var package = new AppPackage { Id = "Microsoft.WSL", Name = "WSL" };
+
+        var (_, finish) = Start("Microsoft.WSL", name: "WSL");
+        Finish(finish, "Microsoft.WSL", new WingetResult(unchecked((int)0x80073D28), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        Assert.True(package.CanRetryAsAdmin);
+    }
+
+    [Fact]
+    public void Offers_the_retry_as_administrator_only_once()
+    {
+        OperationService.RunningAsAdmin = () => false;
+        var package = new AppPackage { Id = "Microsoft.WSL", Name = "WSL" };
+        var finish = new TaskCompletionSource<WingetResult>();
+
+        OperationService.Start("Microsoft.WSL", "WSL", OperationKind.Update, (_, _) => finish.Task, asAdmin: true);
+        Finish(finish, "Microsoft.WSL", new WingetResult(unchecked((int)0x80073D28), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        // The retry had the rights and still failed: offering it again would
+        // only run the same thing a third time.
+        Assert.NotEmpty(package.Error);
+        Assert.False(package.CanRetryAsAdmin);
+    }
+
+    [Fact]
     public void Keeps_an_update_failure_off_a_row_that_offers_an_uninstall()
     {
         var package = new AppPackage { Id = "Git.Git", Name = "Git" };

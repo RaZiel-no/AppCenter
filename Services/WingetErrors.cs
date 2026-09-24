@@ -31,7 +31,7 @@ public static partial class WingetErrors
 {
     private const uint ShellExecInstallFailed = 0x8A150006;
 
-    [GeneratedRegex(@"exit code:?\s*(-?\d+)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"exit code:?\s*(?:0x(?<hex>[0-9a-f]{1,8})\b|(?<dec>-?\d+))", RegexOptions.IgnoreCase)]
     private static partial Regex InstallerExitCode();
 
     /// <summary>
@@ -94,6 +94,22 @@ public static partial class WingetErrors
     }
 
     /// <summary>
+    /// Whether the failure was for want of administrator rights, so the same
+    /// command run with them stands a chance. Read the same way as
+    /// <see cref="Explain(int, string, bool, string?)"/>: the installer's own
+    /// code when winget only says that the installer failed. Every code here is
+    /// one whose explanation already says to try as administrator.
+    /// </summary>
+    public static bool WantsAdmin(int code, string said, string? output = null)
+    {
+        if (unchecked((uint)code) == ShellExecInstallFailed
+            && (InstallerCode(said) ?? (output is null ? null : InstallerCode(output))) is { } inner)
+            code = inner;
+
+        return unchecked((uint)code) is 0x8A150019 or 0x80073D28 or 0x80070005 or 0x800702E4 or 740 or 5;
+    }
+
+    /// <summary>
     /// An installer's failure, with the pending restart on the end when there
     /// is one: many installers refuse to run until Windows has restarted, and
     /// say nothing about it but their exit code.
@@ -105,9 +121,10 @@ public static partial class WingetErrors
 
     /// <summary>
     /// The installer's own exit code from winget's "Installer failed with exit
-    /// code: N" line, or null when the line is not that. winget prints it as
-    /// an unsigned decimal, so an HRESULT arrives as a ten-digit number and is
-    /// folded back into the int it is documented as.
+    /// code: N" line, or null when the line is not that. winget mostly prints
+    /// it as an unsigned decimal, so an HRESULT arrives as a ten-digit number
+    /// and is folded back into the int it is documented as; an MSIX
+    /// package's failure comes as hex instead ("exit code: 0x80073d28 : …").
     /// </summary>
     internal static int? InstallerCode(string said)
     {
@@ -116,7 +133,10 @@ public static partial class WingetErrors
         if (!match.Success)
             return null;
 
-        if (long.TryParse(match.Groups[1].Value, out var value) && value >= int.MinValue && value <= uint.MaxValue)
+        if (match.Groups["hex"].Success)
+            return unchecked((int)Convert.ToUInt32(match.Groups["hex"].Value, 16));
+
+        if (long.TryParse(match.Groups["dec"].Value, out var value) && value >= int.MinValue && value <= uint.MaxValue)
             return unchecked((int)value);
 
         return null;
@@ -159,6 +179,7 @@ public static partial class WingetErrors
         0x8A150056 => "This installer refuses to run as administrator. Run App Center without administrator rights and try again.",
         0x8A150057 => "The portable package could not be removed. Check that it is not running and try again.",
         0x8A15005C => "The downloaded archive could not be unpacked. Try again.",
+        0x8A15005F => "This package's installer has to be told which folder to install into, and App Center does not pick one for it. Update it from within the app itself, or run winget in a terminal with --location set to the folder it is installed in.",
         0x8A150060 => "The downloaded archive failed a malware scan and was not installed.",
         0x8A150061 => "A version of this package is already installed.",
         0x8A150068 => "This package is pinned in winget, which stops it being updated. Remove the pin with `winget pin remove` to update it.",
@@ -199,13 +220,15 @@ public static partial class WingetErrors
         0x80070020 => "A file it needed is open in another program. Close the app and try again.",
         0x800704C7 => "It was cancelled, usually by declining the permission prompt.",
         0x80070422 => "A Windows service this needs is disabled. The Windows Installer and Microsoft Store Install services are the usual ones.",
-        0x80070490 => "Windows could not find what it was asked to change, usually a registry entry or file that was removed by hand.",
+        0x800702E4 => Explain(740),
+        0x80070490 =>"Windows could not find what it was asked to change, usually a registry entry or file that was removed by hand.",
         0x80070643 => Explain(1603),
         0x80070652 => Explain(1618),
         0x80072EE2 or 0x80072EE7 or 0x80072EFD or 0x80072EFE or 0x80072F8F => "The download failed with a network error. Check the connection and try again.",
         0x80073CF3 => "A package this one depends on could not be found, so Windows would not install it.",
         0x80073CFB => "This package is already installed.",
         0x80073CFF or 0x80073D01 => "A policy on this machine blocks installing this kind of package.",
+        0x80073D28 => "Windows will only install this package with administrator rights. Run App Center as administrator and try again.",
         0xC000013A => "It was interrupted before it finished.",
 
         // The installer's own code. Windows Installer's are unambiguous; the

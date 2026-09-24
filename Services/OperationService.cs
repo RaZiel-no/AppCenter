@@ -48,6 +48,13 @@ public sealed class Operation
     public required string PackageName { get; init; }
     public required OperationKind Kind { get; init; }
 
+    /// <summary>
+    /// Run with administrator rights, as a retry of one that failed without
+    /// them. A second failure for want of them is not offered the retry again:
+    /// it has had it.
+    /// </summary>
+    public bool AsAdmin { get; init; }
+
     /// <summary>The latest line winget printed, trimmed to fit.</summary>
     public string Detail { get; private set; } = string.Empty;
 
@@ -81,6 +88,15 @@ public sealed class Operation
     /// the reload that rebuilds the row it has to be said on.
     /// </summary>
     private readonly HashSet<string> _needRestart = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The ones that failed for want of administrator rights, which a retry
+    /// with them could put right. Held with the failures, and for as long.
+    /// </summary>
+    private readonly HashSet<string> _wantAdmin = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether this package failed for want of administrator rights.</summary>
+    public bool WantsAdmin(string id) => _wantAdmin.Contains(id);
 
     /// <summary>Whether this package is waiting on Windows being restarted.</summary>
     public bool NeedsRestart(string id) => _needRestart.Contains(id);
@@ -132,12 +148,15 @@ public sealed class Operation
     /// was left behind rather than updated. Either way it counts towards the
     /// tally: a package that failed still took its turn.
     /// </summary>
-    internal void EndItem(string id, string reason, RestartNeed restart = RestartNeed.None)
+    internal void EndItem(string id, string reason, RestartNeed restart = RestartNeed.None, bool wantsAdmin = false)
     {
         if (reason.Length > 0)
             _failures[id] = reason;
         else
             _updated.Add(id);
+
+        if (reason.Length > 0 && wantsAdmin)
+            _wantAdmin.Add(id);
 
         // Only for the ones that went in. A package that failed and wants a
         // restart before it will go in is a failure, and its reason says so in
@@ -159,7 +178,7 @@ public sealed class Operation
     public string Heading => Kind switch
     {
         OperationKind.Install => $"Installing {PackageName}…",
-        OperationKind.Update => $"Updating {PackageName}…",
+        OperationKind.Update => AsAdmin ? $"Updating {PackageName} as administrator…" : $"Updating {PackageName}…",
         OperationKind.Uninstall => $"Uninstalling {PackageName}…",
         _ => BatchHeading,
     };
@@ -315,6 +334,9 @@ public sealed class Operation
         // words behind the code - see WingetErrors for why both.
         Summary = WingetErrors.Summarise(
             result?.ExitCode ?? -1, said, uninstalling: Kind == OperationKind.Uninstall, result?.StdOut);
+
+        if (!AsAdmin && result is not null && WingetErrors.WantsAdmin(result.ExitCode, said, result.StdOut))
+            _wantAdmin.Add(Key);
     }
 
     /// <summary>
@@ -396,6 +418,7 @@ public static class OperationService
         package.Progress = operation?.Percent ?? 0;
         package.IsProgressPulsing = operation?.IsPulsing ?? false;
         package.Error = FailureFor(package.OperationKey, shows);
+        package.CanRetryAsAdmin = OffersAdminRetry(package.OperationKey, shows);
     }
 
     /// <summary>
@@ -451,6 +474,33 @@ public static class OperationService
     }
 
     /// <summary>
+    /// Whether this package's update failed for want of administrator rights,
+    /// so its row can offer the same update with them. Only for updates: that
+    /// is the one retry there is. Never when App Center already has them - a
+    /// retry would run exactly as the attempt that failed.
+    /// </summary>
+    private static bool OffersAdminRetry(string id, OperationKind? shows)
+    {
+        if (shows is not (null or OperationKind.Update) || RunningAsAdmin())
+            return false;
+
+        // Read from whichever FailureFor took the reason from, so the offer
+        // always sits under the reason that explains it.
+        if (Batch?.FailureFor(id) is { Length: > 0 })
+            return Batch.WantsAdmin(id);
+
+        return LastOutcome is { Failed: true, Kind: OperationKind.Update } last
+               && string.Equals(last.Key, id, StringComparison.OrdinalIgnoreCase)
+               && last.WantsAdmin(id);
+    }
+
+    /// <summary>
+    /// Whether App Center itself runs with administrator rights. A probe so a
+    /// test does not depend on how it was launched.
+    /// </summary>
+    internal static Func<bool> RunningAsAdmin = () => Environment.IsPrivilegedProcess;
+
+    /// <summary>
     /// The "update all" currently running, or the last one to finish. Anything
     /// else starting clears LastOutcome, which is what retires its failures.
     /// </summary>
@@ -467,8 +517,8 @@ public static class OperationService
     /// if it was, and what it still owes Windows. An empty reason means it went
     /// through.
     /// </summary>
-    public static void NoteBatchDone(string id, string reason, RestartNeed restart) =>
-        MoveBatch(batch => batch.EndItem(id, reason, restart));
+    public static void NoteBatchDone(string id, string reason, RestartNeed restart, bool wantsAdmin = false) =>
+        MoveBatch(batch => batch.EndItem(id, reason, restart, wantsAdmin));
 
     /// <summary>
     /// Both of the above. Called from the batch as it works, on whatever thread
@@ -511,7 +561,8 @@ public static class OperationService
         string key,
         string packageName,
         OperationKind kind,
-        Func<Action<string>, CancellationToken, Task<WingetResult>> command)
+        Func<Action<string>, CancellationToken, Task<WingetResult>> command,
+        bool asAdmin = false)
     {
         if (!CanStart(key))
             return null;
@@ -521,6 +572,7 @@ public static class OperationService
             Key = key,
             PackageName = packageName,
             Kind = kind,
+            AsAdmin = asAdmin,
         };
 
         InFlight.Add(operation);
@@ -591,6 +643,7 @@ public static class OperationService
         Started = null;
         Progressed = null;
         Finished = null;
+        RunningAsAdmin = () => Environment.IsPrivilegedProcess;
     }
 
     private static void OnUi(Action action)

@@ -89,7 +89,7 @@ public class UpdateAllBatchTests
         List<(string Id, string Reason, RestartNeed Restart)> finished = [];
 
         await WingetService.UpgradeEachAsync(
-            Three, null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
+            Three, null, null, (id, reason, restart, _) => finished.Add((id, reason, restart)),
             Recording([]), default);
 
         Assert.Equal(3, finished.Count);
@@ -102,7 +102,7 @@ public class UpdateAllBatchTests
         List<(string Id, string Reason, RestartNeed Restart)> finished = [];
 
         await WingetService.UpgradeEachAsync(
-            Three, null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
+            Three, null, null, (id, reason, restart, _) => finished.Add((id, reason, restart)),
             Recording([], id => id == "Git.Git"
                 ? Failed(unchecked((int)0x8A15FFFF), "Found Git [Git.Git]\nSomething new went wrong.")
                 : Ok()),
@@ -122,7 +122,7 @@ public class UpdateAllBatchTests
         List<(string Id, string Reason, RestartNeed Restart)> finished = [];
 
         await WingetService.UpgradeEachAsync(
-            [("Git.Git", "Git")], null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
+            [("Git.Git", "Git")], null, null, (id, reason, restart, _) => finished.Add((id, reason, restart)),
             Recording([], _ => Failed(unchecked((int)0x8A15002B), "No applicable upgrade found.")),
             default);
 
@@ -139,11 +139,32 @@ public class UpdateAllBatchTests
         List<(string Id, string Reason, RestartNeed Restart)> finished = [];
 
         await WingetService.UpgradeEachAsync(
-            [("Git.Git", "Git")], null, null, (id, reason, restart) => finished.Add((id, reason, restart)),
+            [("Git.Git", "Git")], null, null, (id, reason, restart, _) => finished.Add((id, reason, restart)),
             Recording([], _ => new WingetResult(unchecked((int)0x8A15FFFF), string.Empty, string.Empty)),
             default);
 
         Assert.Equal("winget exited with 0x8A15FFFF.", finished[0].Reason);
+    }
+
+    [Fact]
+    public async Task Says_which_failures_were_for_want_of_administrator_rights()
+    {
+        List<(string Id, bool WantsAdmin)> finished = [];
+
+        await WingetService.UpgradeEachAsync(
+            Three, null, null, (id, _, _, wantsAdmin) => finished.Add((id, wantsAdmin)),
+            Recording([], id => id switch
+            {
+                "7zip.7zip" => Failed(unchecked((int)0x80073D28),
+                    "Installer failed with exit code: 0x80073d28 : The package installation failed because administrator privileges are required."),
+                "Git.Git" => Failed(1603, "Installer failed with exit code: 1603"),
+                _ => Ok(),
+            }),
+            default);
+
+        // Only the one a retry with the rights could put right: the rest either
+        // went through or failed for something else.
+        Assert.Equal([("7zip.7zip", true), ("Docker.DockerDesktop", false), ("Git.Git", false)], finished);
     }
 
     [Fact]

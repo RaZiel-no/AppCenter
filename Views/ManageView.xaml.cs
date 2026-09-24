@@ -333,6 +333,20 @@ public partial class ManageView : PageView
                 package.OperationKey, package.Name, OperationKind.Update,
                 (progress, token) => WingetService.UpgradeAsync(package.Id, progress, token));
         }
+        else if (action == "update-admin")
+        {
+            // The update was already asked about and agreed to, and Windows'
+            // own prompt for the rights is the confirmation this one needs -
+            // unless the update takes App Center with it, which that prompt
+            // does not say.
+            if (package.ClosesApp && !Confirm(ManageLists.UpdateQuestion(package)))
+                return;
+
+            OperationService.Start(
+                package.OperationKey, package.Name, OperationKind.Update,
+                (progress, token) => WingetService.UpgradeAsAdminAsync(package.Id, progress, token),
+                asAdmin: true);
+        }
         else if (action == "uninstall")
         {
             if (!Confirm(ManageLists.UninstallQuestion(package)))
