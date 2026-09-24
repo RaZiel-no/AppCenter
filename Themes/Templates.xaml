@@ -635,8 +635,8 @@
           list the installs underneath, each with its own Uninstall.
           ============================================================  -->
 
-    <!--  One install inside an opened family. Indented past the family's
-          icon, named by what it adds to the family - "2010 x64
+    <!--  One install inside an opened family. Indented under the family's
+          name, named by what it adds to the family - "2010 x64
           Redistributable", or its version - and otherwise the same row as
           a package on its own: clickable, with a button, a bar and a
           reason of its own.  -->
@@ -1040,13 +1040,20 @@
                 </Grid>
             </Button>
 
+            <!--  Indented, dividers and all, so an opened family reads as one
+                  thing rather than as more rows of the list: the versions'
+                  tick lands under the family's name.  -->
             <ItemsControl x:Name="Members"
+                          Margin="36,0,0,0"
                           Visibility="Collapsed"
                           ItemsSource="{Binding Members}"
                           ItemTemplate="{StaticResource InstalledVersionTemplate}" />
 
-            <!--  A suite opens to its families and products instead.  -->
+            <!--  A suite opens to its families and products instead, their
+                  icons under the suite's name - a step in from the rows of
+                  the list, which a smaller icon alone did not say.  -->
             <ItemsControl x:Name="Children"
+                          Margin="52,0,0,0"
                           Visibility="Collapsed"
                           ItemsSource="{Binding Children}"
                           ItemTemplate="{StaticResource SuiteChildTemplate}" />
