@@ -1,0 +1,9 @@
+# Line endings, spelled out here rather than left to each machine's
+# core.autocrlf. The repository keeps LF; a checkout gets CRLF, which is
+# what Visual Studio, cmd and Inno Setup expect - and a .bat file with bare
+# LF endings can have cmd misread its labels.
+* text=auto eol=crlf
+
+# Never converted.
+*.png binary
+*.ico binary
