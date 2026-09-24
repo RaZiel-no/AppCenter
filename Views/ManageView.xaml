@@ -191,13 +191,11 @@
                         </Grid.RowDefinitions>
 
                         <Border Width="38" Height="38" CornerRadius="9" Background="White">
-                            <Image Width="26"
+                            <!--  Set from code: see IconService.AppIcon.  -->
+                            <Image x:Name="SelfUpdateIcon"
+                                   Width="26"
                                    Height="26"
-                                   RenderOptions.BitmapScalingMode="HighQuality">
-                                <Image.Source>
-                                    <BitmapImage UriSource="/AppCenter.ico" DecodePixelWidth="48" />
-                                </Image.Source>
-                            </Image>
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
                         </Border>
 
                         <StackPanel Grid.Column="1" Margin="14,0,14,0" VerticalAlignment="Center">

@@ -38,6 +38,7 @@ public partial class AboutView : PageView
     {
         InitializeComponent();
 
+        Logo.Source = IconService.AppIcon;
         VersionText.Text = $"Version {AppInfo.Version} · a winget front-end";
 
         ShowAuthor();

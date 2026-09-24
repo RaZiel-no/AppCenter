@@ -21,14 +21,13 @@
                     Padding="24,22">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <Border Width="56" Height="56" CornerRadius="12" Background="{DynamicResource AccentBrush}">
-                            <TextBlock Text="A"
-                                       FontFamily="{StaticResource DisplayFont}"
-                                       FontSize="28"
-                                       Foreground="White"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
-                        </Border>
+                        <!--  The app's own icon, which is its own rounded tile.
+                              Set from code: see IconService.AppIcon.  -->
+                        <Image x:Name="Logo"
+                               Width="56"
+                               Height="56"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               AutomationProperties.Name="App Center" />
                         <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="App Center"
                                        FontFamily="{StaticResource DisplayFont}"

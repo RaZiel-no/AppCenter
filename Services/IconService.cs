@@ -142,6 +142,13 @@ public sealed class IconService
     /// </summary>
     private static readonly Lazy<BitmapSource?> OwnIcon = new(LoadOwnIcon);
 
+    /// <summary>
+    /// The same icon, for anywhere else that shows the app's own logo. Pointing
+    /// an Image at the .ico directly does not do: WPF takes its first frame,
+    /// 16x16, and scales that up.
+    /// </summary>
+    public static BitmapSource? AppIcon => OwnIcon.Value;
+
     private static BitmapSource? LoadOwnIcon()
     {
         try

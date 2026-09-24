@@ -51,6 +51,7 @@ public partial class ManageView : PageView
         UpdatesList.ItemsSource = _updates;
         InstalledList.ItemsSource = _installed;
         SelfUpdateCard.DataContext = _self;
+        SelfUpdateIcon.Source = IconService.AppIcon;
 
         OperationService.Started += OnOperationChanged;
         OperationService.Progressed += OnOperationProgressed;
