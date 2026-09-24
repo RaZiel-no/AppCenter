@@ -153,6 +153,7 @@ Themes/
 
 Models/AppPackage.cs      one package; notifies so late-arriving data lands
 Models/InstalledGroup.cs  one Manage row: a package, or a family of installs
+Models/ManageLists.cs     what Manage holds and says, apart from the page
 Services/
   WingetService.cs        async wrapper + fixed-width table parser
   MachineState.cs         the one shared read of what winget lists as installed
