@@ -27,7 +27,11 @@ namespace AppCenter.Services;
 /// </summary>
 public static class Warmup
 {
-    /// <summary>The sidebar logo, decoded off the UI thread. Null if that failed.</summary>
+    /// <summary>
+    /// The sidebar logo, decoded off the UI thread. Null if that failed. It is
+    /// the first bitmap decoded in the process, so it is also what loads the
+    /// imaging codecs, here rather than on the UI thread.
+    /// </summary>
     public static Task<BitmapSource?> Logo { get; private set; } = Task.FromResult<BitmapSource?>(null);
 
     /// <summary>
@@ -46,7 +50,7 @@ public static class Warmup
         engine.SetApartmentState(ApartmentState.STA);
         engine.Start();
 
-        Logo = Task.Run(DecodeLogo);
+        Logo = Task.Run(() => IconService.AppIcon);
 
         SettingsService.Preload();
         CatalogService.Preload();
@@ -102,35 +106,5 @@ public static class Warmup
         }
 
         Dispatcher.Run();
-    }
-
-    /// <summary>
-    /// The first bitmap decoded in the process loads the imaging codecs, and
-    /// this is that bitmap: the window's own icon, at the size the sidebar
-    /// draws it. Without DecodePixelWidth the ICO decoder hands back the 16px
-    /// frame and upscales it, which looks awful. 48 is 1:1 at 200% DPI and an
-    /// exact halving at 100%, so it stays sharp either way.
-    /// </summary>
-    private static BitmapSource? DecodeLogo()
-    {
-        try
-        {
-            using var resource = Application.GetResourceStream(new Uri("AppCenter.ico", UriKind.Relative))?.Stream;
-            if (resource is null)
-                return null;
-
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.StreamSource = resource;
-            image.DecodePixelWidth = 48;
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.EndInit();
-            image.Freeze();
-            return image;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 }
