@@ -281,7 +281,13 @@ public static class WingetService
     // Table parsing
     // ---------------------------------------------------------------
 
-    internal static List<WingetRow> ParseTable(string stdout)
+    /// <param name="installedTable">
+    /// True for the output of `list` and `upgrade`, whose columns are always
+    /// Name, Id, Version, then Available when anything has an update, then
+    /// Source. Knowing that is what lets the last two be found on a winget
+    /// that names its columns in another language.
+    /// </param>
+    internal static List<WingetRow> ParseTable(string stdout, bool installedTable = false)
     {
         var rows = new List<WingetRow>();
         var lines = stdout.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
@@ -303,6 +309,15 @@ public static class WingetService
         var columns = ReadColumns(lines[separator - 1]);
         if (columns.Count == 0)
             return rows;
+
+        // Where a column sits, for when its English name finds nothing. Name,
+        // Id and Version lead every table. Available and Source only have a
+        // place of their own in an installed table: Source last, and Available
+        // before it when there are five columns. `search` has no such shape -
+        // its fourth column may be Match, and Source is left out when one
+        // source was asked for - so there they are left empty, not guessed at.
+        var sourceAt = installedTable && columns.Count >= 4 ? columns.Count - 1 : -1;
+        var availableAt = installedTable && columns.Count >= 5 ? 3 : -1;
 
         // Data rows run contiguously until the first blank line; anything
         // after that is a summary note, not part of the table.
@@ -338,8 +353,8 @@ public static class WingetService
                 name,
                 id,
                 Get(cells, "Version", columns, 2),
-                Get(cells, "Available", columns, -1),
-                Get(cells, "Source", columns, -1)));
+                Get(cells, "Available", columns, availableAt),
+                Get(cells, "Source", columns, sourceAt)));
         }
 
         return rows;
@@ -416,7 +431,7 @@ public static class WingetService
     {
         var result = await RunAsync(["list", .. CommonArgs], ct: ct).ConfigureAwait(false);
 
-        var packages = ParseTable(result.StdOut)
+        var packages = ParseTable(result.StdOut, installedTable: true)
             .Where(r => !string.IsNullOrWhiteSpace(r.Name))
             .Select(r => new AppPackage
             {
@@ -473,7 +488,7 @@ public static class WingetService
             ["upgrade", "--include-unknown", .. CommonArgs],
             ct: ct).ConfigureAwait(false);
 
-        return ParseTable(result.StdOut)
+        return ParseTable(result.StdOut, installedTable: true)
             .Where(r => !string.IsNullOrWhiteSpace(r.Name) && !string.IsNullOrWhiteSpace(r.Available))
             .Select(r => new AppPackage
             {

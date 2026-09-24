@@ -96,14 +96,53 @@ public class WingetTableTests
     [Fact]
     public void Falls_back_to_column_position_when_the_headers_are_not_english()
     {
-        // A localised winget names its columns in its own language. Name, Id and
-        // Version are found by position instead; Available has no position to
-        // fall back to and is left empty rather than guessed at.
+        // A localised winget names its columns in its own language, so every
+        // column of `upgrade` is found by where it sits. Without that the update
+        // column comes back empty, and a German machine is shown no updates.
+        const string german =
+            """
+            Name                 ID                    Version      Verfügbar    Quelle
+            ---------------------------------------------------------------------------
+            7-Zip 22.01          7zip.7zip             22.01        26.02        winget
+            """;
+
+        var row = Assert.Single(WingetService.ParseTable(german, installedTable: true));
+
+        Assert.Equal("7-Zip 22.01", row.Name);
+        Assert.Equal("7zip.7zip", row.Id);
+        Assert.Equal("22.01", row.Version);
+        Assert.Equal("26.02", row.Available);
+        Assert.Equal("winget", row.Source);
+    }
+
+    [Fact]
+    public void Finds_the_source_of_a_localised_list_with_no_updates_in_it()
+    {
+        // `list` drops Available when nothing has an update; Source is still last.
+        const string german =
+            """
+            Name                 ID                    Version      Quelle
+            ------------------------------------------------------------
+            Git                  Git.Git               2.47.0.2     winget
+            """;
+
+        var row = Assert.Single(WingetService.ParseTable(german, installedTable: true));
+
+        Assert.Equal("winget", row.Source);
+        Assert.Equal(string.Empty, row.Available);
+    }
+
+    [Fact]
+    public void Does_not_guess_at_the_columns_of_a_localised_search()
+    {
+        // A search's fourth column is Match, not Available, and Source is left
+        // out when one source was asked for. Guessing would put the match in as
+        // the source.
         const string french =
             """
-            Nom                  Identifiant           Version      Disponible   Source
+            Nom                  Identifiant           Version      Correspondance
             ---------------------------------------------------------------------------
-            Sept-Zip             7zip.7zip             22.01        26.02        winget
+            Sept-Zip             7zip.7zip             22.01        Tag: zip
             """;
 
         var row = Assert.Single(WingetService.ParseTable(french));
@@ -111,8 +150,8 @@ public class WingetTableTests
         Assert.Equal("Sept-Zip", row.Name);
         Assert.Equal("7zip.7zip", row.Id);
         Assert.Equal("22.01", row.Version);
-        Assert.Equal("winget", row.Source);
         Assert.Equal(string.Empty, row.Available);
+        Assert.Equal(string.Empty, row.Source);
     }
 
     [Fact]
