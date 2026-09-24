@@ -186,6 +186,25 @@ public class ManageListsTests
     }
 
     [Fact]
+    public void Counts_the_installed_apps_the_system_toggle_lets_through_whatever_the_filter_is_showing()
+    {
+        IEnumerable<AppPackage> installs =
+        [
+            Install("Git.Git", "Git"),
+            Install("7zip.7zip", "7-Zip", "22.01"),
+            Install("7zip.7zip", "7-Zip", "26.02"),
+            Install("Microsoft.VCRedist.2010.x64", "Microsoft Visual C++ 2010", system: true),
+        ];
+
+        var filtered = Loaded([], installs, needle: "git");
+        Assert.Equal("Installed apps (3)", filtered.InstalledHeading);
+        Assert.Equal("Installed apps (4)", Loaded([], installs, showSystem: true).InstalledHeading);
+
+        // The status line measures against the same count, not every install.
+        Assert.Equal("Showing 1 of 3 packages (2 hidden by the current filter).", filtered.InstalledStatus);
+    }
+
+    [Fact]
     public void Says_why_there_are_no_updates()
     {
         var lists = Loaded([], []);

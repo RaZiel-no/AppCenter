@@ -189,6 +189,17 @@ public sealed class ManageLists
 
     public string UpdateAllLabel => _allUpdates.Count > 0 ? $"Update all ({_allUpdates.Count})" : "Update all";
 
+    /// <summary>
+    /// Every install the list would show with the filter box empty: the
+    /// system toggle decides what counts as an app, and the filter only
+    /// narrows the view, the same as it does for the updates. Installs rather
+    /// than rows - a family of three versions is three things on the machine.
+    /// </summary>
+    public string InstalledHeading => $"Installed apps ({Apps})";
+
+    /// <summary>The count the heading gives, and the one the status line measures against.</summary>
+    private int Apps => _allInstalled.Count(p => _showSystem || !p.IsSystemPackage);
+
     /// <summary>What the updates card says when it has no rows to show.</summary>
     public string UpdatesEmptyText(bool wingetAvailable) =>
         !wingetAvailable ? "winget could not be started. Install App Installer from the Microsoft Store."
@@ -208,11 +219,13 @@ public sealed class ManageLists
         get
         {
             var shown = Installed.Sum(g => g.Members.Count);
-            var hidden = _allInstalled.Count - shown;
+            // Out of the heading's count, so the two agree: the system packages
+            // the toggle leaves out are not in either, and the toggle says so.
+            var hidden = Apps - shown;
             var families = Installed.SelectMany(g => g.Families).Count(g => g.IsGroup);
 
             return (hidden > 0
-                       ? $"Showing {shown} of {_allInstalled.Count} packages ({hidden} hidden by the current filter)"
+                       ? $"Showing {shown} of {Apps} packages ({hidden} hidden by the current filter)"
                        : $"Showing {shown} packages")
                    + (families > 0
                        ? $", with {families} installed in several versions."

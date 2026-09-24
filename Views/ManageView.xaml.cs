@@ -215,6 +215,7 @@ public partial class ManageView : PageView
         RefreshUpdatesSection();
 
         var any = _lists.Installed.Count > 0;
+        InstalledHeading.Text = _lists.InstalledHeading;
         InstalledPanel.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         InstalledEmpty.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
         InstalledEmptyText.Text = _lists.InstalledEmptyText;
