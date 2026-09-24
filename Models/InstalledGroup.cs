@@ -10,14 +10,24 @@ namespace AppCenter.Models;
 /// <c>PackageFamilies.Group</c>; the members are the same AppPackage
 /// instances the rest of the page paints, so an operation on one of them
 /// shows on its row here without anyone forwarding it.
+///
+/// A publisher's suite is a group of groups: its <see cref="Children"/> are
+/// the families and packages inside it, and its members are all of theirs.
 /// </summary>
 public sealed class InstalledGroup : INotifyPropertyChanged
 {
-    public InstalledGroup(string key, string title, IReadOnlyList<AppPackage> members)
+    public InstalledGroup(
+        string key,
+        string title,
+        IReadOnlyList<AppPackage> members,
+        IReadOnlyList<InstalledGroup>? children = null,
+        string? idText = null)
     {
         Key = key;
         Title = title;
         Members = members;
+        Children = children;
+        IdText = idText ?? (key.StartsWith("name:", StringComparison.Ordinal) ? string.Empty : key);
 
         // The lead's icon arrives after the row is on screen, and the row
         // reads it through here.
@@ -40,6 +50,17 @@ public sealed class InstalledGroup : INotifyPropertyChanged
     /// <summary>Newest first. One member is the common case.</summary>
     public IReadOnlyList<AppPackage> Members { get; }
 
+    /// <summary>A suite's rows - families and packages of its own - or null for anything else.</summary>
+    public IReadOnlyList<InstalledGroup>? Children { get; }
+
+    public bool IsSuite => Children is not null;
+
+    /// <summary>
+    /// The rows this one opens to that can open in turn: a suite's own, or
+    /// just this one. What anything looking for families walks.
+    /// </summary>
+    public IEnumerable<InstalledGroup> Families => Children ?? [this];
+
     /// <summary>
     /// The member that stands for the family where only one can: the newest.
     /// Its icon, its colour and - when it is the only one - its id, version,
@@ -50,17 +71,18 @@ public sealed class InstalledGroup : INotifyPropertyChanged
     public bool IsGroup => Members.Count > 1;
 
     /// <summary>How many installs the row covers, for the group heading.</summary>
-    public string Subtitle => IsGroup
-        ? $"{Members.Count} versions installed"
+    public string Subtitle =>
+        IsSuite ? $"{Members.Count} installed"
+        : IsGroup ? $"{Members.Count} versions installed"
         : Lead.VersionTransition;
 
     /// <summary>
     /// The winget id, for rows that have one. The handles winget makes up for
     /// everything else - ARP\Machine\X64\{…} - say nothing to anyone and are
-    /// left blank. A family shows what its ids have in common.
+    /// left blank. A family shows what its ids have in common; a suite, which
+    /// has none, shows nothing.
     /// </summary>
-    public string IdText =>
-        Key.StartsWith("name:", StringComparison.Ordinal) ? string.Empty : Key;
+    public string IdText { get; }
 
     /// <summary>
     /// True for a family that is entirely the plumbing Manage hides by default;

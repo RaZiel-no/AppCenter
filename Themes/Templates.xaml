@@ -708,6 +708,173 @@
         </DataTemplate.Triggers>
     </DataTemplate>
 
+    <!--  One row inside a publisher's suite: a product of its own, or a
+          family of them - so it has its own icon, smaller than the suite's
+          so the suite still reads as the thing these hang off, and a family
+          among them opens to its versions like a family anywhere else.
+          Otherwise the installed row again, one step in.  -->
+    <DataTemplate x:Key="SuiteChildTemplate">
+        <StackPanel>
+            <Button x:Name="Row"
+                    Style="{StaticResource RowButton}"
+                    Tag="row"
+                    Padding="16,8,16,9"
+                    AutomationProperties.Name="{Binding Title}"
+                    AutomationProperties.HelpText="{Binding Subtitle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="52" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="RowAction" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Column="0"
+                            Style="{StaticResource RowIconTile}"
+                            Width="28"
+                            Height="28"
+                            CornerRadius="7"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
+                        <Grid>
+                            <TextBlock x:Name="Initial"
+                                       Text="{Binding Initial}"
+                                       FontFamily="{StaticResource DisplayFont}"
+                                       FontSize="14"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                            <Image Source="{Binding Icon}"
+                                   Width="24"
+                                   Height="24"
+                                   Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}"
+                                   FontFamily="{StaticResource AppFont}"
+                                   FontSize="13.5"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Margin="0,2,0,0"
+                                   FontFamily="{StaticResource AppFont}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Subtitle}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="2"
+                               VerticalAlignment="Center"
+                               Margin="0,0,14,0"
+                               FontFamily="{StaticResource AppFont}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding IdText}" />
+
+                    <StackPanel x:Name="SingleActions"
+                                Grid.Column="3"
+                                DataContext="{Binding Lead}"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <TextBlock Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource AppFont}"
+                                   FontSize="12.5"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Text="{Binding Status}"
+                                   Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+                        <Button Tag="uninstall"
+                                Height="30"
+                                Padding="14,0"
+                                FontSize="13"
+                                Content="Uninstall">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PillButton}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </StackPanel>
+
+                    <Viewbox x:Name="Chevron"
+                             Grid.Column="3"
+                             Width="16"
+                             Height="16"
+                             Margin="8,0,10,0"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Center"
+                             Visibility="Collapsed"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Path Style="{StaticResource Icon}"
+                              Data="{StaticResource IconChevronDown}"
+                              Stroke="{DynamicResource TextSecondaryBrush}" />
+                    </Viewbox>
+
+                    <ProgressBar x:Name="LeadBar"
+                                 Grid.Row="1"
+                                 Grid.Column="1"
+                                 Grid.ColumnSpan="3"
+                                 DataContext="{Binding Lead}"
+                                 Margin="0,9,0,0"
+                                 Style="{StaticResource OperationProgressBar}" />
+
+                    <TextBlock x:Name="LeadError"
+                               Grid.Row="2"
+                               Grid.Column="1"
+                               Grid.ColumnSpan="3"
+                               DataContext="{Binding Lead}"
+                               Margin="0,8,0,0"
+                               FontFamily="{StaticResource AppFont}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource ErrorBrush}"
+                               Text="{Binding Error}"
+                               Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}" />
+                </Grid>
+            </Button>
+
+            <!--  Its versions, one step further in than itself.  -->
+            <ItemsControl x:Name="Members"
+                          Margin="36,0,0,0"
+                          Visibility="Collapsed"
+                          ItemsSource="{Binding Members}"
+                          ItemTemplate="{StaticResource InstalledVersionTemplate}" />
+        </StackPanel>
+
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding HasIcon}" Value="True">
+                <Setter TargetName="Initial" Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsGroup}" Value="True">
+                <Setter TargetName="SingleActions" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="LeadBar" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="LeadError" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="Chevron" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                <Setter TargetName="Members" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Chevron" Property="RenderTransform">
+                    <Setter.Value>
+                        <RotateTransform Angle="180" />
+                    </Setter.Value>
+                </Setter>
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+
     <DataTemplate x:Key="InstalledRowTemplate">
         <StackPanel>
             <!--  The row opens the package's page, or opens the family out;
@@ -848,6 +1015,12 @@
                           Visibility="Collapsed"
                           ItemsSource="{Binding Members}"
                           ItemTemplate="{StaticResource InstalledVersionTemplate}" />
+
+            <!--  A suite opens to its families and products instead.  -->
+            <ItemsControl x:Name="Children"
+                          Visibility="Collapsed"
+                          ItemsSource="{Binding Children}"
+                          ItemTemplate="{StaticResource SuiteChildTemplate}" />
         </StackPanel>
 
         <DataTemplate.Triggers>
@@ -868,6 +1041,14 @@
                     </Setter.Value>
                 </Setter>
             </DataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsExpanded}" Value="True" />
+                    <Condition Binding="{Binding IsSuite}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter TargetName="Members" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="Children" Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
             <!--  The first row needs no separator above it  -->
             <DataTrigger Value="0"
                          Binding="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}">

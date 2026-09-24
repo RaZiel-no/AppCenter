@@ -23,8 +23,15 @@ namespace AppCenter.Services;
 ///   <c>Microsoft.DotNet.SDK.9</c>, <c>.SDK.10</c> and <c>.SDK.Preview</c> are
 ///   the SDK, and two rows with one id are trivially one family.
 /// - Anything winget could not match to a package - an <c>ARP\</c> or
-///   <c>MSIX\</c> id - has only its name to go by, so identical names are one
-///   family. That is what pairs the x64 and x86 halves of an MSIX framework.
+///   <c>MSIX\</c> id - has only its name to go by, so names that are the same
+///   once their version words are taken out are one family. That is what pairs
+///   the x64 and x86 halves of an MSIX framework, and what gathers every
+///   "GDR 1050 for SQL Server 2022 (KB5021522) (64-bit)" - one row per
+///   cumulative update, each under its own KB number - into one.
+///
+/// One exception to both, for the runtimes and SDKs that are one thing to the
+/// people who use them, however many products they ship as: see
+/// <see cref="Suites"/>.
 ///
 /// Nothing is stripped from the middle of an id, and the last two segments
 /// always stay, so <c>7zip.7zip</c> is left alone and a sequel that happens to
@@ -50,6 +57,21 @@ public static class PackageFamilies
         @"^(v?\d[\d.]*\+?|\(?(x64|x86|arm64|arm|amd64|64-bit|32-bit)\)?|[-–·:(]+)$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>
+    /// A word of a name that says which build it is rather than what it is,
+    /// wherever in the name it falls: a number or dotted version, a Windows
+    /// update's "(KB5021522)", an architecture. Looser than
+    /// <see cref="VersionWord"/>, which only looks at the end of a name: this
+    /// only decides which rows go together, and the family's title is still
+    /// made the careful way.
+    /// </summary>
+    private static readonly Regex BuildWord = new(
+        @"^[(\[]?(v?\d[\d.]*\+?|kb\d+|x64|x86|arm64|arm|amd64|64-bit|32-bit)[)\]]?$|^[-–·:]+$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>A plain number, like the year in "SQL Server 2022".</summary>
+    private static readonly Regex PlainNumber = new(@"^\d+$", RegexOptions.Compiled);
+
     private static readonly Regex Whitespace = new(@"\s+", RegexOptions.Compiled);
 
     /// <summary>The architecture an MSIX package id spells out, if it does.</summary>
@@ -64,11 +86,80 @@ public static class PackageFamilies
     public static bool IsWingetId(string id) =>
         id.Length > 0 && !id.Contains('\\');
 
-    /// <summary>What to group this package under.</summary>
+    /// <summary>
+    /// Runtimes and SDKs that belong on one row, though nothing in their ids
+    /// or names would put them there. Microsoft's are most of it: the Visual
+    /// C++ redistributables, every .NET runtime, host and SDK, the Windows App
+    /// Runtime, and the MSIX frameworks Store apps bring with them. Each of
+    /// those is already a family of its own, and on a developer's machine the
+    /// families alone are still a screenful. So a suite is not a flat list:
+    /// its rows are the families and packages its members would have made on
+    /// their own, and a family among them opens in turn.
+    ///
+    /// Python is the same shape at a smaller size: the interpreters, the
+    /// launcher and the install manager.
+    ///
+    /// Runtimes and SDKs only, never everything a publisher makes. Edge,
+    /// Visual Studio and Terminal are apps someone chose to install, and
+    /// folding them away under the publisher's name would hide the rows
+    /// people open Manage to find.
+    ///
+    /// A list, because the rule cannot be general: plenty of publishers' names
+    /// turn up in other publishers' product names. Each entry says where the
+    /// name has to be for the package to count.
+    /// </summary>
+    private static readonly Suite[] Suites =
+    [
+        // By winget id where there is one, or the package name of an MSIX
+        // framework winget could not match; by the name for everything else
+        // - the .NET hosts and targeting packs Visual Studio leaves behind.
+        new("Microsoft runtimes and SDKs", Publisher: "Microsoft",
+            Name: new(@"^Microsoft\b.*(\.NET|Visual C\+\+|Runtime|Redistributable|\bSDK\b|Software Development Kit|Targeting Pack|Developer Pack|Shared Framework|WebView2|DirectX)",
+                RegexOptions.IgnoreCase),
+            Id: new(@"^(MSIX\\)?Microsoft\.(VCRedist|VCLibs|UI\.Xaml|DotNet|NET\.|WindowsAppRuntime|WinAppRuntime|WindowsSDK|WindowsWDK|DirectX|EdgeWebView2Runtime|OpenJDK)",
+                RegexOptions.IgnoreCase)),
+
+        // The interpreters, the launcher and the install manager. Leading
+        // only: plenty of other things are "… for Python".
+        new("Python", Publisher: "Python",
+            Name: new(@"^Python\b", RegexOptions.IgnoreCase),
+            Id: new(@"^Python\.", RegexOptions.IgnoreCase)),
+    ];
+
+    /// <summary>
+    /// One suite: <paramref name="Title"/> is what its row is called, and
+    /// <paramref name="Publisher"/> what comes off the front of its members'
+    /// names, since the row above them already says it.
+    /// </summary>
+    private sealed record Suite(string Title, string Publisher, Regex Name, Regex Id);
+
+    /// <summary>The mark a publisher's name is often followed by: "Intel(R)", "Intel®".</summary>
+    private static readonly Regex TrademarkMark = new(@"^\s*(\((R|TM|C)\)|®|™|©)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private const string SuitePrefix = "suite:";
+
+    /// <summary>The title of the suite this package belongs to, if it is one in <see cref="Suites"/>.</summary>
+    internal static string? SuiteOf(AppPackage package) =>
+        Suites.FirstOrDefault(s => s.Id.IsMatch(package.Id) || s.Name.IsMatch(package.Name))?.Title;
+
+    /// <summary>What family to group this package under, suites aside.</summary>
     public static string FamilyKey(AppPackage package) =>
         IsWingetId(package.Id)
             ? StripVersionSegments(package.Id)
-            : "name:" + Whitespace.Replace(package.Name, " ").Trim().ToLowerInvariant();
+            : "name:" + NameKey(package.Name);
+
+    /// <summary>
+    /// A name with its build words taken out, lower-cased. A name that is
+    /// nothing but build words keeps them all: an empty key would make one
+    /// family of every such name.
+    /// </summary>
+    internal static string NameKey(string name)
+    {
+        var words = Whitespace.Replace(name, " ").Trim().ToLowerInvariant().Split(' ');
+        var kept = words.Where(word => !BuildWord.IsMatch(word)).ToArray();
+
+        return string.Join(' ', kept.Length > 0 ? kept : words);
+    }
 
     /// <summary>
     /// The id with its trailing version and architecture segments removed.
@@ -87,54 +178,116 @@ public static class PackageFamilies
 
     /// <summary>
     /// Gathers packages into families, one <see cref="InstalledGroup"/> each,
-    /// in the order the first member of each was met. Members are ordered
-    /// newest version first.
+    /// in the order the first member of each was met, with each suite
+    /// gathered into one group of its own families. Members are ordered
+    /// newest version first; a suite's rows by what they are called.
     /// </summary>
-    public static List<InstalledGroup> Group(IEnumerable<AppPackage> packages)
+    public static List<InstalledGroup> Group(IEnumerable<AppPackage> packages) =>
+        Gather(packages, p => SuiteOf(p) is { } suite ? SuitePrefix + suite : FamilyKey(p))
+            .Select(g => g.Key.StartsWith(SuitePrefix, StringComparison.Ordinal)
+                ? BuildSuite(Suites.First(s => s.Title == g.Key[SuitePrefix.Length..]), g.Members)
+                : BuildFamily(g.Key, g.Key, g.Members))
+            .ToList();
+
+    /// <summary>Packages bucketed by key, in the order each key was first met.</summary>
+    private static List<(string Key, List<AppPackage> Members)> Gather(
+        IEnumerable<AppPackage> packages, Func<AppPackage, string> keyOf)
     {
-        var order = new List<string>();
-        var families = new Dictionary<string, List<AppPackage>>(StringComparer.OrdinalIgnoreCase);
+        var order = new List<(string, List<AppPackage>)>();
+        var byKey = new Dictionary<string, List<AppPackage>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var package in packages)
         {
-            var key = FamilyKey(package);
+            var key = keyOf(package);
 
-            if (!families.TryGetValue(key, out var members))
+            if (!byKey.TryGetValue(key, out var members))
             {
                 members = [];
-                families[key] = members;
-                order.Add(key);
+                byKey[key] = members;
+                order.Add((key, members));
             }
 
             members.Add(package);
         }
 
-        var groups = new List<InstalledGroup>(order.Count);
+        return order;
+    }
 
-        foreach (var key in order)
+    /// <summary>
+    /// One family, or one package on its own. <paramref name="familyKey"/> is
+    /// what its members' ids are measured against; <paramref name="key"/> is
+    /// what the row is known by, which inside a suite has the suite in front
+    /// of it so the same family under two suites cannot be confused.
+    /// </summary>
+    private static InstalledGroup BuildFamily(
+        string key, string familyKey, List<AppPackage> packages, string? publisher = null)
+    {
+        var members = packages.OrderByDescending(p => p.Version, VersionOrder.Instance).ToList();
+        var title = members.Count == 1 ? members[0].Name : FamilyName(members.Select(p => p.Name));
+
+        foreach (var member in members)
         {
-            var members = families[key]
-                .OrderByDescending(p => p.Version, VersionOrder.Instance)
-                .ToList();
+            member.VariantLabel = VariantLabel(member, title, members.Count);
 
-            var title = members.Count == 1 ? members[0].Name : FamilyName(members.Select(p => p.Name));
-
-            foreach (var member in members)
-            {
-                member.VariantLabel = VariantLabel(member, title, members.Count);
-
-                // What the id adds to the family's - ".2010.x64" is worth a
-                // column; the family's own id said again on every row is not.
-                member.VariantId = string.Equals(member.DisplayId, key, StringComparison.OrdinalIgnoreCase)
-                    ? string.Empty
-                    : member.DisplayId;
-            }
-
-            groups.Add(new InstalledGroup(key, title, members));
+            // What the id adds to the family's - ".2010.x64" is worth a
+            // column; the family's own id said again on every row is not.
+            member.VariantId = string.Equals(member.DisplayId, familyKey, StringComparison.OrdinalIgnoreCase)
+                ? string.Empty
+                : member.DisplayId;
         }
 
-        return groups;
+        // Inside a suite the publisher's name is on the row above; "Visual C++
+        // Redistributable" under Microsoft, not "Microsoft Visual C++…".
+        var shown = publisher is null ? title : WithoutPublisher(title, publisher);
+
+        return new InstalledGroup(key, shown, members, idText: IdTextOf(familyKey));
     }
+
+    /// <summary>
+    /// A suite's packages as one row, which opens to the families and
+    /// packages they make on their own. A suite of one family is just that
+    /// family: a row that opens to a row that opens says nothing twice.
+    /// </summary>
+    private static InstalledGroup BuildSuite(Suite suite, List<AppPackage> packages)
+    {
+        var families = Gather(packages, FamilyKey);
+
+        if (families.Count == 1)
+            return BuildFamily(families[0].Key, families[0].Key, families[0].Members);
+
+        var children = families
+            .Select(f => BuildFamily($"{SuitePrefix}{suite.Title}/{f.Key}", f.Key, f.Members, suite.Publisher))
+            .OrderBy(c => c.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        return new InstalledGroup(
+            SuitePrefix + suite.Title, suite.Title,
+            children.SelectMany(c => c.Members).ToList(),
+            children, idText: string.Empty);
+    }
+
+    /// <summary>
+    /// A name with its publisher, and any trademark after it, taken off the
+    /// front: "Microsoft® Visual C++ Redistributable" is "Visual C++
+    /// Redistributable". Left whole when that would leave nothing but a
+    /// version - "Python 3.14.5" is not "3.14.5".
+    /// </summary>
+    private static string WithoutPublisher(string name, string publisher)
+    {
+        if (!name.StartsWith(publisher, StringComparison.OrdinalIgnoreCase))
+            return name;
+
+        var rest = TrademarkMark.Replace(name[publisher.Length..], string.Empty).Trim(' ', '-', '–', ':', '·');
+
+        return rest.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(BuildWord.IsMatch) ? name : rest;
+    }
+
+    /// <summary>
+    /// The id a row shows: the family's, when winget knows it by one. The
+    /// handles winget makes up for everything else say nothing to anyone.
+    /// </summary>
+    private static string IdTextOf(string familyKey) =>
+        familyKey.StartsWith("name:", StringComparison.Ordinal) ? string.Empty : familyKey;
 
     /// <summary>
     /// What to call a family: the run its members' names share at the start,
@@ -176,16 +329,29 @@ public static class PackageFamilies
 
         var prefix = StripVersionWords(first[..length]);
 
+        // Nothing shared at the start - "X64 Debuggers And Tools" and "X86
+        // Debuggers And Tools" part at their first word. What they share after
+        // it is still the name, if there is any.
         if (prefix.Length < 3)
-            return StripVersionWords(first);
+        {
+            var shared = first
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !VersionWord.IsMatch(word))
+                .Where(word => list.Skip(1).All(n => n.Split(' ').Contains(word, StringComparer.OrdinalIgnoreCase)))
+                .ToList();
+
+            return shared.Count > 0 ? string.Join(' ', shared) : StripVersionWords(first);
+        }
 
         // The words the first name goes on with that every other name has
         // somewhere too, in the first name's order. Version words are what
-        // told the names apart, so they are not part of what they share.
+        // told the names apart, so they are not part of what they share -
+        // except a plain number every one of them has, which is part of the
+        // name: the 2022 of "GDR 1050 for SQL Server 2022".
         var rest = first[length..]
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(word => !VersionWord.IsMatch(word))
-            .Where(word => list.Skip(1).All(n => n.Split(' ').Contains(word, StringComparer.OrdinalIgnoreCase)));
+            .Where(word => list.Skip(1).All(n => n.Split(' ').Contains(word, StringComparer.OrdinalIgnoreCase)))
+            .Where(word => !VersionWord.IsMatch(word) || PlainNumber.IsMatch(word));
 
         return string.Join(' ', rest.Prepend(prefix));
     }
@@ -226,7 +392,7 @@ public static class PackageFamilies
         var name = Whitespace.Replace(package.Name, " ").Trim();
 
         if (name.StartsWith(family, StringComparison.OrdinalIgnoreCase))
-            name = name[family.Length..];
+            name = TrademarkMark.Replace(name[family.Length..], string.Empty);
 
         var familyWords = family.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var remainder = string.Join(' ', name

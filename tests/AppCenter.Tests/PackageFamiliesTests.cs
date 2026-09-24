@@ -9,8 +9,9 @@ namespace AppCenter.Tests;
 /// Visual C++ redistributables are one row, every .NET SDK is one row, and a
 /// package installed once is a row of its own. These pin down what counts as
 /// a family, what a family is called, and what each install is called inside
-/// it - all of which is decided from names and ids winget hands over, with
-/// no list of known families anywhere.
+/// it - all of which is decided from names and ids winget hands over. The one
+/// list is of the runtimes and SDKs gathered onto one row, which nothing in
+/// the names could find.
 /// </summary>
 public class PackageFamiliesTests
 {
@@ -90,6 +91,134 @@ public class PackageFamiliesTests
     }
 
     [Fact]
+    public void Groups_by_name_the_updates_that_differ_only_in_their_build_and_kb_number()
+    {
+        // SQL Server leaves one Add/Remove Programs entry per cumulative update,
+        // each under its own KB number, and winget matches none of them.
+        var groups = PackageFamilies.Group(
+        [
+            Package(@"ARP\Machine\X64\KB5021522", "GDR 1050 for SQL Server 2022 (KB5021522) (64-bit)", "16.0.1050.5"),
+            Package(@"ARP\Machine\X64\KB5029379", "GDR 1105 for SQL Server 2022 (KB5029379) (64-bit)", "16.0.1105.1"),
+            Package(@"ARP\Machine\X64\KB5122771", "GDR 1200 for SQL Server 2022 (KB5122771) (64-bit)", "16.0.1200.5"),
+            Package(@"ARP\Machine\X86\{FDB357D5-CC78-480A-8D26-C15D1A877642}", "Browser for SQL Server 2022", "16.0.1000.6"),
+        ]);
+
+        Assert.Equal(2, groups.Count);
+
+        var gdr = Assert.Single(groups, g => g.IsGroup);
+        Assert.Equal(3, gdr.Members.Count);
+        Assert.Equal("GDR for SQL Server 2022", gdr.Title);
+        Assert.Equal("1200 (KB5122771) (64-bit)", gdr.Members[0].VariantLabel);
+    }
+
+    [Fact]
+    public void Gathers_microsofts_runtimes_and_sdks_with_their_families_inside()
+    {
+        var groups = PackageFamilies.Group(
+        [
+            Package("Microsoft.Edge", "Microsoft Edge", "140.0"),
+            Package("Microsoft.VisualStudio.Community", "Visual Studio Community 2026", "18.9.0"),
+            Package("Microsoft.VCRedist.2010.x64", "Microsoft Visual C++ 2010  x64 Redistributable - 10.0.40219", "10.0.40219"),
+            Package("Microsoft.VCRedist.2015+.x64", "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.42.34433", "14.42.34433.0"),
+            Package("Microsoft.WindowsAppRuntime.1.6", "Microsoft Windows App Runtime 1.6", "6000.311.13.0"),
+            Package("Microsoft.EdgeWebView2Runtime", "Microsoft Edge WebView2 Runtime", "140.0"),
+            Package(@"ARP\Machine\X64\{1}", "Microsoft SQL Server 2019 LocalDB", "15.0"),
+            Package("Git.Git", "Git", "2.47.0.2"),
+        ]);
+
+        // Edge, Visual Studio and LocalDB are apps, and keep rows of their own.
+        Assert.Equal(5, groups.Count);
+
+        var microsoft = Assert.Single(groups, g => g.IsSuite);
+        Assert.Equal("Microsoft runtimes and SDKs", microsoft.Title);
+        Assert.Equal(4, microsoft.Members.Count);
+
+        // The redistributables stay one family, and every row is named without
+        // the publisher the suite's row already says.
+        Assert.Equal(["Edge WebView2 Runtime", "Visual C++ Redistributable", "Windows App Runtime 1.6"],
+            microsoft.Children!.Select(c => c.Title));
+
+        var vc = Assert.Single(microsoft.Children!, c => c.IsGroup);
+        Assert.Equal(2, vc.Members.Count);
+        Assert.Equal("Microsoft.VCRedist", vc.IdText);
+        Assert.NotEqual(vc.Key, microsoft.Key);
+    }
+
+    [Theory]
+    [InlineData(@"ARP\Machine\X64\{1}", "Microsoft .NET Host - 8.0.11 (x64)")]
+    [InlineData(@"ARP\Machine\X64\{1}", "Microsoft Windows Desktop Runtime - 8.0.11 (x64)")]
+    [InlineData(@"ARP\Machine\X64\{1}", "Microsoft .NET Framework 4.8 Targeting Pack")]
+    [InlineData(@"MSIX\Microsoft.VCLibs.140.00_14.0.33519.0_x64__8wekyb3d8bbwe", "Microsoft.VCLibs.140.00")]
+    [InlineData(@"MSIX\Microsoft.UI.Xaml.2.8_8.2310.30001.0_x64__8wekyb3d8bbwe", "Microsoft.UI.Xaml.2.8")]
+    [InlineData("Microsoft.DotNet.SDK.10", "Microsoft .NET SDK 10.0.201 (x64)")]
+    public void Counts_a_microsoft_runtime_or_sdk_by_its_id_or_its_name(string id, string name)
+    {
+        Assert.Equal("Microsoft runtimes and SDKs", PackageFamilies.SuiteOf(Package(id, name)));
+    }
+
+    [Theory]
+    [InlineData("Microsoft.Edge", "Microsoft Edge")]
+    [InlineData("Microsoft.VisualStudioCode", "Microsoft Visual Studio Code")]
+    [InlineData("Microsoft.WindowsTerminal", "Windows Terminal")]
+    [InlineData("Microsoft.PowerToys", "PowerToys (Preview)")]
+    [InlineData("Microsoft.Teams", "Microsoft Teams")]
+    [InlineData(@"ARP\Machine\X64\{1}", "Microsoft SQL Server 2019 LocalDB")]
+    public void Leaves_microsofts_apps_out_of_its_runtimes_and_sdks(string id, string name)
+    {
+        Assert.Null(PackageFamilies.SuiteOf(Package(id, name)));
+    }
+
+    [Theory]
+    [InlineData("JetBrains.dotTrace", "JetBrains dotTrace 2026.2.2")]
+    [InlineData("Intel.PresentMon", "Intel(R) PresentMon")]
+    public void Leaves_other_publishers_tools_to_themselves(string id, string name)
+    {
+        Assert.Null(PackageFamilies.SuiteOf(Package(id, name)));
+    }
+
+    [Fact]
+    public void Gathers_pythons_interpreters_and_tools_and_keeps_a_versions_name_whole()
+    {
+        var groups = PackageFamilies.Group(
+        [
+            Package(@"ARP\User\X64\pymanager-pythoncore-3.14-64", "Python 3.14.5", "3.14-64"),
+            Package("Python.PythonInstallManager", "Python Install Manager", "26.3.240.0"),
+            Package("Python.Launcher", "Python Launcher", "3.14.7"),
+            Package("Python.Launcher", "Python Launcher", "< 3.9.8"),
+            Package(@"ARP\Machine\X64\{1}", "Visual Studio Tools for Python", "1.0"),
+        ]);
+
+        Assert.Equal(2, groups.Count);
+
+        var python = Assert.Single(groups, g => g.IsSuite);
+        Assert.Equal("Python", python.Title);
+
+        // "3.14.5" alone would not say what it is; the others read fine without "Python".
+        Assert.Equal(["Install Manager", "Launcher", "Python 3.14.5"], python.Children!.Select(c => c.Title));
+        Assert.Equal(2, python.Children!.Single(c => c.Title == "Launcher").Members.Count);
+    }
+
+    [Fact]
+    public void A_suite_of_one_family_is_just_that_family()
+    {
+        var groups = PackageFamilies.Group(
+        [
+            Package("Microsoft.DotNet.SDK.9", "Microsoft .NET SDK 9.0.317 (x64)", "9.0.317"),
+            Package("Microsoft.DotNet.SDK.10", "Microsoft .NET SDK 10.0.201 (x64)", "10.0.201"),
+        ]);
+
+        var sdk = Assert.Single(groups);
+        Assert.False(sdk.IsSuite);
+        Assert.Equal("Microsoft .NET SDK", sdk.Title);
+    }
+
+    [Fact]
+    public void Keeps_a_name_that_is_nothing_but_build_words_to_itself()
+    {
+        Assert.NotEqual(PackageFamilies.NameKey("2022"), PackageFamilies.NameKey("2019"));
+    }
+
+    [Fact]
     public void Does_not_group_unrelated_installs_that_happen_to_share_a_name_prefix()
     {
         var groups = PackageFamilies.Group(
@@ -146,6 +275,7 @@ public class PackageFamiliesTests
     [InlineData("Microsoft .NET Framework 4.8 SDK", "Microsoft .NET Framework 4.8 Targeting Pack", "Microsoft .NET Framework")]
     [InlineData("Microsoft OLE DB Driver 19 for SQL Server", "Microsoft OLE DB Driver for SQL Server", "Microsoft OLE DB Driver for SQL Server")]
     [InlineData("Python Launcher", "Python Launcher", "Python Launcher")]
+    [InlineData("X86 Debuggers And Tools", "X64 Debuggers And Tools", "Debuggers And Tools")]
     public void Drops_the_version_from_the_end_of_a_family_name(string first, string second, string expected)
     {
         Assert.Equal(expected, PackageFamilies.FamilyName([first, second]));

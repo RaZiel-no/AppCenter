@@ -304,14 +304,20 @@ public partial class ManageView : PageView
         _installed.Clear();
         foreach (var group in groups)
         {
-            group.IsExpanded = _expanded.Contains(group.Key);
-            group.PropertyChanged += OnGroupChanged;
+            // A suite's own families open and close as well, and are
+            // remembered the same way: by key, apart from the rows.
+            foreach (var row in group.IsSuite ? group.Families.Prepend(group) : [group])
+            {
+                row.IsExpanded = _expanded.Contains(row.Key);
+                row.PropertyChanged += OnGroupChanged;
+            }
+
             _installed.Add(group);
         }
 
         var shown = groups.Sum(g => g.Members.Count);
         var hidden = _allInstalled.Count - shown;
-        var families = groups.Count(g => g.IsGroup);
+        var families = groups.SelectMany(g => g.Families).Count(g => g.IsGroup);
 
         // An empty list is a card that says why, not a hairline.
         InstalledPanel.Visibility = groups.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -330,9 +336,17 @@ public partial class ManageView : PageView
                 ? $", with {families} installed in several versions."
                 : ".");
 
-        // Only the visible rows are worth fetching icons for.
+        // Only the visible rows are worth fetching icons for. A family's other
+        // members share its icon; a suite's rows each have one of their own,
+        // fetched when the suite is opened.
         Host.Icons.BeginLoad(groups.Take(60).Select(g => g.Lead), Dispatcher);
+
+        foreach (var suite in groups.Where(g => g.IsSuite && g.IsExpanded))
+            LoadIcons(suite);
     }
+
+    private void LoadIcons(InstalledGroup suite) =>
+        Host.Icons.BeginLoad(suite.Families.Select(f => f.Lead), Dispatcher);
 
     /// <summary>Keeps a family's open state across the rebuilds that follow.</summary>
     private void OnGroupChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -344,6 +358,9 @@ public partial class ManageView : PageView
             _expanded.Add(group.Key);
         else
             _expanded.Remove(group.Key);
+
+        if (group.IsSuite && group.IsExpanded)
+            LoadIcons(group);
     }
 
     private void OnFilterChanged(object sender, TextChangedEventArgs e)
@@ -533,11 +550,15 @@ public partial class ManageView : PageView
         OperationService.Paint(_self, OperationKind.Update);
         SelfUpdateButton.IsEnabled = OperationService.CanStart(AppInfo.PackageId);
 
+        // A suite opens as far as the family the member is in.
         foreach (var group in _installed)
         {
-            if (group.IsGroup && !group.IsExpanded
-                && group.Members.Any(m => m.IsBusy || m.Error.Length > 0))
-                group.IsExpanded = true;
+            foreach (var row in group.IsSuite ? group.Families.Prepend(group) : [group])
+            {
+                if (row.IsGroup && !row.IsExpanded
+                    && row.Members.Any(m => m.IsBusy || m.Error.Length > 0))
+                    row.IsExpanded = true;
+            }
         }
     }
 
