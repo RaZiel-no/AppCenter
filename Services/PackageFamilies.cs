@@ -104,12 +104,27 @@ public static class PackageFamilies
     /// folding them away under the publisher's name would hide the rows
     /// people open Manage to find.
     ///
+    /// Steam is the one library of apps in here, and the reason is the same
+    /// the other way round: a game library is one thing to the person who
+    /// has it, and Steam is where they manage it. A few dozen games spread
+    /// through the list alphabetically bury the apps around them, and each
+    /// of them is taken off by handing it back to Steam anyway (see
+    /// SteamGames). The client goes in with them, as the row they are under.
+    ///
     /// A list, because the rule cannot be general: plenty of publishers' names
     /// turn up in other publishers' product names. Each entry says where the
     /// name has to be for the package to count.
     /// </summary>
     private static readonly Suite[] Suites =
     [
+        // First, so a game is Steam's whatever it is called. Games by the id
+        // winget makes up for them - they are in no source - and the client
+        // by its own id, or its name where winget could not match it. No
+        // publisher comes off the front: "SteamWorld Dig" is not "World Dig".
+        new("Steam", Publisher: null,
+            Name: new(@"^Steam$", RegexOptions.IgnoreCase),
+            Id: new(@"^(ARP\\[^\\]+\\[^\\]+\\Steam App \d+|Valve\.Steam)$", RegexOptions.IgnoreCase)),
+
         // By winget id where there is one, or the package name of an MSIX
         // framework winget could not match; by the name for everything else
         // - the .NET hosts and targeting packs Visual Studio leaves behind.
@@ -129,9 +144,10 @@ public static class PackageFamilies
     /// <summary>
     /// One suite: <paramref name="Title"/> is what its row is called, and
     /// <paramref name="Publisher"/> what comes off the front of its members'
-    /// names, since the row above them already says it.
+    /// names, since the row above them already says it - or null where that
+    /// would cut into names rather than off them.
     /// </summary>
-    private sealed record Suite(string Title, string Publisher, Regex Name, Regex Id);
+    private sealed record Suite(string Title, string? Publisher, Regex Name, Regex Id);
 
     /// <summary>The mark a publisher's name is often followed by: "Intel(R)", "Intel®".</summary>
     private static readonly Regex TrademarkMark = new(@"^\s*(\((R|TM|C)\)|®|™|©)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -260,9 +276,17 @@ public static class PackageFamilies
             .OrderBy(c => c.Title, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
+        // The first member is the suite's lead, and so its icon. A member the
+        // suite is named after - Steam, among its games - is the one that
+        // stands for it; otherwise whichever comes first.
+        var members = children
+            .OrderBy(c => string.Equals(c.Title, suite.Title, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .SelectMany(c => c.Members)
+            .ToList();
+
         return new InstalledGroup(
             SuitePrefix + suite.Title, suite.Title,
-            children.SelectMany(c => c.Members).ToList(),
+            members,
             children, idText: string.Empty);
     }
 

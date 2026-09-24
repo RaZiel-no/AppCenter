@@ -199,6 +199,39 @@ public class PackageFamiliesTests
     }
 
     [Fact]
+    public void Gathers_steam_and_its_games_under_steam_and_leaves_their_names_alone()
+    {
+        var groups = PackageFamilies.Group(
+        [
+            Package("Valve.Steam", "Steam", "2.10.91.91"),
+            Package(@"ARP\Machine\X64\Steam App 730", "Counter-Strike 2", ""),
+            Package(@"ARP\Machine\X86\Steam App 1172470", "Apex Legends", ""),
+            Package(@"ARP\Machine\X64\Steam App 1002710", "SteamWorld Dig 2", ""),
+            Package("Git.Git", "Git"),
+        ]);
+
+        Assert.Equal(2, groups.Count);
+
+        var steam = Assert.Single(groups, g => g.IsSuite);
+        Assert.Equal("Steam", steam.Title);
+
+        // The client stands for the row - its icon, not the first game's.
+        Assert.Equal("Valve.Steam", steam.Lead.Id);
+
+        // Nothing comes off the front: that would make SteamWorld "World".
+        Assert.Equal(
+            ["Apex Legends", "Counter-Strike 2", "Steam", "SteamWorld Dig 2"],
+            steam.Children!.Select(c => c.Title));
+    }
+
+    [Fact]
+    public void Takes_steam_by_name_where_winget_could_not_match_it()
+    {
+        Assert.Equal("Steam", PackageFamilies.SuiteOf(Package(@"ARP\Machine\X86\Steam", "Steam")));
+        Assert.Null(PackageFamilies.SuiteOf(Package("Valve.SteamLink", "Steam Link")));
+    }
+
+    [Fact]
     public void A_suite_of_one_family_is_just_that_family()
     {
         var groups = PackageFamilies.Group(
