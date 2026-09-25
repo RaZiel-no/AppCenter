@@ -45,11 +45,13 @@ public sealed class StoreListing
 }
 
 /// <summary>
-/// Asks the Microsoft Store what it knows about a product, through the
-/// documented <c>Windows.Services.Store</c> API rather than any web endpoint:
+/// Asks the Microsoft Store what it knows about a product. A packaged
+/// listing is read through the documented <c>Windows.Services.Store</c> API:
 /// the same call an app makes to read its own listing, given another app's
 /// id. Nothing is signed in and nothing is sent that the Store client on this
-/// machine does not send anyway.
+/// machine does not send anyway. The Win32 apps the Store also carries are
+/// not that API's to answer for; they come from the Store's web catalogue
+/// instead, in the other half of this class.
 ///
 /// Reached by hand-written COM interop rather than the WinRT projection,
 /// because the projection is a Windows SDK target framework and a
@@ -85,10 +87,20 @@ public static partial class StoreListings
     /// <summary>The listing for a Store product id such as <c>9N0DX20HK701</c>.</summary>
     public static Task<StoreListing?> GetAsync(string storeId, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(storeId) || !_available)
+        if (string.IsNullOrWhiteSpace(storeId))
             return Task.FromResult<StoreListing?>(null);
 
-        return Gated(() => LookupById(storeId.Trim(), ct), ct);
+        storeId = storeId.Trim();
+
+        // A Win32 listing is not the Store client's to answer, and needs no
+        // Store on the machine to be asked about.
+        if (!IsPackagedId(storeId))
+            return LookupOnWebAsync(storeId).WaitAsync(ct);
+
+        if (!_available)
+            return Task.FromResult<StoreListing?>(null);
+
+        return Gated(() => LookupById(storeId, ct), ct);
     }
 
     /// <summary>

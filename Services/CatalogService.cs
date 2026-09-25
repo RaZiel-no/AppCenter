@@ -29,6 +29,13 @@ public sealed class CatalogEntry
     /// </summary>
     public string? Msstore { get; set; }
 
+    /// <summary>
+    /// The same app's Flatpak id, when it is published on Flathub. The
+    /// detail page asks Flathub for its screenshots when neither the
+    /// catalogue nor the Store has any.
+    /// </summary>
+    public string? Flatpak { get; set; }
+
     public string? Badge { get; set; }
 }
 
@@ -170,6 +177,7 @@ public static class CatalogService
         ScreenshotUrl = entry.Screenshot,
         Screenshots = entry.Screenshots,
         StoreId = entry.Msstore,
+        FlatpakId = entry.Flatpak,
         Source = "winget",
         Badge = entry.Badge?.ToLowerInvariant() switch
         {

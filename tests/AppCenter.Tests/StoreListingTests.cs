@@ -8,10 +8,10 @@ namespace AppCenter.Tests;
 /// <summary>
 /// The Store is asked about a package by an exact identity - never by name,
 /// which pairs Anki with "MemU Anki Flashcard" - and these pin down where
-/// those identities come from and what is taken from the answer. The Store
-/// itself is not called here: what it says depends on the machine, the
-/// region and the day, and the interop that reaches it is exercised against
-/// the real thing by hand.
+/// those identities come from, which half of the Store each one goes to,
+/// and what is taken from the answer. The Store itself is not called here:
+/// what it says depends on the machine, the region and the day, and the
+/// interop that reaches it is exercised against the real thing by hand.
 /// </summary>
 public class StoreListingTests
 {
@@ -68,15 +68,24 @@ public class StoreListingTests
     {
         var all = CatalogService.AllById();
 
-        // A packaged listing's id: twelve characters, beginning with 9, as
-        // in 9N0DX20HK701. Those are the only ones the Store API answers
-        // for - a Win32 app delivered through the Store has a fourteen-
-        // character XP id that the API returns nothing for under any
-        // product kind, so one of those here would cost a wasted query on
-        // every visit and buy nothing.
+        // A packaged listing's id is twelve characters beginning with 9, as
+        // in 9N0DX20HK701, and goes to the Store client; a Win32 app
+        // delivered through the Store has a fourteen-character XP id, as in
+        // XP9KHM4BK9FZ7Q, and goes to the Store's web catalogue. Anything
+        // else is a typo that would cost a wasted query on every visit.
         var listed = all.Values.Where(entry => entry.Msstore is not null).ToList();
         Assert.NotEmpty(listed);
-        Assert.All(listed, entry => Assert.Matches("^9[0-9A-Z]{11}$", entry.Msstore!));
+        Assert.All(listed, entry => Assert.Matches("^(9[0-9A-Z]{11}|XP[0-9A-Z]{12})$", entry.Msstore!));
+    }
+
+    [Theory]
+    [InlineData("9N0DX20HK701", true)]
+    [InlineData("9NZVDKPMR9RD", true)]
+    [InlineData("XP9KHM4BK9FZ7Q", false)]
+    [InlineData("XPDC2RH70K22MN", false)]
+    public void Packaged_ids_go_to_the_store_client_and_win32_ids_to_the_web_catalogue(string id, bool packaged)
+    {
+        Assert.Equal(packaged, StoreListings.IsPackagedId(id));
     }
 
     // ---------------------------------------------------------------
@@ -140,5 +149,74 @@ public class StoreListingTests
 
         // Box art is square but it is the poster, not the icon.
         Assert.Null(listing.Logo);
+    }
+
+    // ---------------------------------------------------------------
+    // The web catalogue, for the Win32 listings
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// The shape of the web catalogue's document, cut down to what matters:
+    /// lower-case image tags, one picture in the clear, one the catalogue
+    /// tags with something unknown, and one that is not a URL at all.
+    /// </summary>
+    private const string PowerToys = """
+        {
+          "$type": "Microsoft.Marketplace.Storefront.Contracts.V1.ResponseItem, Microsoft.Marketplace.Storefront.Contracts",
+          "Path": "/products/XP89DCGQ3K6VLD?market=US&locale=en-us",
+          "Payload": {
+            "ProductId": "XP89DCGQ3K6VLD",
+            "Title": "Microsoft PowerToys",
+            "PublisherName": "Microsoft Corporation",
+            "Images": [
+              { "ImageType": "logo", "Width": 1080, "Height": 1080, "Url": "https://images-eds-ssl.xboxlive.com/image?url=logo&format=source" },
+              { "ImageType": "screenshot", "Width": 800, "Height": 532, "Url": "http://images-eds-ssl.xboxlive.com/image?url=small&format=source" },
+              { "ImageType": "screenshot", "Width": 1606, "Height": 1012, "Url": "https://images-eds-ssl.xboxlive.com/image?url=large&format=source" },
+              { "ImageType": "trailer", "Width": 0, "Height": 0, "Url": "https://images-eds-ssl.xboxlive.com/image?url=trailer" },
+              { "ImageType": "screenshot", "Width": 100, "Height": 100, "Url": "image?url=relative" }
+            ]
+          }
+        }
+        """;
+
+    [Fact]
+    public void Reads_a_win32_listing_out_of_the_web_catalogue()
+    {
+        var listing = StoreListings.ParseWeb(PowerToys)!;
+
+        Assert.Equal("XP89DCGQ3K6VLD", listing.StoreId);
+        Assert.Equal("Microsoft PowerToys", listing.Title);
+        Assert.Equal(4, listing.Images.Count);
+    }
+
+    [Fact]
+    public void The_web_catalogue_s_tags_are_read_as_the_api_s()
+    {
+        // "screenshot" and "logo" in the document, "Screenshot" and "Logo" in
+        // the listing: the selectors that pick the strip and the icon were
+        // written against the API's spelling and read both answers alike.
+        var listing = StoreListings.ParseWeb(PowerToys)!;
+
+        Assert.Equal(2, listing.Screenshots.Count);
+        Assert.Equal("https://images-eds-ssl.xboxlive.com/image?url=logo&format=source", listing.Logo);
+        Assert.Contains(listing.Images, image => image.Purpose == "Trailer");
+    }
+
+    [Fact]
+    public void Web_catalogue_screenshots_come_largest_first_and_never_in_the_clear()
+    {
+        var listing = StoreListings.ParseWeb(PowerToys)!;
+
+        Assert.Equal("https://images-eds-ssl.xboxlive.com/image?url=large&format=source", listing.Screenshots[0]);
+        Assert.Equal("https://images-eds-ssl.xboxlive.com/image?url=small&format=source", listing.Screenshots[1]);
+    }
+
+    [Theory]
+    [InlineData("""{ "Payload": null }""")]
+    [InlineData("""{ "Payload": { "Title": "Nameless", "Images": [] } }""")]
+    [InlineData("""{ "code": "DataNotFound", "message": "Spark product XPZZZZZZZZZZZZ is not present" }""")]
+    public void A_document_without_a_product_is_no_listing(string json)
+    {
+        Assert.Null(StoreListings.ParseWeb(json));
     }
 }

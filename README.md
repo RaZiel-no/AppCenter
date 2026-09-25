@@ -89,7 +89,7 @@ not show the same release twice.
 | Featured / Productivity / Development | `catalog.json` sections, with sorting |
 | Games | Curated carousel + Top Rated grid |
 | Search | Live `winget search`, enriched with `winget show` |
-| App detail | `winget show` + `winget list` for install state; screenshots from the catalogue or the Store |
+| App detail | `winget show` + `winget list` for install state; screenshots from the catalogue, the Store or Flathub |
 | Manage | Live `winget upgrade` and `winget list` |
 
 Install, update and uninstall run **real winget commands against this machine**.
@@ -263,7 +263,8 @@ size, for a 250px-tall slide) and cached under `%LOCALAPPDATA%\AppCenter\screens
 
 ## Screenshots on the detail page
 
-Under an app's details sit up to three screenshots, from one of two places:
+Under an app's details sit up to three screenshots, from the first of three
+places that has any:
 
 - **the catalogue.** A `"screenshots"` list on the entry — hand-picked URLs
   from the project's own site, shown in the order given, on the same footing
@@ -272,8 +273,7 @@ Under an app's details sit up to three screenshots, from one of two places:
   reading a Store listing, `Windows.Services.Store.StoreContext` — the call an
   app makes to read its own listing, given another app's id — and it comes
   back with the screenshots and logos the publisher submitted. No web page is
-  scraped and no undocumented endpoint is called; the Store client on this
-  machine sends the same request.
+  scraped; the Store client on this machine sends the same request.
 
   The listing is only ever asked for by an **exact identity**, never found by
   name: a `"msstore"` id on the catalogue entry, or the family name of an
@@ -284,7 +284,29 @@ Under an app's details sit up to three screenshots, from one of two places:
   The API answers only for *packaged* listings — ids beginning with `9`,
   such as `9N0DX20HK701`. The Win32 apps the Store also carries (`XP…` ids:
   PowerToys, OBS, Discord, VS Code, Edge) return nothing through it under
-  any product kind, so they cannot be reached this way and are not listed.
+  any product kind. Those are read from the Store's own web catalogue
+  instead — the endpoint the Store client and winget's `msstore` source
+  read from, asked for the one product by its id. It is not documented, so
+  it may change without notice; if it does, those apps go back to having no
+  screenshots, and nothing else is affected.
+- **the app's Flathub listing.** Most of the catalogue is cross-platform
+  software that is also published on Flathub, and Flathub's public API hands
+  back the screenshots from the project's own AppStream metadata, with the
+  captions the project wrote, in a ladder of sizes on Flathub's own CDN. The
+  largest is taken. They show the app under GNOME or KDE rather than Windows
+  — for the games, the Electron apps and most Qt and GTK ones that is the
+  same window with a different title bar — which is why the Store, whose
+  pictures were taken on Windows, is asked first.
+
+  Like the Store, Flathub is asked only by an **exact identity**: a
+  `"flatpak"` id on the catalogue entry, such as `org.kde.krita`. The ids look
+  like reversed domains and tempt guessing from a homepage, but a guess lands
+  on a launcher for the app, another product from the same publisher or a
+  port nobody maintains often enough that every id is checked by hand. Only
+  the id is stored: the picture URLs carry a content hash that moves when a
+  project updates its screenshots, so they are looked up when the page opens
+  — one HTTPS request per app, remembered for the session — and cached like
+  everything else.
 
 The Store is reached through hand-written COM interop in
 `StoreListingService` rather than the WinRT projection, which would have
@@ -319,11 +341,14 @@ An id that does not resolve still renders a card, but installing it fails, so
 it is worth running that check before committing a new entry. Sections may
 share apps freely; the same id appears on several pages by design.
 
-Two optional fields feed the detail page: `"msstore"`, the app's Store id
-when it has a packaged listing (`winget search --source msstore <name>`
-prints it; only ids beginning with `9` are any use — see above), and
-`"screenshots"`, a list of image URLs from the project's own site. Like
-`"icon"`, both are per-section: an app on several pages needs them on each.
+Three optional fields feed the detail page: `"msstore"`, the app's Store id
+(`winget search --source msstore <name>` prints it; a `9…` id is a packaged
+app and an `XP…` id a Win32 one, and both work — see above);
+`"flatpak"`, the same app's id on Flathub (the last part of its
+`flathub.org/apps/…` address), which must be the project's own listing and
+not a launcher, a fork or a third-party client; and `"screenshots"`, a list
+of image URLs from the project's own site. Like `"icon"`, all three are
+per-section: an app on several pages needs them on each.
 
 ## Notes on the winget layer
 

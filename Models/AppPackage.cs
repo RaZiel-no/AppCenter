@@ -51,6 +51,13 @@ public sealed class AppPackage : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// The app's id on Flathub - <c>org.kde.krita</c> - from the catalogue's
+    /// "flatpak" field, when the same app is published there. Null when
+    /// there is no listing to ask about.
+    /// </summary>
+    public string? FlatpakId { get; set; }
+
+    /// <summary>
     /// The family name of an installed MSIX package, read out of the id
     /// `winget list` gives one it cannot attribute to a source:
     /// <c>MSIX\Name_Version_Arch_Resource_PublisherId</c> names the family

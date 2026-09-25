@@ -342,6 +342,7 @@
   "explore": [
     {
       "id": "Microsoft.PowerToys",
+      "msstore": "XP89DCGQ3K6VLD",
       "icon": "https://raw.githubusercontent.com/microsoft/PowerToys/main/src/settings-ui/Settings.UI/Assets/Settings/icon.ico",
       "name": "PowerToys",
       "publisher": "Microsoft",
@@ -369,6 +370,7 @@
     },
     {
       "id": "VideoLAN.VLC",
+      "flatpak": "org.videolan.VLC",
       "name": "VLC media player",
       "publisher": "VideoLAN",
       "badge": "verified",
@@ -378,6 +380,7 @@
     {
       "id": "Mozilla.Firefox",
       "msstore": "9NZVDKPMR9RD",
+      "flatpak": "org.mozilla.firefox",
       "name": "Firefox",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -386,6 +389,7 @@
     },
     {
       "id": "Valve.Steam",
+      "flatpak": "com.valvesoftware.Steam",
       "name": "Steam",
       "publisher": "Valve Corporation",
       "badge": "verified",
@@ -394,6 +398,7 @@
     },
     {
       "id": "Obsidian.Obsidian",
+      "flatpak": "md.obsidian.Obsidian",
       "name": "Obsidian",
       "publisher": "Obsidian.md",
       "badge": "star",
@@ -403,6 +408,7 @@
     {
       "id": "Spotify.Spotify",
       "msstore": "9NCBCSZSJRSB",
+      "flatpak": "com.spotify.Client",
       "name": "Spotify",
       "publisher": "Spotify AB",
       "badge": "verified",
@@ -411,6 +417,8 @@
     },
     {
       "id": "Discord.Discord",
+      "msstore": "XPDC2RH70K22MN",
+      "flatpak": "com.discordapp.Discord",
       "name": "Discord",
       "publisher": "Discord Inc.",
       "badge": "verified",
@@ -419,6 +427,8 @@
     },
     {
       "id": "OBSProject.OBSStudio",
+      "msstore": "XPFFH613W8V6LV",
+      "flatpak": "com.obsproject.Studio",
       "name": "OBS Studio",
       "publisher": "OBS Project",
       "badge": "star",
@@ -428,6 +438,7 @@
     {
       "id": "GIMP.GIMP",
       "msstore": "9PNSJCLXDZ0V",
+      "flatpak": "org.gimp.GIMP",
       "name": "GIMP",
       "publisher": "The GIMP Team",
       "badge": "star",
@@ -437,6 +448,7 @@
     {
       "id": "Inkscape.Inkscape",
       "msstore": "9PD9BHGLFC7H",
+      "flatpak": "org.inkscape.Inkscape",
       "name": "Inkscape",
       "publisher": "Inkscape",
       "badge": "star",
@@ -445,6 +457,7 @@
     },
     {
       "id": "KDE.Krita",
+      "flatpak": "org.kde.krita",
       "name": "Krita",
       "publisher": "Krita Foundation",
       "badge": "star",
@@ -454,6 +467,7 @@
     {
       "id": "BlenderFoundation.Blender",
       "msstore": "9PP3C07GTVRH",
+      "flatpak": "org.blender.Blender",
       "name": "Blender",
       "publisher": "Blender Foundation",
       "badge": "star",
@@ -462,6 +476,8 @@
     },
     {
       "id": "Audacity.Audacity",
+      "msstore": "XP8K0J757HHRDW",
+      "flatpak": "org.audacityteam.Audacity",
       "name": "Audacity",
       "publisher": "Audacity Team",
       "badge": "star",
@@ -470,6 +486,7 @@
     },
     {
       "id": "HandBrake.HandBrake",
+      "flatpak": "fr.handbrake.ghb",
       "name": "HandBrake",
       "publisher": "The HandBrake Team",
       "badge": "star",
@@ -478,6 +495,7 @@
     },
     {
       "id": "KDE.Kdenlive",
+      "flatpak": "org.kde.kdenlive",
       "name": "Kdenlive",
       "publisher": "KDE e.V.",
       "badge": "star",
@@ -486,6 +504,7 @@
     },
     {
       "id": "Telegram.TelegramDesktop",
+      "flatpak": "org.telegram.desktop",
       "name": "Telegram Desktop",
       "publisher": "Telegram FZ-LLC",
       "badge": "verified",
@@ -494,6 +513,8 @@
     },
     {
       "id": "OpenWhisperSystems.Signal",
+      "msstore": "XP89119P9F2PCQ",
+      "flatpak": "org.signal.Signal",
       "name": "Signal",
       "publisher": "Signal Messenger, LLC",
       "badge": "verified",
@@ -503,6 +524,7 @@
     {
       "id": "Bitwarden.Bitwarden",
       "msstore": "9PJSDV0VPK04",
+      "flatpak": "com.bitwarden.desktop",
       "name": "Bitwarden",
       "publisher": "Bitwarden Inc.",
       "badge": "verified",
@@ -536,6 +558,7 @@
     },
     {
       "id": "calibre.calibre",
+      "flatpak": "com.calibre_ebook.calibre",
       "name": "calibre",
       "publisher": "Kovid Goyal",
       "badge": "star",
@@ -544,6 +567,7 @@
     },
     {
       "id": "qBittorrent.qBittorrent",
+      "flatpak": "org.qbittorrent.qBittorrent",
       "name": "qBittorrent",
       "publisher": "The qBittorrent project",
       "badge": "star",
@@ -562,6 +586,8 @@
   "featured": [
     {
       "id": "Microsoft.VisualStudioCode",
+      "msstore": "XP9KHM4BK9FZ7Q",
+      "flatpak": "com.visualstudio.code",
       "name": "Visual Studio Code",
       "publisher": "Microsoft",
       "badge": "verified",
@@ -571,6 +597,7 @@
     {
       "id": "Mozilla.Firefox",
       "msstore": "9NZVDKPMR9RD",
+      "flatpak": "org.mozilla.firefox",
       "name": "Firefox",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -579,6 +606,7 @@
     },
     {
       "id": "Valve.Steam",
+      "flatpak": "com.valvesoftware.Steam",
       "name": "Steam",
       "publisher": "Valve Corporation",
       "badge": "verified",
@@ -587,6 +615,7 @@
     },
     {
       "id": "Microsoft.PowerToys",
+      "msstore": "XP89DCGQ3K6VLD",
       "icon": "https://raw.githubusercontent.com/microsoft/PowerToys/main/src/settings-ui/Settings.UI/Assets/Settings/icon.ico",
       "name": "PowerToys",
       "publisher": "Microsoft",
@@ -596,6 +625,7 @@
     },
     {
       "id": "VideoLAN.VLC",
+      "flatpak": "org.videolan.VLC",
       "name": "VLC media player",
       "publisher": "VideoLAN",
       "badge": "verified",
@@ -636,6 +666,8 @@
     },
     {
       "id": "Brave.Brave",
+      "msstore": "XP8C9QZMS2PC1T",
+      "flatpak": "com.brave.Browser",
       "name": "Brave",
       "publisher": "Brave Software",
       "badge": "verified",
@@ -644,6 +676,7 @@
     },
     {
       "id": "Obsidian.Obsidian",
+      "flatpak": "md.obsidian.Obsidian",
       "name": "Obsidian",
       "publisher": "Obsidian.md",
       "badge": "star",
@@ -652,6 +685,8 @@
     },
     {
       "id": "Microsoft.Edge",
+      "msstore": "XPFFTQ037JWMHS",
+      "flatpak": "com.microsoft.Edge",
       "name": "Microsoft Edge",
       "publisher": "Microsoft Corporation",
       "badge": "verified",
@@ -660,6 +695,8 @@
     },
     {
       "id": "Vivaldi.Vivaldi",
+      "msstore": "XP99GVQDX7JPR4",
+      "flatpak": "com.vivaldi.Vivaldi",
       "name": "Vivaldi",
       "publisher": "Vivaldi Technologies AS.",
       "badge": "verified",
@@ -668,6 +705,7 @@
     },
     {
       "id": "Zen-Team.Zen-Browser",
+      "flatpak": "app.zen_browser.zen",
       "name": "Zen Browser",
       "publisher": "Zen OSS Team",
       "badge": "star",
@@ -676,6 +714,7 @@
     },
     {
       "id": "Telegram.TelegramDesktop",
+      "flatpak": "org.telegram.desktop",
       "name": "Telegram Desktop",
       "publisher": "Telegram FZ-LLC",
       "badge": "verified",
@@ -684,6 +723,8 @@
     },
     {
       "id": "OpenWhisperSystems.Signal",
+      "msstore": "XP89119P9F2PCQ",
+      "flatpak": "org.signal.Signal",
       "name": "Signal",
       "publisher": "Signal Messenger, LLC",
       "badge": "verified",
@@ -693,6 +734,7 @@
     {
       "id": "Bitwarden.Bitwarden",
       "msstore": "9PJSDV0VPK04",
+      "flatpak": "com.bitwarden.desktop",
       "name": "Bitwarden",
       "publisher": "Bitwarden Inc.",
       "badge": "verified",
@@ -701,6 +743,8 @@
     },
     {
       "id": "KeePassXCTeam.KeePassXC",
+      "msstore": "XP8K2L36VP0QMB",
+      "flatpak": "org.keepassxc.KeePassXC",
       "name": "KeePassXC",
       "publisher": "KeePassXC Team",
       "badge": "star",
@@ -719,6 +763,7 @@
     {
       "id": "BlenderFoundation.Blender",
       "msstore": "9PP3C07GTVRH",
+      "flatpak": "org.blender.Blender",
       "name": "Blender",
       "publisher": "Blender Foundation",
       "badge": "star",
@@ -728,6 +773,7 @@
     {
       "id": "GIMP.GIMP",
       "msstore": "9PNSJCLXDZ0V",
+      "flatpak": "org.gimp.GIMP",
       "name": "GIMP",
       "publisher": "The GIMP Team",
       "badge": "star",
@@ -736,6 +782,7 @@
     },
     {
       "id": "KDE.Krita",
+      "flatpak": "org.kde.krita",
       "name": "Krita",
       "publisher": "Krita Foundation",
       "badge": "star",
@@ -745,6 +792,7 @@
     {
       "id": "Inkscape.Inkscape",
       "msstore": "9PD9BHGLFC7H",
+      "flatpak": "org.inkscape.Inkscape",
       "name": "Inkscape",
       "publisher": "Inkscape",
       "badge": "star",
@@ -753,6 +801,8 @@
     },
     {
       "id": "Audacity.Audacity",
+      "msstore": "XP8K0J757HHRDW",
+      "flatpak": "org.audacityteam.Audacity",
       "name": "Audacity",
       "publisher": "Audacity Team",
       "badge": "star",
@@ -761,6 +811,7 @@
     },
     {
       "id": "HandBrake.HandBrake",
+      "flatpak": "fr.handbrake.ghb",
       "name": "HandBrake",
       "publisher": "The HandBrake Team",
       "badge": "star",
@@ -769,6 +820,7 @@
     },
     {
       "id": "JetBrains.IntelliJIDEA.Community",
+      "flatpak": "com.jetbrains.IntelliJ-IDEA-Community",
       "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/IntelliJ_IDEA_icon.png",
       "name": "IntelliJ IDEA Community",
       "publisher": "JetBrains s.r.o.",
@@ -778,6 +830,7 @@
     },
     {
       "id": "SublimeHQ.SublimeText.4",
+      "flatpak": "com.sublimehq.SublimeText",
       "name": "Sublime Text",
       "publisher": "Sublime HQ Pty Ltd",
       "badge": "verified",
@@ -802,6 +855,7 @@
     },
     {
       "id": "qBittorrent.qBittorrent",
+      "flatpak": "org.qbittorrent.qBittorrent",
       "name": "qBittorrent",
       "publisher": "The qBittorrent project",
       "badge": "star",
@@ -810,6 +864,7 @@
     },
     {
       "id": "Joplin.Joplin",
+      "flatpak": "net.cozic.joplin_desktop",
       "name": "Joplin",
       "publisher": "Laurent Cozic",
       "badge": "star",
@@ -818,6 +873,7 @@
     },
     {
       "id": "Anki.Anki",
+      "flatpak": "net.ankiweb.Anki",
       "name": "Anki",
       "publisher": "Anki",
       "badge": "star",
@@ -836,6 +892,7 @@
   "productivity": [
     {
       "id": "Google.Chrome",
+      "flatpak": "com.google.Chrome",
       "name": "Google Chrome",
       "publisher": "Google LLC",
       "badge": "verified",
@@ -844,6 +901,8 @@
     },
     {
       "id": "Brave.Brave",
+      "msstore": "XP8C9QZMS2PC1T",
+      "flatpak": "com.brave.Browser",
       "name": "Brave",
       "publisher": "Brave Software",
       "badge": "verified",
@@ -853,6 +912,7 @@
     {
       "id": "Mozilla.Firefox",
       "msstore": "9NZVDKPMR9RD",
+      "flatpak": "org.mozilla.firefox",
       "name": "Firefox",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -861,6 +921,7 @@
     },
     {
       "id": "TheDocumentFoundation.LibreOffice",
+      "flatpak": "org.libreoffice.LibreOffice",
       "name": "LibreOffice",
       "publisher": "The Document Foundation",
       "badge": "verified",
@@ -869,6 +930,7 @@
     },
     {
       "id": "Obsidian.Obsidian",
+      "flatpak": "md.obsidian.Obsidian",
       "name": "Obsidian",
       "publisher": "Obsidian.md",
       "badge": "star",
@@ -877,6 +939,7 @@
     },
     {
       "id": "Notion.Notion",
+      "msstore": "XPDBVSS44R0L9H",
       "name": "Notion",
       "publisher": "Notion Labs, Inc.",
       "badge": "verified",
@@ -886,6 +949,7 @@
     {
       "id": "Mozilla.Thunderbird",
       "msstore": "9MX7TGVGQFCL",
+      "flatpak": "org.mozilla.thunderbird",
       "name": "Thunderbird",
       "publisher": "Mozilla",
       "badge": "verified",
@@ -895,6 +959,7 @@
     {
       "id": "SlackTechnologies.Slack",
       "msstore": "9WZDNCRDK3WP",
+      "flatpak": "com.slack.Slack",
       "name": "Slack",
       "publisher": "Slack Technologies",
       "badge": "verified",
@@ -903,6 +968,8 @@
     },
     {
       "id": "Zoom.Zoom",
+      "msstore": "XP99J3KP4XZ4VV",
+      "flatpak": "us.zoom.Zoom",
       "name": "Zoom Workplace",
       "publisher": "Zoom Communications",
       "badge": "verified",
@@ -911,6 +978,8 @@
     },
     {
       "id": "Opera.Opera",
+      "msstore": "XP8CF6S8G2D5T6",
+      "flatpak": "com.opera.Opera",
       "name": "Opera",
       "publisher": "Opera Software",
       "badge": "verified",
@@ -919,6 +988,8 @@
     },
     {
       "id": "Microsoft.Edge",
+      "msstore": "XPFFTQ037JWMHS",
+      "flatpak": "com.microsoft.Edge",
       "name": "Microsoft Edge",
       "publisher": "Microsoft Corporation",
       "badge": "verified",
@@ -927,6 +998,8 @@
     },
     {
       "id": "Vivaldi.Vivaldi",
+      "msstore": "XP99GVQDX7JPR4",
+      "flatpak": "com.vivaldi.Vivaldi",
       "name": "Vivaldi",
       "publisher": "Vivaldi Technologies AS.",
       "badge": "verified",
@@ -935,6 +1008,7 @@
     },
     {
       "id": "Zen-Team.Zen-Browser",
+      "flatpak": "app.zen_browser.zen",
       "name": "Zen Browser",
       "publisher": "Zen OSS Team",
       "badge": "star",
@@ -944,6 +1018,7 @@
     {
       "id": "LibreWolf.LibreWolf",
       "msstore": "9NVN9SZ8KFD7",
+      "flatpak": "io.gitlab.librewolf-community",
       "name": "LibreWolf",
       "publisher": "LibreWolf",
       "badge": "star",
@@ -960,6 +1035,7 @@
     },
     {
       "id": "qBittorrent.qBittorrent",
+      "flatpak": "org.qbittorrent.qBittorrent",
       "name": "qBittorrent",
       "publisher": "The qBittorrent project",
       "badge": "star",
@@ -968,6 +1044,7 @@
     },
     {
       "id": "Transmission.Transmission",
+      "flatpak": "com.transmissionbt.Transmission",
       "name": "Transmission",
       "publisher": "Transmission Project",
       "badge": "star",
@@ -976,6 +1053,7 @@
     },
     {
       "id": "ONLYOFFICE.DesktopEditors",
+      "flatpak": "org.onlyoffice.desktopeditors",
       "name": "ONLYOFFICE Desktop Editors",
       "publisher": "Ascensio System SIA",
       "badge": "verified",
@@ -984,6 +1062,7 @@
     },
     {
       "id": "Joplin.Joplin",
+      "flatpak": "net.cozic.joplin_desktop",
       "name": "Joplin",
       "publisher": "Laurent Cozic",
       "badge": "star",
@@ -992,6 +1071,7 @@
     },
     {
       "id": "Logseq.Logseq",
+      "flatpak": "com.logseq.Logseq",
       "name": "Logseq",
       "publisher": "Logseq",
       "badge": "star",
@@ -1000,6 +1080,7 @@
     },
     {
       "id": "DigitalScholar.Zotero",
+      "flatpak": "org.zotero.Zotero",
       "name": "Zotero",
       "publisher": "Corporation for Digital Scholarship",
       "badge": "star",
@@ -1008,6 +1089,7 @@
     },
     {
       "id": "calibre.calibre",
+      "flatpak": "com.calibre_ebook.calibre",
       "name": "calibre",
       "publisher": "Kovid Goyal",
       "badge": "star",
@@ -1016,6 +1098,7 @@
     },
     {
       "id": "Anki.Anki",
+      "flatpak": "net.ankiweb.Anki",
       "name": "Anki",
       "publisher": "Anki",
       "badge": "star",
@@ -1025,6 +1108,7 @@
     {
       "id": "Doist.Todoist",
       "msstore": "9MWF2DWS5Z9N",
+      "flatpak": "com.todoist.Todoist",
       "name": "Todoist",
       "publisher": "Doist",
       "badge": "verified",
@@ -1033,6 +1117,7 @@
     },
     {
       "id": "StandardNotes.StandardNotes",
+      "flatpak": "org.standardnotes.standardnotes",
       "name": "Standard Notes",
       "publisher": "Standard Notes",
       "badge": "star",
@@ -1041,6 +1126,7 @@
     },
     {
       "id": "Adobe.Acrobat.Reader.64-bit",
+      "msstore": "XPDP273C0XHQH2",
       "name": "Adobe Acrobat Reader",
       "publisher": "Adobe",
       "badge": "verified",
@@ -1066,6 +1152,7 @@
     },
     {
       "id": "Zettlr.Zettlr",
+      "flatpak": "com.zettlr.Zettlr",
       "name": "Zettlr",
       "publisher": "Hendrik Erz",
       "badge": "star",
@@ -1083,6 +1170,7 @@
     {
       "id": "Dropbox.Dropbox",
       "msstore": "9NK4T08DHQ80",
+      "flatpak": "com.dropbox.Client",
       "name": "Dropbox",
       "publisher": "Dropbox, Inc.",
       "badge": "verified",
@@ -1091,6 +1179,7 @@
     },
     {
       "id": "Nextcloud.NextcloudDesktop",
+      "flatpak": "com.nextcloud.desktopclient.nextcloud",
       "name": "Nextcloud",
       "publisher": "Nextcloud GmbH",
       "badge": "star",
@@ -1107,6 +1196,7 @@
     },
     {
       "id": "Telegram.TelegramDesktop",
+      "flatpak": "org.telegram.desktop",
       "name": "Telegram Desktop",
       "publisher": "Telegram FZ-LLC",
       "badge": "verified",
@@ -1115,6 +1205,8 @@
     },
     {
       "id": "OpenWhisperSystems.Signal",
+      "msstore": "XP89119P9F2PCQ",
+      "flatpak": "org.signal.Signal",
       "name": "Signal",
       "publisher": "Signal Messenger, LLC",
       "badge": "verified",
@@ -1123,6 +1215,7 @@
     },
     {
       "id": "Element.Element",
+      "flatpak": "im.riot.Riot",
       "name": "Element",
       "publisher": "Element",
       "badge": "star",
@@ -1131,6 +1224,8 @@
     },
     {
       "id": "Mattermost.MattermostDesktop",
+      "msstore": "XP8BR8MH3LPKLT",
+      "flatpak": "com.mattermost.Desktop",
       "name": "Mattermost",
       "publisher": "Mattermost, Inc.",
       "badge": "star",
@@ -1139,6 +1234,7 @@
     },
     {
       "id": "Microsoft.Teams",
+      "msstore": "XP8BT8DW290MPQ",
       "name": "Microsoft Teams",
       "publisher": "Microsoft Corporation",
       "badge": "verified",
@@ -1147,6 +1243,7 @@
     },
     {
       "id": "Ferdium.Ferdium",
+      "flatpak": "org.ferdium.Ferdium",
       "name": "Ferdium",
       "publisher": "Ferdium Contributors",
       "badge": "star",
@@ -1156,6 +1253,7 @@
     {
       "id": "GIMP.GIMP",
       "msstore": "9PNSJCLXDZ0V",
+      "flatpak": "org.gimp.GIMP",
       "name": "GIMP",
       "publisher": "The GIMP Team",
       "badge": "star",
@@ -1165,6 +1263,7 @@
     {
       "id": "Inkscape.Inkscape",
       "msstore": "9PD9BHGLFC7H",
+      "flatpak": "org.inkscape.Inkscape",
       "name": "Inkscape",
       "publisher": "Inkscape",
       "badge": "star",
@@ -1173,6 +1272,7 @@
     },
     {
       "id": "KDE.Krita",
+      "flatpak": "org.kde.krita",
       "name": "Krita",
       "publisher": "Krita Foundation",
       "badge": "star",
@@ -1182,6 +1282,7 @@
     {
       "id": "BlenderFoundation.Blender",
       "msstore": "9PP3C07GTVRH",
+      "flatpak": "org.blender.Blender",
       "name": "Blender",
       "publisher": "Blender Foundation",
       "badge": "star",
@@ -1198,6 +1299,7 @@
     },
     {
       "id": "KDE.Kdenlive",
+      "flatpak": "org.kde.kdenlive",
       "name": "Kdenlive",
       "publisher": "KDE e.V.",
       "badge": "star",
@@ -1206,6 +1308,7 @@
     },
     {
       "id": "Meltytech.Shotcut",
+      "flatpak": "org.shotcut.Shotcut",
       "name": "Shotcut",
       "publisher": "Meltytech",
       "badge": "star",
@@ -1214,6 +1317,7 @@
     },
     {
       "id": "HandBrake.HandBrake",
+      "flatpak": "fr.handbrake.ghb",
       "name": "HandBrake",
       "publisher": "The HandBrake Team",
       "badge": "star",
@@ -1222,6 +1326,7 @@
     },
     {
       "id": "darktable.darktable",
+      "flatpak": "org.darktable.Darktable",
       "name": "darktable",
       "publisher": "the darktable project",
       "badge": "star",
@@ -1230,6 +1335,7 @@
     },
     {
       "id": "OpenShot.OpenShot",
+      "flatpak": "org.openshot.OpenShot",
       "name": "OpenShot Video Editor",
       "publisher": "OpenShot Studios, LLC",
       "badge": "star",
@@ -1238,6 +1344,7 @@
     },
     {
       "id": "RawTherapee.RawTherapee",
+      "flatpak": "com.rawtherapee.RawTherapee",
       "name": "RawTherapee",
       "publisher": "rawtherapee.com",
       "badge": "star",
@@ -1255,6 +1362,7 @@
     },
     {
       "id": "XnSoft.XnViewMP",
+      "flatpak": "com.xnview.XnViewMP",
       "name": "XnView MP",
       "publisher": "Pierre-e Gougelet",
       "badge": "star",
@@ -1263,6 +1371,8 @@
     },
     {
       "id": "Audacity.Audacity",
+      "msstore": "XP8K0J757HHRDW",
+      "flatpak": "org.audacityteam.Audacity",
       "name": "Audacity",
       "publisher": "Audacity Team",
       "badge": "star",
@@ -1296,6 +1406,7 @@
     },
     {
       "id": "LMMS.LMMS",
+      "flatpak": "io.lmms.LMMS",
       "name": "LMMS",
       "publisher": "LMMS Developers",
       "badge": "star",
@@ -1304,6 +1415,8 @@
     },
     {
       "id": "Musescore.Musescore",
+      "msstore": "XP89BN2QWZXG3T",
+      "flatpak": "org.musescore.MuseScore",
       "name": "MuseScore",
       "publisher": "MuseScore BVBA and Others",
       "badge": "star",
@@ -1362,6 +1475,7 @@
     },
     {
       "id": "Flameshot.Flameshot",
+      "flatpak": "org.flameshot.Flameshot",
       "name": "Flameshot",
       "publisher": "flameshot-org",
       "badge": "star",
@@ -1379,6 +1493,7 @@
     {
       "id": "Bitwarden.Bitwarden",
       "msstore": "9PJSDV0VPK04",
+      "flatpak": "com.bitwarden.desktop",
       "name": "Bitwarden",
       "publisher": "Bitwarden Inc.",
       "badge": "verified",
@@ -1387,6 +1502,8 @@
     },
     {
       "id": "KeePassXCTeam.KeePassXC",
+      "msstore": "XP8K2L36VP0QMB",
+      "flatpak": "org.keepassxc.KeePassXC",
       "name": "KeePassXC",
       "publisher": "KeePassXC Team",
       "badge": "star",
@@ -1395,6 +1512,7 @@
     },
     {
       "id": "Proton.ProtonVPN",
+      "flatpak": "com.protonvpn.www",
       "name": "Proton VPN",
       "publisher": "Proton AG",
       "badge": "verified",
@@ -1405,6 +1523,8 @@
   "development": [
     {
       "id": "Microsoft.VisualStudioCode",
+      "msstore": "XP9KHM4BK9FZ7Q",
+      "flatpak": "com.visualstudio.code",
       "name": "Visual Studio Code",
       "publisher": "Microsoft",
       "badge": "verified",
@@ -1439,6 +1559,7 @@
     },
     {
       "id": "Docker.DockerDesktop",
+      "msstore": "XP8CBJ40XLBWKX",
       "name": "Docker Desktop",
       "publisher": "Docker Inc.",
       "badge": "verified",
@@ -1464,6 +1585,7 @@
     },
     {
       "id": "GitHub.GitHubDesktop",
+      "flatpak": "io.github.shiftey.Desktop",
       "name": "GitHub Desktop",
       "publisher": "GitHub, Inc.",
       "badge": "verified",
@@ -1472,6 +1594,7 @@
     },
     {
       "id": "Postman.Postman",
+      "flatpak": "com.getpostman.Postman",
       "name": "Postman",
       "publisher": "Postman, Inc.",
       "badge": "verified",
@@ -1480,6 +1603,7 @@
     },
     {
       "id": "Neovim.Neovim",
+      "flatpak": "io.neovim.nvim",
       "name": "Neovim",
       "publisher": "Neovim",
       "badge": "star",
@@ -1488,6 +1612,7 @@
     },
     {
       "id": "JetBrains.IntelliJIDEA.Community",
+      "flatpak": "com.jetbrains.IntelliJ-IDEA-Community",
       "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/IntelliJ_IDEA_icon.png",
       "name": "IntelliJ IDEA Community",
       "publisher": "JetBrains s.r.o.",
@@ -1497,6 +1622,7 @@
     },
     {
       "id": "JetBrains.PyCharm.Community",
+      "flatpak": "com.jetbrains.PyCharm-Community",
       "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/PyCharm_icon.png",
       "name": "PyCharm Community",
       "publisher": "JetBrains s.r.o.",
@@ -1506,6 +1632,7 @@
     },
     {
       "id": "JetBrains.Toolbox",
+      "msstore": "XPFPPN5PLH3BFV",
       "icon": "https://resources.jetbrains.com/storage/products/company/brand/logos/Toolbox_icon.png",
       "name": "JetBrains Toolbox",
       "publisher": "JetBrains",
@@ -1515,6 +1642,7 @@
     },
     {
       "id": "SublimeHQ.SublimeText.4",
+      "flatpak": "com.sublimehq.SublimeText",
       "name": "Sublime Text",
       "publisher": "Sublime HQ Pty Ltd",
       "badge": "verified",
@@ -1531,6 +1659,7 @@
     },
     {
       "id": "ZedIndustries.Zed",
+      "flatpak": "dev.zed.Zed",
       "name": "Zed",
       "publisher": "Zed Industries",
       "badge": "star",
@@ -1539,6 +1668,7 @@
     },
     {
       "id": "vim.vim",
+      "flatpak": "org.vim.Vim",
       "name": "Vim",
       "publisher": "Bram Moolenaar et al.",
       "badge": "star",
@@ -1547,6 +1677,7 @@
     },
     {
       "id": "GNU.Emacs",
+      "flatpak": "org.gnu.emacs",
       "name": "GNU Emacs",
       "publisher": "GNU Project",
       "badge": "star",
@@ -1637,6 +1768,7 @@
     },
     {
       "id": "MongoDB.Compass.Full",
+      "flatpak": "com.mongodb.Compass",
       "name": "MongoDB Compass",
       "publisher": "MongoDB Inc",
       "badge": "verified",
@@ -1645,6 +1777,7 @@
     },
     {
       "id": "Insomnia.Insomnia",
+      "flatpak": "rest.insomnia.Insomnia",
       "name": "Insomnia",
       "publisher": "Kong",
       "badge": "verified",
@@ -1677,6 +1810,7 @@
     },
     {
       "id": "Meld.Meld",
+      "flatpak": "org.gnome.meld",
       "name": "Meld",
       "publisher": "Kai Willadsen",
       "badge": "star",
@@ -1693,6 +1827,8 @@
     },
     {
       "id": "PuTTY.PuTTY",
+      "msstore": "XPFNZKSKLBP7RJ",
+      "flatpak": "uk.org.greenend.chiark.sgtatham.putty",
       "name": "PuTTY",
       "publisher": "Simon Tatham",
       "badge": "star",
@@ -1709,6 +1845,7 @@
     },
     {
       "id": "GodotEngine.GodotEngine",
+      "flatpak": "org.godotengine.Godot",
       "name": "Godot Engine",
       "publisher": "Godot Engine",
       "badge": "star",
@@ -1717,6 +1854,7 @@
     },
     {
       "id": "Unity.UnityHub",
+      "flatpak": "com.unity.UnityHub",
       "name": "Unity Hub",
       "publisher": "Unity Technologies Inc.",
       "badge": "verified",
@@ -1726,6 +1864,7 @@
     {
       "id": "ArduinoSA.IDE.stable",
       "msstore": "9NBLGGH4RSD8",
+      "flatpak": "cc.arduino.arduinoide",
       "name": "Arduino IDE",
       "publisher": "Arduino SA",
       "badge": "verified",
@@ -1766,6 +1905,7 @@
     },
     {
       "id": "WiresharkFoundation.Wireshark",
+      "flatpak": "org.wireshark.Wireshark",
       "name": "Wireshark",
       "publisher": "The Wireshark developer community, https://www.wireshark.org",
       "badge": "star",
@@ -1790,6 +1930,7 @@
     },
     {
       "id": "GNU.Octave",
+      "flatpak": "org.octave.Octave",
       "name": "GNU Octave",
       "publisher": "GNU Octave",
       "badge": "star",
@@ -1814,6 +1955,7 @@
     },
     {
       "id": "Stellarium.Stellarium",
+      "flatpak": "org.stellarium.Stellarium",
       "name": "Stellarium",
       "publisher": "Stellarium team",
       "badge": "star",
@@ -1822,6 +1964,7 @@
     },
     {
       "id": "OSGeo.QGIS",
+      "flatpak": "org.qgis.qgis",
       "name": "QGIS",
       "publisher": "QGIS.org",
       "badge": "star",
@@ -1830,6 +1973,7 @@
     },
     {
       "id": "FreeCAD.FreeCAD",
+      "flatpak": "org.freecad.FreeCAD",
       "name": "FreeCAD",
       "publisher": "FreeCAD Team",
       "badge": "star",
@@ -1838,6 +1982,7 @@
     },
     {
       "id": "KiCad.KiCad",
+      "flatpak": "org.kicad.KiCad",
       "name": "KiCad",
       "publisher": "KiCad",
       "badge": "star",
@@ -1846,6 +1991,7 @@
     },
     {
       "id": "GeoGebra.Classic",
+      "flatpak": "org.geogebra.GeoGebra",
       "name": "GeoGebra Classic",
       "publisher": "International GeoGebra Institute",
       "badge": "star",
@@ -1854,6 +2000,7 @@
     },
     {
       "id": "OpenSCAD.OpenSCAD",
+      "flatpak": "org.openscad.OpenSCAD",
       "name": "OpenSCAD",
       "publisher": "OpenSCAD",
       "badge": "star",
@@ -1862,6 +2009,7 @@
     },
     {
       "id": "Ultimaker.Cura",
+      "flatpak": "com.ultimaker.cura",
       "name": "Ultimaker Cura",
       "publisher": "UltiMaker",
       "badge": "verified",
@@ -1870,6 +2018,7 @@
     },
     {
       "id": "Prusa3D.PrusaSlicer",
+      "flatpak": "com.prusa3d.PrusaSlicer",
       "name": "PrusaSlicer",
       "publisher": "Prusa Research",
       "badge": "verified",
@@ -1936,6 +2085,7 @@
     },
     {
       "id": "CrystalDewWorld.CrystalDiskInfo",
+      "msstore": "XP8K4RGX25G3GM",
       "name": "CrystalDiskInfo",
       "publisher": "Crystal Dew World",
       "badge": "star",
@@ -1984,6 +2134,7 @@
     },
     {
       "id": "Malwarebytes.Malwarebytes",
+      "msstore": "XP8C8Z6HXBX7B9",
       "name": "Malwarebytes",
       "publisher": "Malwarebytes",
       "badge": "verified",
@@ -2026,6 +2177,7 @@
   "games": [
     {
       "id": "Valve.Steam",
+      "flatpak": "com.valvesoftware.Steam",
       "name": "Steam",
       "publisher": "Valve Corporation",
       "badge": "verified",
@@ -2034,6 +2186,7 @@
     },
     {
       "id": "WildfireGames.0AD",
+      "flatpak": "com.play0ad.zeroad",
       "screenshot": "https://wildfiregames.com/forum/uploads/monthly_2026_01/screenshot0011.thumb.png.50d0e74bb637ddf2191fe5ad88241f75.png",
       "name": "0 A.D.",
       "publisher": "Wildfire Games",
@@ -2043,6 +2196,7 @@
     },
     {
       "id": "joncampbell123.DOSBox-X",
+      "flatpak": "com.dosbox_x.DOSBox-X",
       "screenshot": "https://dosbox-x.com/images/tomb3d.png",
       "name": "DOSBox-X",
       "publisher": "DOSBox-X Team",
@@ -2052,6 +2206,7 @@
     },
     {
       "id": "OpenRA.OpenRA.Release",
+      "flatpak": "net.openra.OpenRA",
       "screenshot": "https://www.openra.net/images/social.jpg",
       "name": "OpenRA",
       "publisher": "OpenRA Team",
@@ -2061,6 +2216,7 @@
     },
     {
       "id": "Warzone2100Project.Warzone2100",
+      "flatpak": "net.wz2100.wz2100",
       "screenshot": "https://wz2100.net/img/wz2100-open-graph-template.png",
       "name": "Warzone 2100",
       "publisher": "Warzone 2100 Project",
@@ -2070,6 +2226,7 @@
     },
     {
       "id": "SuperTuxKart.SuperTuxKart",
+      "flatpak": "net.supertuxkart.SuperTuxKart",
       "screenshot": "https://supertuxkart.net/assets/blog/Blog_electro-shield_thumb.jpg",
       "name": "SuperTuxKart",
       "publisher": "SuperTuxKart Team",
@@ -2079,6 +2236,7 @@
     },
     {
       "id": "OpenTTD.OpenTTD",
+      "flatpak": "org.openttd.OpenTTD",
       "screenshot": "https://www.openttd.org/screenshots/1.9-industry_trams.png",
       "name": "OpenTTD",
       "publisher": "OpenTTD Team",
@@ -2088,6 +2246,7 @@
     },
     {
       "id": "Libretro.RetroArch",
+      "flatpak": "org.libretro.RetroArch",
       "name": "RetroArch",
       "publisher": "Libretro",
       "badge": "star",
@@ -2096,6 +2255,7 @@
     },
     {
       "id": "Wesnoth.BattleForWesnoth",
+      "flatpak": "org.wesnoth.Wesnoth",
       "screenshot": "https://www.wesnoth.org/images/sshots/wesnoth-1.18.0-2.jpg",
       "name": "The Battle for Wesnoth",
       "publisher": "The Battle for Wesnoth Project",
@@ -2105,6 +2265,7 @@
     },
     {
       "id": "Hedgewars.Hedgewars",
+      "flatpak": "org.hedgewars.Hedgewars",
       "name": "Hedgewars",
       "publisher": "Hedgewars Project",
       "badge": "star",
@@ -2113,6 +2274,7 @@
     },
     {
       "id": "SuperTux.SuperTux",
+      "flatpak": "org.supertuxproject.SuperTux",
       "name": "SuperTux",
       "publisher": "SuperTux Devel Team",
       "badge": "star",
@@ -2121,6 +2283,7 @@
     },
     {
       "id": "Xonotic.Xonotic",
+      "flatpak": "org.xonotic.Xonotic",
       "screenshot": "https://xonotic.org/static/img/carousel_maps.jpg",
       "name": "Xonotic",
       "publisher": "Team Xonotic",
@@ -2130,6 +2293,7 @@
     },
     {
       "id": "FlightGear.FlightGear",
+      "flatpak": "org.flightgear.FlightGear",
       "name": "FlightGear",
       "publisher": "The FlightGear Team",
       "badge": "star",
@@ -2138,6 +2302,7 @@
     },
     {
       "id": "OpenMW.OpenMW",
+      "flatpak": "org.openmw.OpenMW",
       "screenshot": "https://openmw.org/wp-content/uploads/2025/11/image-1024x576.png",
       "name": "OpenMW",
       "publisher": "OpenMW.org",
@@ -2147,6 +2312,7 @@
     },
     {
       "id": "CleverRaven.CataclysmDarkDaysAhead",
+      "flatpak": "org.cataclysmdda.CataclysmDDA",
       "name": "Cataclysm: Dark Days Ahead",
       "publisher": "Kevin Granade",
       "badge": "star",
@@ -2155,6 +2321,7 @@
     },
     {
       "id": "ScummVM.ScummVM",
+      "flatpak": "org.scummvm.ScummVM",
       "name": "ScummVM",
       "publisher": "The ScummVM Team",
       "badge": "star",
@@ -2163,6 +2330,7 @@
     },
     {
       "id": "DolphinEmulator.Dolphin",
+      "flatpak": "org.DolphinEmu.dolphin-emu",
       "name": "Dolphin Emulator",
       "publisher": "Dolphin Team",
       "badge": "star",
@@ -2171,6 +2339,7 @@
     },
     {
       "id": "PPSSPPTeam.PPSSPP",
+      "flatpak": "org.ppsspp.PPSSPP",
       "name": "PPSSPP",
       "publisher": "PPSSPP Project",
       "badge": "star",
@@ -2179,6 +2348,7 @@
     },
     {
       "id": "PCSX2Team.PCSX2",
+      "flatpak": "net.pcsx2.PCSX2",
       "icon": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/bin/resources/icons/AppIconLarge.png",
       "name": "PCSX2",
       "publisher": "PCSX2 Team",
@@ -2188,6 +2358,7 @@
     },
     {
       "id": "Mojang.MinecraftLauncher",
+      "flatpak": "com.mojang.Minecraft",
       "name": "Minecraft Launcher",
       "publisher": "Mojang",
       "badge": "verified",
@@ -2196,6 +2367,7 @@
     },
     {
       "id": "ppy.osu",
+      "flatpak": "sh.ppy.osu",
       "name": "osu!",
       "publisher": "ppy Pty Ltd",
       "badge": "star",
@@ -2204,6 +2376,7 @@
     },
     {
       "id": "EpicGames.EpicGamesLauncher",
+      "msstore": "XP99VR1BPSBQJ2",
       "name": "Epic Games Launcher",
       "publisher": "Epic Games, Inc.",
       "badge": "verified",
@@ -2220,6 +2393,7 @@
     },
     {
       "id": "Ubisoft.Connect",
+      "msstore": "XPDP2QW12DFSFK",
       "name": "Ubisoft Connect",
       "publisher": "Ubisoft",
       "badge": "verified",
@@ -2236,6 +2410,7 @@
     },
     {
       "id": "Blizzard.BattleNet",
+      "msstore": "XPDM5VSMTKQLBJ",
       "name": "Battle.net",
       "publisher": "Blizzard Entertainment",
       "badge": "verified",
@@ -2244,6 +2419,7 @@
     },
     {
       "id": "ItchIo.Itch",
+      "flatpak": "io.itch.itch",
       "name": "itch",
       "publisher": "itch corp.",
       "badge": "star",
@@ -2252,6 +2428,7 @@
     },
     {
       "id": "HeroicGamesLauncher.HeroicGamesLauncher",
+      "flatpak": "com.heroicgameslauncher.hgl",
       "name": "Heroic Games Launcher",
       "publisher": "Heroic Games Launcher",
       "badge": "star",
@@ -2262,54 +2439,63 @@
   "carousel": [
     {
       "id": "WildfireGames.0AD",
+      "flatpak": "com.play0ad.zeroad",
       "screenshot": "https://wildfiregames.com/forum/uploads/monthly_2026_01/screenshot0011.thumb.png.50d0e74bb637ddf2191fe5ad88241f75.png",
       "name": "0 A.D.",
       "summary": "Real-time strategy game of ancient warfare"
     },
     {
       "id": "joncampbell123.DOSBox-X",
+      "flatpak": "com.dosbox_x.DOSBox-X",
       "screenshot": "https://dosbox-x.com/images/tomb3d.png",
       "name": "DOSBox-X",
       "summary": "DOSBox-X fork of the DOSBox project"
     },
     {
       "id": "OpenRA.OpenRA.Release",
+      "flatpak": "net.openra.OpenRA",
       "screenshot": "https://www.openra.net/images/social.jpg",
       "name": "OpenRA",
       "summary": "Reimagining early Westwood real-time strategy games"
     },
     {
       "id": "SuperTuxKart.SuperTuxKart",
+      "flatpak": "net.supertuxkart.SuperTuxKart",
       "screenshot": "https://supertuxkart.net/assets/blog/Blog_electro-shield_thumb.jpg",
       "name": "SuperTuxKart",
       "summary": "A 3D open-source arcade racer"
     },
     {
       "id": "Warzone2100Project.Warzone2100",
+      "flatpak": "net.wz2100.wz2100",
       "screenshot": "https://wz2100.net/img/wz2100-open-graph-template.png",
       "name": "Warzone 2100",
       "summary": "3D real-time strategy in a post-apocalyptic world"
     },
     {
       "id": "OpenTTD.OpenTTD",
+      "flatpak": "org.openttd.OpenTTD",
       "screenshot": "https://www.openttd.org/screenshots/1.9-industry_trams.png",
       "name": "OpenTTD",
       "summary": "An open source Transport Tycoon Deluxe"
     },
     {
       "id": "Wesnoth.BattleForWesnoth",
+      "flatpak": "org.wesnoth.Wesnoth",
       "screenshot": "https://www.wesnoth.org/images/sshots/wesnoth-1.18.0-2.jpg",
       "name": "The Battle for Wesnoth",
       "summary": "Turn-based fantasy strategy with a very long campaign"
     },
     {
       "id": "Xonotic.Xonotic",
+      "flatpak": "org.xonotic.Xonotic",
       "screenshot": "https://xonotic.org/static/img/carousel_maps.jpg",
       "name": "Xonotic",
       "summary": "A fast open source arena shooter"
     },
     {
       "id": "OpenMW.OpenMW",
+      "flatpak": "org.openmw.OpenMW",
       "screenshot": "https://openmw.org/wp-content/uploads/2025/11/image-1024x576.png",
       "name": "OpenMW",
       "summary": "A modern engine for Morrowind"

@@ -188,6 +188,8 @@ public class CatalogTests
             Homepage = "https://git-scm.com",
             Icon = "https://git-scm.com/icon.png",
             Screenshot = "https://git-scm.com/wide.png",
+            Msstore = "9NBLGGH4Z1SP",
+            Flatpak = "org.git.Git",
         });
 
         Assert.Equal("Git.Git", package.Id);
@@ -197,6 +199,50 @@ public class CatalogTests
         Assert.Equal("https://git-scm.com", package.Homepage);
         Assert.Equal("https://git-scm.com/icon.png", package.IconUrl);
         Assert.Equal("https://git-scm.com/wide.png", package.ScreenshotUrl);
+        Assert.Equal("9NBLGGH4Z1SP", package.StoreId);
+        Assert.Equal("org.git.Git", package.FlatpakId);
         Assert.Equal("winget", package.Source);
+    }
+
+    [Fact]
+    public void Every_flatpak_id_is_a_reversed_domain()
+    {
+        // org.kde.krita, not a name, a URL or a winget id: Flathub is asked
+        // by this string verbatim, and a malformed one is a silent miss.
+        var ids = CatalogService.AllById().Values
+            .Select(entry => entry.Flatpak)
+            .Where(id => id is not null)
+            .ToList();
+
+        Assert.NotEmpty(ids);
+        Assert.All(ids, id =>
+        {
+            var parts = id!.Split('.');
+            Assert.True(parts.Length >= 3, id);
+            Assert.All(parts, part => Assert.Matches("^[A-Za-z0-9_-]+$", part));
+        });
+    }
+
+    [Fact]
+    public void An_app_in_several_sections_names_the_same_listings_on_each()
+    {
+        // The listing ids are per-section, so an app on three pages carries
+        // them three times - and they had better be the same three times,
+        // or which screenshots it gets depends on which page it was opened from.
+        var catalog = CatalogService.Load();
+        var sections = new[]
+        {
+            catalog.Explore, catalog.Featured, catalog.Productivity,
+            catalog.Development, catalog.Games, catalog.Carousel,
+        };
+
+        var byId = sections.SelectMany(section => section)
+            .GroupBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entries in byId)
+        {
+            Assert.True(entries.Select(entry => entry.Msstore).Distinct().Count() == 1, $"{entries.Key}: msstore differs between sections");
+            Assert.True(entries.Select(entry => entry.Flatpak).Distinct().Count() == 1, $"{entries.Key}: flatpak differs between sections");
+        }
     }
 }

@@ -556,36 +556,43 @@ public partial class DetailView : PageView
     private void OnBackClick(object sender, RoutedEventArgs e) => Host.GoBack();
 
     /// <summary>
-    /// Fills the strip: the catalogue's hand-picked screenshots if the entry
-    /// has any, else whatever the Store lists for this package. The three are
-    /// fetched together and shown together, in order, so the strip never
-    /// appears with a gap that fills in later.
+    /// One screenshot the strip could show, before it is fetched: where it
+    /// is, what to cache it as, and what the project said about it.
+    /// </summary>
+    private sealed record Shot(string Url, string CacheKey, string? Caption = null);
+
+    /// <summary>
+    /// Fills the strip from the first place that has anything: the
+    /// catalogue's hand-picked screenshots, else the app's Microsoft Store
+    /// listing, else its Flathub listing. The Store ahead of Flathub because
+    /// its pictures were taken on Windows; Flathub's show the same app under
+    /// GNOME or KDE, which for most of the catalogue is the same window with
+    /// a different title bar. The three are fetched together and shown
+    /// together, in order, so the strip never appears with a gap that fills
+    /// in later.
     /// </summary>
     private async Task LoadScreenshotsAsync()
     {
         try
         {
-            var urls = _package.Screenshots?.Where(url => !string.IsNullOrWhiteSpace(url)).Take(3).ToList();
-
-            if (urls is null || urls.Count == 0)
-            {
-                var listing = await StoreListings.ForPackageAsync(_package, _cts.Token);
-                urls = listing?.Screenshots.Take(3).ToList();
-            }
-
-            if (urls is null || urls.Count == 0)
+            var shots = await FindScreenshotsAsync();
+            if (shots.Count == 0)
                 return;
 
-            var key = _package.Id.Length > 0 ? _package.Id : _package.Name;
-            var keys = urls.Select((_, i) => $"{key}.shot{i}").ToList();
-            var loads = urls.Select((url, i) => Host.Icons.GetScreenshotAsync(url, keys[i], _cts.Token));
+            var loads = shots.Select(shot => Host.Icons.GetScreenshotAsync(shot.Url, shot.CacheKey, _cts.Token));
             var images = await Task.WhenAll(loads);
 
             var items = new List<Screenshot>();
-            for (var i = 0; i < urls.Count; i++)
+            for (var i = 0; i < shots.Count; i++)
             {
-                if (images[i] is not null)
-                    items.Add(new Screenshot(images[i]!, urls[i], keys[i], $"Screenshot {items.Count + 1} of {_package.Name}"));
+                if (images[i] is null)
+                    continue;
+
+                var label = $"Screenshot {items.Count + 1} of {_package.Name}";
+                if (shots[i].Caption is { } caption)
+                    label += ": " + caption;
+
+                items.Add(new Screenshot(images[i]!, shots[i].Url, shots[i].CacheKey, label));
             }
 
             if (items.Count == 0 || _cts.IsCancellationRequested)
@@ -606,6 +613,46 @@ public partial class DetailView : PageView
     }
 
     /// <summary>The picture large, over the whole window, with its neighbours a key away.</summary>
+    /// <summary>
+    /// Up to three screenshots from the first source that has any. Flathub's
+    /// are cached under keys that name the source, so that a Store id added
+    /// to the catalogue later is not hidden behind Flathub's pictures already
+    /// on disk under the plain keys.
+    /// </summary>
+    private async Task<IReadOnlyList<Shot>> FindScreenshotsAsync()
+    {
+        const int limit = 3;
+        var key = _package.Id.Length > 0 ? _package.Id : _package.Name;
+
+        var picked = (_package.Screenshots ?? [])
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Take(limit)
+            .Select((url, i) => new Shot(url, $"{key}.shot{i}"))
+            .ToList();
+        if (picked.Count > 0)
+            return picked;
+
+        var store = await StoreListings.ForPackageAsync(_package, _cts.Token);
+        if (store is { Screenshots.Count: > 0 })
+        {
+            return store.Screenshots
+                .Take(limit)
+                .Select((url, i) => new Shot(url, $"{key}.shot{i}"))
+                .ToList();
+        }
+
+        var flathub = await FlathubListings.ForPackageAsync(_package, _cts.Token);
+        if (flathub is { Screenshots.Count: > 0 })
+        {
+            return flathub.Screenshots
+                .Take(limit)
+                .Select((shot, i) => new Shot(shot.Url, $"{key}.flathub.shot{i}", shot.Caption))
+                .ToList();
+        }
+
+        return [];
+    }
+
     private void OnScreenshotClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: Screenshot screenshot })

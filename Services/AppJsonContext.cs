@@ -9,7 +9,8 @@ namespace AppCenter.Services;
 /// slice of a launch, since the settings are read before the first pixel
 /// and the catalogue right after.
 ///
-/// One set of options serves both files: the catalogue is hand-written, so
+/// One set of options serves both files, and the two documents fetched from
+/// Flathub and the Store's web catalogue: the catalogue is hand-written, so
 /// comments and trailing commas are tolerated; the settings are written by
 /// the app, indented so they can be read.
 /// </summary>
@@ -21,4 +22,6 @@ namespace AppCenter.Services;
     WriteIndented = true)]
 [JsonSerializable(typeof(CatalogRoot))]
 [JsonSerializable(typeof(Settings))]
+[JsonSerializable(typeof(FlathubAppstream))]
+[JsonSerializable(typeof(StoreEdgeDocument))]
 internal partial class AppJsonContext : JsonSerializerContext;
