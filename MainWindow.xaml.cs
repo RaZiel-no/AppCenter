@@ -71,6 +71,13 @@ public partial class MainWindow : Window, IShellHost
         MachineState.Changed += (_, _) => ShowBadge();
         AppUpdateService.Changed += (_, _) => ShowBadge();
 
+        // winget commands this window did not start - left running by one
+        // since closed, or typed into a terminal - are looked for whenever
+        // the window comes back to the front and whenever the machine has
+        // been read, which is also the first moment the names are known.
+        Activated += (_, _) => OutsideOperations.Scan();
+        MachineState.Changed += (_, _) => OutsideOperations.Scan();
+
         StateChanged += OnWindowStateChanged;
         Loaded += OnLoaded;
         ContentRendered += OnFirstFrame;

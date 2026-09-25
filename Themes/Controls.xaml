@@ -462,16 +462,38 @@
                                     Padding="6,0"
                                     VerticalAlignment="Center"
                                     Visibility="{Binding Path=(ctrl:Nav.BadgeText), RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource EmptyToCollapsed}}">
-                                <TextBlock Foreground="White"
+                                <!--  Centred on the ink rather than the line. Digits
+                                      stand on the baseline with the descender's
+                                      room under them, so a line centred in the
+                                      pill puts them a pixel low. Moved by a
+                                      transform rather than a margin: a margin is
+                                      halved by the centring and then rounded,
+                                      and lands on 0 or 2.  -->
+                                <TextBlock x:Name="BadgeCount"
+                                           Foreground="White"
                                            FontSize="11"
                                            FontWeight="SemiBold"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
-                                           Text="{Binding Path=(ctrl:Nav.BadgeText), RelativeSource={RelativeSource TemplatedParent}}" />
+                                           Text="{Binding Path=(ctrl:Nav.BadgeText), RelativeSource={RelativeSource TemplatedParent}}">
+                                    <TextBlock.RenderTransform>
+                                        <TranslateTransform Y="-1" />
+                                    </TextBlock.RenderTransform>
+                                </TextBlock>
                             </Border>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!--  Digits are all one width, and a "1" stands to the
+                              right of its slot: its flag is the only part on the
+                              left. Alone in the pill that reads as off-centre.  -->
+                        <Trigger Property="ctrl:Nav.BadgeText" Value="1">
+                            <Setter TargetName="BadgeCount" Property="RenderTransform">
+                                <Setter.Value>
+                                    <TranslateTransform X="-1" Y="-1" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
                         </Trigger>

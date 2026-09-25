@@ -55,6 +55,12 @@ public sealed class Operation
     /// </summary>
     public bool AsAdmin { get; init; }
 
+    /// <summary>
+    /// Not App Center's command: a winget it found running, left behind by a
+    /// window since closed or started from a terminal. See OutsideOperations.
+    /// </summary>
+    public bool StartedElsewhere { get; init; }
+
     /// <summary>The latest line winget printed, trimmed to fit.</summary>
     public string Detail { get; private set; } = string.Empty;
 
@@ -211,7 +217,15 @@ public sealed class Operation
             _ => "Updating…",
         };
 
-    public string Status => Detail.Length == 0 ? Heading : $"{Heading}  {Detail}";
+    /// <summary>
+    /// The heading and winget's latest line. One started elsewhere has no line
+    /// to give - its output went to whoever started it - so it says that
+    /// instead, which is also why its bar only pulses.
+    /// </summary>
+    public string Status =>
+        Detail.Length > 0 ? $"{Heading}  {Detail}"
+        : StartedElsewhere ? $"{Heading}  Started outside App Center."
+        : Heading;
 
     /// <summary>
     /// Where to draw the bar for the package this is working on, 0 to 1. The
@@ -567,7 +581,8 @@ public static class OperationService
         string packageName,
         OperationKind kind,
         Func<Action<string>, CancellationToken, Task<WingetResult>> command,
-        bool asAdmin = false)
+        bool asAdmin = false,
+        bool startedElsewhere = false)
     {
         if (!CanStart(key))
             return null;
@@ -578,6 +593,7 @@ public static class OperationService
             PackageName = packageName,
             Kind = kind,
             AsAdmin = asAdmin,
+            StartedElsewhere = startedElsewhere,
         };
 
         InFlight.Add(operation);
