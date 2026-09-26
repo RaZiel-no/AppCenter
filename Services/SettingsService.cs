@@ -18,6 +18,12 @@ public sealed class Settings
     /// been closed once.
     /// </summary>
     public WindowPlacement? Window { get; set; }
+
+    /// <summary>
+    /// What App Center installed over the packages whose version winget cannot
+    /// read, by lower-cased package id. See <see cref="UpdateMemory"/>.
+    /// </summary>
+    public Dictionary<string, AppCenter.Models.RecordedInstall> UnknownVersionInstalls { get; set; } = new();
 }
 
 /// <summary>

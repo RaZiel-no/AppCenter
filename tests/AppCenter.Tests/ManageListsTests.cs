@@ -394,4 +394,215 @@ public class ManageListsTests
             lists.RowsFor("git.git").Select(r => r.Shows));
         Assert.Equal(3, lists.Rows().Count());
     }
+
+    // -----------------------------------------------------------------
+    // Three kinds of update, three lists
+    // -----------------------------------------------------------------
+
+    private static AppPackage Unknown(string id, string name, string to = "2.0") => Update(id, name, from: "Unknown", to: to);
+
+    private static AppPackage Pinned(string id, string name)
+    {
+        var package = Update(id, name);
+        package.IsPinned = true;
+        package.PinKind = "Pinning";
+        return package;
+    }
+
+    [Fact]
+    public void Sorts_each_update_into_the_list_its_kind_belongs_in()
+    {
+        var lists = Loaded(
+            [Update("Git.Git", "Git"), Unknown("Vendor.Tool", "Tool"), Pinned("Microsoft.PowerToys", "PowerToys")],
+            []);
+
+        Assert.Equal(["Git.Git"], lists.Updates.Select(p => p.Id));
+        Assert.Equal(["Vendor.Tool"], lists.UnknownUpdates.Select(p => p.Id));
+        Assert.Equal(["Microsoft.PowerToys"], lists.SkippedUpdates.Select(p => p.Id));
+    }
+
+    [Fact]
+    public void Counts_only_the_updates_winget_is_sure_of_in_the_heading_and_the_button()
+    {
+        var lists = Loaded(
+            [Update("Git.Git", "Git"), Unknown("Vendor.Tool", "Tool"), Pinned("Microsoft.PowerToys", "PowerToys")],
+            []);
+
+        // A package that may be up to date already, and one being left alone
+        // on purpose, are not numbers to put on a button that says "all".
+        Assert.Equal("Updates available (1)", lists.UpdatesHeading);
+        Assert.Equal("Update all (1)", lists.UpdateAllLabel);
+        Assert.Equal("Version unknown (1)", lists.UnknownHeading);
+        Assert.Equal("Skipped updates (1)", lists.SkippedHeading);
+        Assert.Equal(["Git.Git"], lists.UpdateAllBatch().Select(b => b.Id));
+    }
+
+    [Fact]
+    public void Gives_the_unknown_list_a_batch_of_its_own_that_leaves_out_what_is_already_installed()
+    {
+        var done = Unknown("Vendor.Done", "Done");
+        done.RecordedInstall = new RecordedInstall("2.0", DateTime.Now);
+
+        var lists = Loaded([Unknown("Vendor.Tool", "Tool"), done, Update("Git.Git", "Git")], []);
+
+        Assert.Equal(["Vendor.Tool"], lists.UnknownBatch().Select(b => b.Id));
+        Assert.Equal("Update all of these (1)", lists.UpdateUnknownLabel);
+
+        var question = lists.UpdateUnknownQuestion();
+        Assert.Equal("Install the newest version of 1 package?", question.Title);
+        Assert.Contains("cannot read what version is installed of: Tool.", question.Message);
+        Assert.Equal("Install newest", question.Confirm);
+    }
+
+    [Fact]
+    public void Finds_a_package_in_whichever_list_it_is_in()
+    {
+        var lists = Loaded(
+            [Update("Git.Git", "Git"), Unknown("Vendor.Tool", "Tool"), Pinned("Microsoft.PowerToys", "PowerToys")],
+            [],
+            needle: "power");
+
+        Assert.Empty(lists.Updates);
+        Assert.Empty(lists.UnknownUpdates);
+        Assert.Equal(["Microsoft.PowerToys"], lists.SkippedUpdates.Select(p => p.Id));
+    }
+
+    [Fact]
+    public void Says_that_the_other_lists_have_the_rest_rather_than_that_all_is_up_to_date()
+    {
+        Assert.Equal("Everything is up to date.", Loaded([], []).UpdatesEmptyText(wingetAvailable: true));
+
+        var others = Loaded([Unknown("Vendor.Tool", "Tool")], []);
+        Assert.Equal("Nothing winget is sure needs updating. The lists below have the rest.", others.UpdatesEmptyText(wingetAvailable: true));
+    }
+
+    [Fact]
+    public void Asks_a_different_question_of_a_package_whose_version_winget_cannot_read()
+    {
+        var question = ManageLists.UpdateQuestion(Unknown("Vendor.Tool", "Tool"));
+
+        Assert.Equal("Update Tool?", question.Title);
+        Assert.Contains("cannot read which version of Tool is installed", question.Message);
+        Assert.Contains("It will install 2.0 over what is there.", question.Message);
+
+        var done = Unknown("Vendor.Tool", "Tool");
+        done.RecordedInstall = new RecordedInstall("2.0", new DateTime(2026, 9, 26));
+
+        var again = ManageLists.UpdateQuestion(done);
+        Assert.Equal("Reinstall Tool?", again.Title);
+        Assert.Contains("App Center installed 2.0 here on 26 September already.", again.Message);
+        Assert.Equal("Reinstall", again.Confirm);
+    }
+
+    [Fact]
+    public void Asks_before_a_reinstall_and_says_what_it_costs()
+    {
+        var question = ManageLists.ReinstallQuestion(Update("Git.Git", "Git", from: "2.47", to: "2.55"));
+
+        Assert.Equal("Reinstall Git to update it?", question.Title);
+        Assert.Contains("uninstall the installed 2.47, then install 2.55 afresh", question.Message);
+        Assert.Contains("anything the uninstaller removes does not", question.Message);
+        Assert.Equal("Reinstall", question.Confirm);
+    }
+
+    [Fact]
+    public void Writes_down_what_went_in_over_a_version_winget_cannot_read()
+    {
+        UpdateMemory.UseScratch();
+        UpdateMemory.Now = () => new DateTime(2026, 9, 26);
+
+        var tool = Unknown("Vendor.Tool", "Tool");
+        var git = Update("Git.Git", "Git");
+        var lists = Loaded([tool, git], []);
+
+        var operation = Single("Vendor.Tool");
+        operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
+        lists.RememberInstalls(operation);
+
+        // The row says so at once, and the next read of the machine says it again.
+        Assert.True(tool.IsRecordedAsCurrent);
+        Assert.Equal("Reinstall", tool.ActionLabel);
+        Assert.Equal(new RecordedInstall("2.0", new DateTime(2026, 9, 26)), UpdateMemory.Recorded("vendor.tool"));
+
+        // A package winget can read the version of needs no memory.
+        Assert.Null(UpdateMemory.Recorded("Git.Git"));
+    }
+
+    [Fact]
+    public void Remembers_what_a_batch_got_through_as_well()
+    {
+        UpdateMemory.UseScratch();
+
+        var tool = Unknown("Vendor.Tool", "Tool");
+        var lists = Loaded([tool], []);
+
+        var batch = Batch();
+        batch.BeginItem("Vendor.Tool", "Tool");
+        batch.EndItem("Vendor.Tool", string.Empty);
+        lists.RememberInstalls(batch);
+
+        Assert.NotNull(UpdateMemory.Recorded("Vendor.Tool"));
+    }
+
+    [Fact]
+    public void Remembers_nothing_of_an_update_that_failed()
+    {
+        UpdateMemory.UseScratch();
+
+        var tool = Unknown("Vendor.Tool", "Tool");
+        var lists = Loaded([tool], []);
+
+        var operation = Single("Vendor.Tool");
+        operation.Complete(new WingetResult(1603, string.Empty, string.Empty), null);
+        lists.RememberInstalls(operation);
+
+        Assert.Null(UpdateMemory.Recorded("Vendor.Tool"));
+        Assert.Null(tool.RecordedInstall);
+    }
+
+    [Fact]
+    public void Paints_the_memory_back_onto_a_fresh_read()
+    {
+        UpdateMemory.UseScratch();
+        UpdateMemory.Record("Vendor.Tool", "2.0");
+
+        var tool = Unknown("Vendor.Tool", "Tool");
+        var newer = Unknown("Vendor.Newer", "Newer", to: "3.0");
+        var git = Update("Git.Git", "Git");
+
+        UpdateMemory.Apply([tool, newer, git]);
+
+        Assert.True(tool.IsRecordedAsCurrent);
+        Assert.Null(newer.RecordedInstall);
+        Assert.Null(git.RecordedInstall);
+    }
+
+    [Fact]
+    public void Says_nothing_of_a_restart_for_a_package_winget_cannot_read_the_version_of()
+    {
+        var tool = Unknown("Vendor.Tool", "Tool");
+        var lists = Loaded([tool], []);
+
+        var operation = Single("Vendor.Tool");
+        operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
+        lists.NoteUnfinishedUpdate(operation);
+
+        // It is back in the list whatever happened; "restart the app to finish"
+        // would be a guess dressed as an instruction.
+        Assert.Equal(string.Empty, tool.Status);
+    }
+
+    [Fact]
+    public void Update_all_takes_a_finished_row_off_whichever_list_it_was_in()
+    {
+        var lists = Loaded([Update("Git.Git", "Git"), Unknown("Vendor.Tool", "Tool")], []);
+        var batch = Batch();
+
+        batch.BeginItem("Vendor.Tool", "Tool");
+        batch.EndItem("Vendor.Tool", string.Empty);
+
+        Assert.True(lists.DropUpdated(batch));
+        Assert.Empty(lists.UnknownUpdates);
+        Assert.Single(lists.Updates);
+    }
 }

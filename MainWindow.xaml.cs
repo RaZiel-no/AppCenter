@@ -425,7 +425,10 @@ public partial class MainWindow : Window, IShellHost
     /// </summary>
     private void ShowBadge()
     {
-        var count = MachineState.Upgrades.Count;
+        // The updates winget is sure of. A package whose version it cannot
+        // read may be up to date already, and a pinned one is being left
+        // alone; a number on the sidebar has to be one the user can clear.
+        var count = MachineState.PendingUpdates.Count;
 
         var wingetOffers = MachineState.Upgrades
             .FirstOrDefault(p => string.Equals(p.Id, AppInfo.PackageId, StringComparison.OrdinalIgnoreCase))
@@ -495,6 +498,12 @@ public partial class MainWindow : Window, IShellHost
             (OperationKind.Uninstall, true) => "could not be removed",
             (OperationKind.UpdateAll, false) => "finished",
             (OperationKind.UpdateAll, true) => "finished with failures",
+            (OperationKind.Reinstall, false) => "reinstalled",
+            (OperationKind.Reinstall, true) => "could not be reinstalled",
+            (OperationKind.Skip, false) => "will be skipped",
+            (OperationKind.Skip, true) => "could not be skipped",
+            (OperationKind.Resume, false) => "updates resumed",
+            (OperationKind.Resume, true) => "updates could not be resumed",
             (_, false) => "updated",
             (_, true) => "could not be updated",
         };

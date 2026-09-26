@@ -296,6 +296,66 @@ public class OperationServiceTests : IDisposable
     }
 
     [Fact]
+    public void Offers_a_reinstall_under_a_batch_failure_for_the_kind_of_installer()
+    {
+        var git = new AppPackage { Id = "Git.Git", Name = "Git" };
+        var sevenZip = new AppPackage { Id = "7zip.7zip", Name = "7-Zip" };
+
+        Start(Operation.UpdateAllKey, OperationKind.UpdateAll, "all packages");
+        OperationService.NoteBatchDone("Git.Git", "A different kind of installer. (0x8A15008E)", RestartNeed.None, FailureKind.NeedsReinstall);
+        OperationService.NoteBatchDone("7zip.7zip", "Installer failed. (1603)", RestartNeed.None, FailureKind.Other);
+
+        OperationService.Paint(git, OperationKind.Update);
+        OperationService.Paint(sevenZip, OperationKind.Update);
+
+        Assert.True(git.CanReinstall);
+        Assert.False(sevenZip.CanReinstall);
+    }
+
+    [Fact]
+    public void Offers_a_reinstall_after_a_single_update_is_refused_for_the_kind_of_installer()
+    {
+        var package = new AppPackage { Id = "Git.Git", Name = "Git" };
+
+        var (_, finish) = Start("Git.Git");
+        Finish(finish, "Git.Git", new WingetResult(unchecked((int)0x8A15008E), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        Assert.True(package.CanReinstall);
+        Assert.True(package.OffersReinstall);
+    }
+
+    [Fact]
+    public void Offers_no_reinstall_on_a_row_that_offers_an_uninstall()
+    {
+        var package = new AppPackage { Id = "Git.Git", Name = "Git" };
+
+        var (_, finish) = Start("Git.Git");
+        Finish(finish, "Git.Git", new WingetResult(unchecked((int)0x8A15008E), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Uninstall);
+
+        Assert.False(package.CanReinstall);
+    }
+
+    [Fact]
+    public void Puts_a_failed_reinstall_on_the_update_row_it_was_pressed_on()
+    {
+        var package = new AppPackage { Id = "Git.Git", Name = "Git" };
+        var finish = new TaskCompletionSource<WingetResult>();
+
+        OperationService.Start("Git.Git", "Git", OperationKind.Reinstall, (_, _) => finish.Task);
+        Finish(finish, "Git.Git", new WingetResult(1603, string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        // The reinstall stood in for the update; its reason belongs under the
+        // same button.
+        Assert.NotEqual(string.Empty, package.Error);
+    }
+
+    [Fact]
     public void Keeps_an_update_failure_off_a_row_that_offers_an_uninstall()
     {
         var package = new AppPackage { Id = "Git.Git", Name = "Git" };

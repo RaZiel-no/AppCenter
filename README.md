@@ -97,8 +97,8 @@ Every one of them goes through a confirmation dialog first, and Windows itself
 raises the UAC prompt when an installer needs elevation. Nothing is executed
 without an explicit click.
 
-`winget upgrade` and `winget list` are read once, shared, and re-read after
-every operation (`Services/MachineState.cs`). That one read drives the update
+`winget pin list`, `winget upgrade` and `winget list` are read once, shared, and
+re-read after every operation (`Services/MachineState.cs`). That one read drives the update
 count on the sidebar, the Manage page, and the *Installed* / *Update* chip on
 every card, so browsing shows what is already on the machine. An app's own page
 asks `winget list --id` itself, and offers Install, Update or Uninstall from
@@ -118,9 +118,45 @@ from the name. The family's name is the words its members share
 name adds ("2013 (x64)"). There is no list of known families anywhere — see
 `Services/PackageFamilies.cs`.
 
-The filter box reaches both lists; the system-package switch only the installed
+The filter box reaches every list; the system-package switch only the installed
 one. "Update all" always means every update, whatever the filter is showing, and
 the confirmation names them.
+
+#### Three kinds of update
+
+winget's list of updates compares version numbers and nothing else, so what it
+lists and what it will actually install differ in three ways. Manage shows
+each kind apart, because each means something different to press:
+
+- **Updates available** — the ones winget is sure of. These are what the
+  sidebar counts and what "Update all" takes. A package whose publisher asks
+  winget to update it only when named ("requires explicit targeting", which
+  winget prints in a table of its own) is here too, with a note: App Center
+  names every package it updates, so it is as updatable as any other.
+- **Version unknown** — packages whose installed version winget cannot read.
+  winget sorts "unknown" below every real version, so it offers these as
+  updates on every visit, and goes on offering them after the update goes in.
+  They stay out of the badge and out of "Update all"; Update installs the
+  version on offer over whatever is there, the list has an "Update all of
+  these" of its own, and once App Center has installed the version on offer the
+  row says so and when, with a Reinstall instead of an Update.
+- **Skipped updates** — packages held by a winget pin. Every row's **Skip** adds
+  the plain kind of pin (`winget pin add`), which winget's own `upgrade --all`
+  respects as well; **Resume updates** removes it. Pins made in a terminal show
+  up here the same way.
+
+Some updates winget lists it then refuses, because the new version is a
+different kind of installer from the one on the machine (an MSI over an EXE, or
+the other way round) and winget will not update in place. When that happens
+the row says so in winget's words and offers **Reinstall to update**:
+uninstall, then install the new version, which is what winget itself asks for.
+On winget 1.28.190 and newer, App Center also looks ahead after the list has
+landed — `winget list --details` says what kind of installer a package came
+from, `winget show` what kind the new version comes as — and marks such rows
+before anything is pressed. That is advice, not a verdict (a listing can carry
+more than one installer), so Update stays on the row beside the reinstall. The
+closing line of "Update all" groups what it could not do by the same reasons:
+what needs a reinstall, what needs administrator rights, what a pin held back.
 
 ### Keyboard
 
@@ -157,6 +193,8 @@ Models/ManageLists.cs     what Manage holds and says, apart from the page
 Services/
   WingetService.cs        async wrapper + fixed-width table parser
   MachineState.cs         the one shared read of what winget lists as installed
+  UpdateProbe.cs          the look-ahead for updates winget will refuse in place
+  UpdateMemory.cs         what went in over the versions winget cannot read
   AppInfo.cs              this build's version, repository and package id
   AppUpdateService.cs     App Center's own releases from GitHub, ahead of winget
   PackageFamilies.cs      folds the installed list into families

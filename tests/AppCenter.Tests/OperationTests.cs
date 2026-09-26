@@ -214,8 +214,144 @@ public class OperationTests
 
         Assert.True(operation.Failed);
         Assert.StartsWith("The new version comes as a different kind of installer", operation.Summary);
-        Assert.Contains("Uninstall it, then install the new version.", operation.Summary);
+        Assert.Contains("Reinstall to update", operation.Summary);
         Assert.EndsWith("(0x8A15008E)", operation.Summary);
+    }
+
+    // -----------------------------------------------------------------
+    // A reinstall: two runs end to end
+    // -----------------------------------------------------------------
+
+    private static Operation Reinstall() => new()
+    {
+        Key = "Git.Git",
+        PackageName = "Git",
+        Kind = OperationKind.Reinstall,
+    };
+
+    [Fact]
+    public void A_reinstall_starts_the_bar_again_for_its_second_half()
+    {
+        var operation = Reinstall();
+
+        operation.Report("Found Git [Git.Git]");
+        operation.Report("Starting package uninstall...");
+        operation.Report("Successfully uninstalled");
+        var afterUninstall = operation.Percent;
+
+        // The seam: the phase goes back to the start for the install, and the
+        // bar carries on from where the uninstall left it rather than emptying.
+        operation.Report(Operation.ReinstallMarker);
+
+        Assert.Equal(OperationPhase.Starting, operation.Phase);
+        Assert.True(operation.Percent >= afterUninstall);
+        Assert.True(operation.IsPulsing);
+        Assert.Equal("Reinstalling Git: installing the new version…", operation.Heading);
+        Assert.Equal("Installing…", operation.RowLabel);
+    }
+
+    [Fact]
+    public void A_reinstall_fills_the_bar_across_both_halves_without_going_back_within_one()
+    {
+        var operation = Reinstall();
+        var seen = new List<double> { operation.Percent };
+
+        foreach (var line in new[]
+                 {
+                     "Found Git [Git.Git]",
+                     "Starting package uninstall...",
+                     "Successfully uninstalled",
+                 })
+        {
+            operation.Report(line);
+            seen.Add(operation.Percent);
+        }
+
+        // The uninstall has no download and fills the first third.
+        Assert.Equal(seen.OrderBy(p => p), seen);
+        Assert.True(seen[^1] < 0.5);
+
+        operation.Report(Operation.ReinstallMarker);
+        seen = [operation.Percent];
+
+        foreach (var line in new[]
+                 {
+                     "Found Git [Git.Git]",
+                     "Downloading https://example.invalid/git.exe",
+                     "Successfully verified installer hash",
+                     "Starting package install...",
+                     "Successfully installed",
+                 })
+        {
+            operation.Report(line);
+            seen.Add(operation.Percent);
+        }
+
+        Assert.Equal(seen.OrderBy(p => p), seen);
+        Assert.Equal(1.0, seen[^1]);
+    }
+
+    [Fact]
+    public void A_reinstall_says_uninstalling_through_its_first_half()
+    {
+        var operation = Reinstall();
+
+        Assert.Equal("Reinstalling Git: uninstalling the old version…", operation.Heading);
+        Assert.Equal("Uninstalling…", operation.RowLabel);
+    }
+
+    [Fact]
+    public void A_reinstall_that_fails_after_the_old_copy_came_off_says_so()
+    {
+        var operation = Reinstall();
+
+        operation.Report("Successfully uninstalled");
+        operation.Report(Operation.ReinstallMarker);
+        operation.Report("Installer failed with exit code: 1603");
+        operation.Complete(new WingetResult(unchecked((int)0x8A150006), string.Empty, string.Empty), null);
+
+        // The one fact the closing words cannot leave out: the package is gone.
+        Assert.True(operation.Failed);
+        Assert.StartsWith("The old version was removed, but the new one did not install.", operation.Summary);
+        Assert.Contains("(installer returned 1603)", operation.Summary);
+        Assert.EndsWith("Install it again from its page.", operation.Summary);
+    }
+
+    [Fact]
+    public void A_reinstall_that_fails_to_uninstall_is_read_as_an_uninstall()
+    {
+        var operation = Reinstall();
+
+        operation.Report("0x800401f5 : Application not found");
+        operation.Complete(new WingetResult(unchecked((int)0x800401F5), string.Empty, string.Empty), null);
+
+        // Nothing has come off and nothing was tried after it.
+        Assert.StartsWith("Windows could not find the uninstaller", operation.Summary);
+        Assert.DoesNotContain("The old version was removed", operation.Summary);
+    }
+
+    [Fact]
+    public void An_update_refused_for_its_installer_kind_remembers_that_a_reinstall_would_do()
+    {
+        var operation = Update();
+
+        operation.Complete(new WingetResult(unchecked((int)0x8A15008E), string.Empty, string.Empty), null);
+
+        Assert.True(operation.NeedsReinstall("Git.Git"));
+    }
+
+    [Fact]
+    public void A_batch_remembers_which_packages_want_a_reinstall()
+    {
+        var batch = Batch();
+
+        batch.BeginItem("Git.Git", "Git");
+        batch.EndItem("Git.Git", "The new version comes as a different kind of installer. (0x8A15008E)", needsReinstall: true);
+        batch.BeginItem("7zip.7zip", "7-Zip");
+        batch.EndItem("7zip.7zip", "Installer failed. (1603)");
+
+        Assert.True(batch.NeedsReinstall("Git.Git"));
+        Assert.False(batch.NeedsReinstall("7zip.7zip"));
     }
 
     [Fact]

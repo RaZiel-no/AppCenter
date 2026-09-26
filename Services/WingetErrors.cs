@@ -27,9 +27,72 @@ namespace AppCenter.Services;
 /// an unsigned decimal. That number is the one worth explaining, so it is
 /// dug out of the line and read in place of winget's.
 /// </summary>
+/// <summary>
+/// What kind of thing went wrong, as far as the next step is concerned. A
+/// batch groups its closing tally by this, and a row offers the remedy that
+/// fits: a retry with administrator rights, or a reinstall.
+/// </summary>
+public enum FailureKind
+{
+    /// <summary>Something else; the reason on the row says what.</summary>
+    Other,
+
+    /// <summary>
+    /// The new version comes as a different kind of installer, so winget will
+    /// not update in place. Uninstalling and installing again is the way through.
+    /// </summary>
+    NeedsReinstall,
+
+    /// <summary>Administrator rights would put it right.</summary>
+    WantsAdmin,
+
+    /// <summary>A winget pin is holding it where it is.</summary>
+    Pinned,
+
+    /// <summary>
+    /// winget listed an update and then found no installer it could apply -
+    /// wrong scope, architecture or Windows version for this machine.
+    /// </summary>
+    NotApplicable,
+}
+
 public static partial class WingetErrors
 {
     private const uint ShellExecInstallFailed = 0x8A150006;
+
+    /// <summary>
+    /// Sorts a failure by what to do about it. Read the same way as
+    /// <see cref="WantsAdmin"/>: the installer's own code stands in for
+    /// winget's when winget only says that the installer failed.
+    /// </summary>
+    public static FailureKind Classify(int code, string said, string? output = null)
+    {
+        if (unchecked((uint)code) == ShellExecInstallFailed
+            && (InstallerCode(said) ?? (output is null ? null : InstallerCode(output))) is { } inner)
+            code = inner;
+
+        if (NeedsReinstall(code))
+            return FailureKind.NeedsReinstall;
+
+        if (WantsAdmin(code, string.Empty))
+            return FailureKind.WantsAdmin;
+
+        return unchecked((uint)code) switch
+        {
+            0x8A150068 => FailureKind.Pinned,
+            0x8A15002B or 0x8A150010 or 0x8A15004F or 0x8A150050 => FailureKind.NotApplicable,
+            _ => FailureKind.Other,
+        };
+    }
+
+    /// <summary>
+    /// Whether winget refused to update in place because the newer version is
+    /// a different kind of installer - or the installer itself will not run
+    /// over the copy that is there. Both end the same way: uninstall, then
+    /// install the new version, which is what a row's Reinstall button does.
+    /// </summary>
+    public static bool NeedsReinstall(int code) =>
+        unchecked((uint)code) is 0x8A15008E or 0x8A150114;
 
     [GeneratedRegex(@"exit code:?\s*(?:0x(?<hex>[0-9a-f]{1,8})\b|(?<dec>-?\d+))", RegexOptions.IgnoreCase)]
     private static partial Regex InstallerExitCode();
@@ -163,7 +226,7 @@ public static partial class WingetErrors
         0x8A150019 => "This needs administrator rights. Run App Center as administrator and try again.",
         0x8A15001B or 0x8A15001C => "A policy on this machine blocks the Microsoft Store, so Store packages cannot be installed from here.",
         0x8A15001E => "The Microsoft Store could not install this package. Try installing it from the Store app itself.",
-        0x8A15002B => "winget has no update it can apply to the installed copy. Either it could not tell which version is installed, or the installed one is already the newest its source has.",
+        0x8A15002B => "winget listed a newer version but has no installer for it that fits this copy - usually the new one installs for one user where this one is for the whole machine, or the other way round, or it needs a newer Windows. Reinstalling gets round it: App Center uninstalls this copy, then installs the new version.",
         0x8A15002D => "The installer failed a security check, which normally means SmartScreen or an antivirus flagged it.",
         0x8A15002E or 0x8A150086 => "The download was cut short and the file is not what the listing says it should be. Check the connection and try again.",
         0x8A15002F => "Windows has no record of how to uninstall this package, so winget cannot do it. Try Windows Settings › Apps › Installed apps.",
@@ -182,14 +245,17 @@ public static partial class WingetErrors
         0x8A15005F => "This package's installer has to be told which folder to install into, and App Center does not pick one for it. Update it from within the app itself, or run winget in a terminal with --location set to the folder it is installed in.",
         0x8A150060 => "The downloaded archive failed a malware scan and was not installed.",
         0x8A150061 => "A version of this package is already installed.",
-        0x8A150068 => "This package is pinned in winget, which stops it being updated. Remove the pin with `winget pin remove` to update it.",
+        0x8A150062 => "Updates for this package were already being skipped.",
+        0x8A150063 => "Updates for this package were not being skipped.",
+        0x8A150064 => "winget could not open its list of pins. Try again; if it keeps happening, updating App Installer from the Microsoft Store usually clears it.",
+        0x8A150068 => "Updates for this package are skipped by a winget pin. Resume them from the Skipped updates list, or with `winget pin remove`.",
         0x8A150069 => "The installed copy is a Microsoft Store placeholder, not the full app. Install it from the Store first.",
         0x8A15006B or 0x8A150110 => "Something this package depends on could not be installed alongside it.",
         0x8A15006D => "A service winget needs is busy or unavailable. Try again in a minute.",
         0x8A150075 or 0x8A150076 or 0x8A150077 or 0x8A150078 => "The package source needs you to sign in, and that did not succeed.",
         0x8A15007D => "This package was installed for the current user only, and cannot be changed while running as administrator. Run App Center normally and try again.",
         0x8A15007F or 0x8A150080 or 0x8A150081 or 0x8A150082 or 0x8A150083 or 0x8A150084 or 0x8A150085 => "The Microsoft Store could not supply this package. Try installing it from the Store app itself.",
-        0x8A15008E => "The new version comes as a different kind of installer from the one on this machine, so winget cannot update it in place. Uninstall it, then install the new version.",
+        0x8A15008E => "The new version comes as a different kind of installer from the one on this machine, so winget cannot update it in place. Reinstall to update: App Center uninstalls this copy, then installs the new version.",
 
         // winget: what the installer told it.
         0x8A150101 or 0x8A150111 or 0x80073D02 => "The app is running. Close it and try again.",
@@ -206,7 +272,7 @@ public static partial class WingetErrors
         0x8A15010E => "A newer version than this one is already installed.",
         0x8A15010F => "Policies on this machine block this installation.",
         0x8A150113 => "This package does not support this version of Windows or this processor.",
-        0x8A150114 => "The installer cannot update the existing copy in place. Uninstall it, then install the new version.",
+        0x8A150114 => "The installer cannot update the existing copy in place. Reinstall to update: App Center uninstalls this copy, then installs the new version.",
         0x8A150115 => "The installer failed with an error of its own.",
 
         // Windows: COM and Win32, wrapped as HRESULTs.

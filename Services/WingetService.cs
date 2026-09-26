@@ -429,77 +429,86 @@ public static class WingetService
     /// Source. Knowing that is what lets the last two be found on a winget
     /// that names its columns in another language.
     /// </param>
-    internal static List<WingetRow> ParseTable(string stdout, bool installedTable = false)
+    internal static List<WingetRow> ParseTable(string stdout, bool installedTable = false) =>
+        ParseTables(stdout, installedTable).FirstOrDefault() ?? [];
+
+    /// <summary>
+    /// Every table in the output, in the order printed. `upgrade` prints up to
+    /// three: the updates, then - each under a sentence of its own - the
+    /// packages whose publishers ask to be updated one at a time, and the ones
+    /// a pin is holding back. Reading only the first, as this used to, lost
+    /// the other two entirely.
+    /// </summary>
+    internal static List<List<WingetRow>> ParseTables(string stdout, bool installedTable = false)
     {
-        var rows = new List<WingetRow>();
+        var tables = new List<List<WingetRow>>();
         var lines = stdout.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
 
-        var separator = -1;
-        for (var i = 0; i < lines.Length; i++)
+        for (var separator = 1; separator < lines.Length; separator++)
         {
-            var trimmed = lines[i].Trim();
-            if (trimmed.Length >= 10 && trimmed.All(c => c == '-'))
-            {
-                separator = i;
-                break;
-            }
-        }
-
-        if (separator <= 0)
-            return rows;
-
-        var columns = ReadColumns(lines[separator - 1]);
-        if (columns.Count == 0)
-            return rows;
-
-        // Where a column sits, for when its English name finds nothing. Name,
-        // Id and Version lead every table. Available and Source only have a
-        // place of their own in an installed table: Source last, and Available
-        // before it when there are five columns. `search` has no such shape -
-        // its fourth column may be Match, and Source is left out when one
-        // source was asked for - so there they are left empty, not guessed at.
-        var sourceAt = installedTable && columns.Count >= 4 ? columns.Count - 1 : -1;
-        var availableAt = installedTable && columns.Count >= 5 ? 3 : -1;
-
-        // Data rows run contiguously until the first blank line; anything
-        // after that is a summary note, not part of the table.
-        for (var i = separator + 1; i < lines.Length; i++)
-        {
-            var line = lines[i];
-            if (string.IsNullOrWhiteSpace(line))
-                break;
-
-            var cells = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            for (var c = 0; c < columns.Count; c++)
-            {
-                var start = columns[c].Start;
-                var end = c + 1 < columns.Count ? columns[c + 1].Start : line.Length;
-
-                if (start >= line.Length)
-                {
-                    cells[columns[c].Name] = string.Empty;
-                    continue;
-                }
-
-                end = Math.Min(end, line.Length);
-                cells[columns[c].Name] = line[start..end].Trim();
-            }
-
-            var id = Get(cells, "Id", columns, 1);
-            var name = Get(cells, "Name", columns, 0);
-
-            if (string.IsNullOrWhiteSpace(id) && string.IsNullOrWhiteSpace(name))
+            var trimmed = lines[separator].Trim();
+            if (trimmed.Length < 10 || !trimmed.All(c => c == '-'))
                 continue;
 
-            rows.Add(new WingetRow(
-                name,
-                id,
-                Get(cells, "Version", columns, 2),
-                Get(cells, "Available", columns, availableAt),
-                Get(cells, "Source", columns, sourceAt)));
+            var columns = ReadColumns(lines[separator - 1]);
+            if (columns.Count == 0)
+                continue;
+
+            var rows = new List<WingetRow>();
+
+            // Where a column sits, for when its English name finds nothing. Name,
+            // Id and Version lead every table. Available and Source only have a
+            // place of their own in an installed table: Source last, and Available
+            // before it when there are five columns. `search` has no such shape -
+            // its fourth column may be Match, and Source is left out when one
+            // source was asked for - so there they are left empty, not guessed at.
+            var sourceAt = installedTable && columns.Count >= 4 ? columns.Count - 1 : -1;
+            var availableAt = installedTable && columns.Count >= 5 ? 3 : -1;
+
+            // Data rows run contiguously until the first blank line; anything
+            // after that is a summary note, or the sentence above the next table.
+            var i = separator + 1;
+            for (; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (string.IsNullOrWhiteSpace(line))
+                    break;
+
+                var cells = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                for (var c = 0; c < columns.Count; c++)
+                {
+                    var start = columns[c].Start;
+                    var end = c + 1 < columns.Count ? columns[c + 1].Start : line.Length;
+
+                    if (start >= line.Length)
+                    {
+                        cells[columns[c].Name] = string.Empty;
+                        continue;
+                    }
+
+                    end = Math.Min(end, line.Length);
+                    cells[columns[c].Name] = line[start..end].Trim();
+                }
+
+                var id = Get(cells, "Id", columns, 1);
+                var name = Get(cells, "Name", columns, 0);
+
+                if (string.IsNullOrWhiteSpace(id) && string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                rows.Add(new WingetRow(
+                    name,
+                    id,
+                    Get(cells, "Version", columns, 2),
+                    Get(cells, "Available", columns, availableAt),
+                    Get(cells, "Source", columns, sourceAt)));
+            }
+
+            tables.Add(rows);
+            separator = i;
         }
 
-        return rows;
+        return tables;
     }
 
     private readonly record struct Column(string Name, int Start);
@@ -624,25 +633,189 @@ public static class WingetService
         }
     }
 
-    public static async Task<List<AppPackage>> ListUpgradesAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Every update winget has, whatever it thinks of it. Asked with
+    /// --include-unknown and --include-pinned so that nothing is left out of
+    /// the answer: a package whose installed version winget cannot read, and
+    /// one the user has pinned, are both still updates - what differs is what
+    /// the row says and whether "update all" takes them. Which is which is
+    /// decided in <see cref="ReadUpgrades"/>, from the tables and the pins.
+    /// </summary>
+    public static async Task<List<AppPackage>> ListUpgradesAsync(
+        IReadOnlyDictionary<string, string> pins,
+        CancellationToken ct = default)
     {
         var result = await RunAsync(
-            ["upgrade", "--include-unknown", .. CommonArgs],
+            ["upgrade", "--include-unknown", "--include-pinned", .. CommonArgs],
             ct: ct).ConfigureAwait(false);
 
-        return ParseTable(result.StdOut, installedTable: true)
-            .Where(r => !string.IsNullOrWhiteSpace(r.Name) && !string.IsNullOrWhiteSpace(r.Available))
-            .Select(r => new AppPackage
+        return ReadUpgrades(result.StdOut, pins);
+    }
+
+    /// <summary>
+    /// The update rows out of winget's output. The first table is the
+    /// updates. Any table after it is one winget printed apart, under a
+    /// sentence: the packages whose publishers ask to be updated one at a time
+    /// - "require explicit targeting", which a per-package `upgrade --id`
+    /// satisfies - and the ones a blocking or gating pin holds back. The two
+    /// are told apart by the pins rather than by the sentence, which is
+    /// winget's language rather than this app's. A pin of the plain kind puts
+    /// its package in the first table when pins are included, so every row is
+    /// checked against the pins whichever table it came from.
+    /// </summary>
+    internal static List<AppPackage> ReadUpgrades(string stdout, IReadOnlyDictionary<string, string> pins)
+    {
+        var packages = new List<AppPackage>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var tables = ParseTables(stdout, installedTable: true);
+
+        for (var t = 0; t < tables.Count; t++)
+        {
+            foreach (var r in tables[t])
             {
-                Id = string.IsNullOrWhiteSpace(r.Id) ? r.Name : r.Id,
-                Name = r.Name,
-                Version = r.Version,
-                AvailableVersion = r.Available,
-                Source = r.Source,
-                IsInstalled = true,
-                ClosesApp = SelfPackages.Includes(r.Id),
-            })
-            .ToList();
+                if (string.IsNullOrWhiteSpace(r.Name) || string.IsNullOrWhiteSpace(r.Available))
+                    continue;
+
+                var id = string.IsNullOrWhiteSpace(r.Id) ? r.Name : r.Id;
+
+                // winget lists one row per installed version, and only the
+                // newest carries an update; the tables can still repeat an id
+                // between them. One row per package is what the page wants.
+                if (!seen.Add(id))
+                    continue;
+
+                var pinned = pins.TryGetValue(id, out var pinKind);
+
+                packages.Add(new AppPackage
+                {
+                    Id = id,
+                    Name = r.Name,
+                    Version = r.Version,
+                    AvailableVersion = r.Available,
+                    Source = r.Source,
+                    IsInstalled = true,
+                    ClosesApp = SelfPackages.Includes(id),
+                    IsPinned = pinned,
+                    PinKind = pinned ? pinKind ?? string.Empty : string.Empty,
+                    RequiresExplicitUpdate = t > 0 && !pinned,
+                });
+            }
+        }
+
+        return packages;
+    }
+
+    // ---------------------------------------------------------------
+    // Pins
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// The packages winget has been told to leave alone, by id, with the kind
+    /// of pin. Pins are winget's own: made here with "Skip", or in a terminal,
+    /// and either way winget's upgrade leaves the package where it is.
+    /// </summary>
+    public static async Task<Dictionary<string, string>> ListPinsAsync(CancellationToken ct = default)
+    {
+        var result = await RunAsync(["pin", "list", .. CommonArgs], ct: ct).ConfigureAwait(false);
+
+        return ReadPins(result.StdOut);
+    }
+
+    /// <summary>
+    /// `pin list` prints Name, Id, Version, Source, Pin type and Pinned version.
+    /// Two of those headings are two words, which the column reader takes for
+    /// two columns - harmless for the id, which comes before them, and the pin
+    /// type is read as the first word from where its heading starts.
+    /// </summary>
+    internal static Dictionary<string, string> ReadPins(string stdout)
+    {
+        var pins = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var lines = stdout.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+
+        var separator = Array.FindIndex(lines, l => l.Trim() is { Length: >= 10 } t && t.All(c => c == '-'));
+        if (separator <= 0)
+            return pins;
+
+        var columns = ReadColumns(lines[separator - 1]);
+        if (columns.Count < 2)
+            return pins;
+
+        for (var i = separator + 1; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (string.IsNullOrWhiteSpace(line))
+                break;
+
+            var idStart = columns[1].Start;
+            if (idStart >= line.Length)
+                continue;
+
+            var idEnd = columns.Count > 2 ? Math.Min(columns[2].Start, line.Length) : line.Length;
+            var id = line[idStart..idEnd].Trim();
+            if (id.Length == 0)
+                continue;
+
+            var kind = string.Empty;
+            if (columns.Count > 4 && columns[4].Start < line.Length)
+                kind = line[columns[4].Start..].Trim().Split(' ', 2)[0];
+
+            pins[id] = kind;
+        }
+
+        return pins;
+    }
+
+    /// <summary>
+    /// Tells winget to leave this package's updates alone - the plain kind of
+    /// pin, which `upgrade --all` and the update list both respect while a
+    /// deliberate `upgrade --id` still goes through. A pin that is already
+    /// there is what was asked for, so it counts as done.
+    /// </summary>
+    public static async Task<WingetResult> PinAsync(string id, Action<string>? onOutput, CancellationToken ct = default)
+    {
+        var result = await RunAsync(["pin", "add", "--id", id, "--exact", .. CommonArgs], onOutput, ct).ConfigureAwait(false);
+
+        return unchecked((uint)result.ExitCode) == 0x8A150062 ? result with { ExitCode = 0 } : result;
+    }
+
+    /// <summary>The other way: the package goes back into the list of updates.</summary>
+    public static async Task<WingetResult> UnpinAsync(string id, Action<string>? onOutput, CancellationToken ct = default)
+    {
+        var result = await RunAsync(["pin", "remove", "--id", id, "--exact", .. CommonArgs], onOutput, ct).ConfigureAwait(false);
+
+        return unchecked((uint)result.ExitCode) == 0x8A150063 ? result with { ExitCode = 0 } : result;
+    }
+
+    // ---------------------------------------------------------------
+    // What winget knows about one installed package
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// `list --details` for one package: the show-like block winget prints
+    /// for an installed package, including the kind of installer it came
+    /// from and the scope it went in at. Empty when winget will not say -
+    /// the option arrived in winget 1.28.190, and an older one refuses it.
+    /// </summary>
+    public static async Task<string> ListDetailsAsync(string id, CancellationToken ct = default)
+    {
+        var result = await RunAsync(
+            ["list", "--id", id, "--exact", "--details", .. CommonArgs],
+            ct: ct).ConfigureAwait(false);
+
+        return result.Success ? result.StdOut : string.Empty;
+    }
+
+    /// <summary>
+    /// `show` for one package, as printed: the listing, and the installer
+    /// winget would pick for this machine. <see cref="ShowAsync"/> reads the
+    /// same output into fields, but drops the indented installer block on
+    /// the way, which is the part <see cref="UpdateProbe"/> is after.
+    /// </summary>
+    public static async Task<string> ShowOutputAsync(string id, CancellationToken ct = default)
+    {
+        var result = await RunAsync(["show", "--id", id, "--exact", .. CommonArgs], ct: ct).ConfigureAwait(false);
+
+        return result.Success ? result.StdOut : string.Empty;
     }
 
     /// <summary>Fills in publisher, description and homepage for a single package.</summary>
@@ -717,42 +890,73 @@ public static class WingetService
             : ["uninstall", "--id", id, "--exact", "--silent", "--version", version, .. CommonArgs];
 
     /// <summary>
-    /// Upgrades one package. <paramref name="includeUnknown"/> is what "update
-    /// all" passes: without it winget refuses any package whose installed
-    /// version it cannot read, which is how a batch loses a package to
-    /// 0x8A15002B rather than to anything actually going wrong.
+    /// Upgrades one package. Always with --include-unknown: the list the row
+    /// came from was read with it, and without it winget refuses any package
+    /// whose installed version it cannot read - 0x8A15002B for a row that was
+    /// just offered. For a package whose version winget can read, the flag
+    /// changes nothing.
     /// </summary>
     public static Task<WingetResult> UpgradeAsync(
         string id,
         Action<string>? onOutput,
-        CancellationToken ct = default,
-        bool includeUnknown = false) =>
-        RunAsync(UpgradeArgs(id, includeUnknown), onOutput, ct);
+        CancellationToken ct = default) =>
+        RunAsync(UpgradeArgs(id), onOutput, ct);
 
     /// <summary>
     /// Upgrades one package with administrator rights, which Windows asks the
     /// user for first. Only offered for an update that failed for want of them.
-    /// Includes unknown versions: the row being retried came from a list that
-    /// did, and "update all" - where most of these failures come from - does too.
     /// </summary>
     public static Task<WingetResult> UpgradeAsAdminAsync(
         string id,
         Action<string>? onOutput,
         CancellationToken ct = default) =>
-        RunAsAdminAsync(UpgradeArgs(id, includeUnknown: true), onOutput, ct);
+        RunAsAdminAsync(UpgradeArgs(id), onOutput, ct);
 
-    internal static string[] UpgradeArgs(string id, bool includeUnknown) =>
-        includeUnknown
-            ?
-            [
-                "upgrade", "--id", id, "--exact", "--silent", "--include-unknown",
-                "--accept-package-agreements", .. CommonArgs,
-            ]
-            :
-            [
-                "upgrade", "--id", id, "--exact", "--silent",
-                "--accept-package-agreements", .. CommonArgs,
-            ];
+    internal static string[] UpgradeArgs(string id) =>
+    [
+        "upgrade", "--id", id, "--exact", "--silent", "--include-unknown",
+        "--accept-package-agreements", .. CommonArgs,
+    ];
+
+    /// <summary>
+    /// Updates a package the long way round: uninstall, then install the new
+    /// version. What winget itself asks for - in so many words - when the new
+    /// version is a different kind of installer from the one on the machine,
+    /// or an installer will not run over the copy that is there. The two
+    /// halves are the same commands a row's Uninstall and a page's Install run.
+    ///
+    /// The uninstall has to go through before anything is downloaded: a
+    /// package that would not come off is still there, and the install is
+    /// not attempted. Between the two, <see cref="Operation.ReinstallMarker"/>
+    /// is reported so the row's bar can start over for the second half. An
+    /// install that then fails leaves the machine without the package, which
+    /// is the one thing the closing words have to say - see
+    /// <see cref="Operation.Complete"/>.
+    /// </summary>
+    public static async Task<WingetResult> ReinstallAsync(
+        string id,
+        string? version,
+        Action<string>? onOutput,
+        CancellationToken ct = default)
+    {
+        var removed = await UninstallAsync(id, version, onOutput, ct).ConfigureAwait(false);
+
+        if (!removed.Success)
+        {
+            // An uninstall that only wants a restart has not made room yet:
+            // said as "restart, then try again" rather than as a success with
+            // nothing installed behind it.
+            return removed.Restart is RestartNeed.None
+                ? removed
+                : removed with { ExitCode = unchecked((int)0x8A15010A) };
+        }
+
+        onOutput?.Invoke(Operation.ReinstallMarker);
+
+        var installed = await InstallAsync(id, onOutput, ct).ConfigureAwait(false);
+
+        return installed with { StdOut = removed.StdOut + installed.StdOut };
+    }
 
     /// <summary>
     /// Updates every package in the list, one winget process each, and carries
@@ -774,21 +978,21 @@ public static class WingetService
     /// </param>
     /// <param name="onDone">
     /// Handed the package id, winget's own reason each time one is left behind -
-    /// or an empty reason when it went through - and whether Windows has to
-    /// restart before it counts - and whether it failed for want of
-    /// administrator rights, which a retry with them could put right. So the row
-    /// for it can say why, or say what is still owed, or go, rather than the
-    /// batch reducing it to a name in a tally.
+    /// or an empty reason when it went through - whether Windows has to restart
+    /// before it counts, and what kind of failure it was: one a retry with
+    /// administrator rights could put right, one that wants a reinstall, and
+    /// so on. So the row for it can say why, offer the remedy, say what is
+    /// still owed, or go, rather than the batch reducing it to a name in a tally.
     /// </param>
     public static Task<WingetResult> UpgradeEachAsync(
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
         Action<string, string>? onStart = null,
-        Action<string, string, RestartNeed, bool>? onDone = null,
+        Action<string, string, RestartNeed, FailureKind>? onDone = null,
         CancellationToken ct = default) =>
         UpgradeEachAsync(
             packages, onOutput, onStart, onDone,
-            (id, output, token) => UpgradeAsync(id, output, token, includeUnknown: true),
+            (id, output, token) => UpgradeAsync(id, output, token),
             ct);
 
     /// <summary>
@@ -801,12 +1005,12 @@ public static class WingetService
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
         Action<string, string>? onStart,
-        Action<string, string, RestartNeed, bool>? onDone,
+        Action<string, string, RestartNeed, FailureKind>? onDone,
         Func<string, Action<string>?, CancellationToken, Task<WingetResult>> upgrade,
         CancellationToken ct,
         ShellWatch? shell = null)
     {
-        var failed = new List<string>();
+        var failed = new List<(string Name, FailureKind Kind)>();
         var restarting = new List<string>();
         var shellClosedBy = new List<string>();
         var firstFailureCode = 0;
@@ -849,16 +1053,17 @@ public static class WingetService
                 if (result.Restart is not RestartNeed.None)
                     restarting.Add(name);
 
-                onDone?.Invoke(id, string.Empty, result.Restart, false);
+                onDone?.Invoke(id, string.Empty, result.Restart, FailureKind.Other);
                 continue;
             }
 
-            failed.Add(name);
+            var kind = Classify(result);
+            failed.Add((name, kind));
 
             if (firstFailureCode == 0)
                 firstFailureCode = result.ExitCode;
 
-            onDone?.Invoke(id, Reason(result), result.Restart, WantsAdmin(result));
+            onDone?.Invoke(id, Reason(result), result.Restart, kind);
         }
 
         var updated = packages.Count - failed.Count;
@@ -867,7 +1072,7 @@ public static class WingetService
         // where the batch says what actually happened.
         var tally = failed.Count == 0
             ? $"Updated {updated} package{(updated == 1 ? string.Empty : "s")}."
-            : $"{updated} of {packages.Count} updated. {failed.Count} failed: {string.Join(", ", failed)}.";
+            : $"{updated} of {packages.Count} updated.{Grouped(failed)}";
 
         // Named rather than counted. A restart is something the user has to go
         // and do, and which packages are waiting on it is the thing that makes
@@ -905,8 +1110,50 @@ public static class WingetService
         return said.Length > 0 ? $"{said} ({code})" : $"winget exited with {code}.";
     }
 
-    private static bool WantsAdmin(WingetResult result) =>
-        WingetErrors.WantsAdmin(result.ExitCode, Said(result), result.StdOut);
+    private static FailureKind Classify(WingetResult result) =>
+        WingetErrors.Classify(result.ExitCode, Said(result), result.StdOut);
+
+    /// <summary>
+    /// The failures of a batch, by what to do about them: " 2 need a reinstall:
+    /// A, B. 1 failed: C." A tally that only counted failures put a package
+    /// waiting on a reinstall next to one whose installer crashed, and left the
+    /// reader to open each row to find out which was which.
+    /// </summary>
+    internal static string Grouped(IReadOnlyList<(string Name, FailureKind Kind)> failed)
+    {
+        var text = new StringBuilder();
+
+        foreach (var (kind, sentence) in new[]
+                 {
+                     (FailureKind.NeedsReinstall, "need a reinstall"),
+                     (FailureKind.WantsAdmin, "need administrator rights"),
+                     (FailureKind.Pinned, "are skipped by a winget pin"),
+                     (FailureKind.NotApplicable, "have no update winget can apply here"),
+                     (FailureKind.Other, "failed"),
+                 })
+        {
+            var names = failed.Where(f => f.Kind == kind).Select(f => f.Name).ToList();
+
+            if (names.Count == 0)
+                continue;
+
+            // "1 need a reinstall" reads wrong; "1 needs a reinstall" is what a
+            // person would write. The verbs that change are the ones that end in
+            // a consonant when plural.
+            var verb = names.Count == 1 ? sentence switch
+            {
+                "need a reinstall" => "needs a reinstall",
+                "need administrator rights" => "needs administrator rights",
+                "are skipped by a winget pin" => "is skipped by a winget pin",
+                "have no update winget can apply here" => "has no update winget can apply here",
+                _ => sentence,
+            } : sentence;
+
+            text.Append($" {names.Count} {verb}: {string.Join(", ", names)}.");
+        }
+
+        return text.ToString();
+    }
 
     /// <summary>winget's last words, from stderr when it said nothing on stdout.</summary>
     private static string Said(WingetResult result)

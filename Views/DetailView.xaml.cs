@@ -313,6 +313,7 @@ public partial class DetailView : PageView
         InstallButton.Visibility = installed ? Visibility.Collapsed : Visibility.Visible;
         UpdateButton.Visibility = installed && update ? Visibility.Visible : Visibility.Collapsed;
         UninstallButton.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+        ShowReinstallOffer();
         ShowOpen();
 
         if (installed)
@@ -437,6 +438,35 @@ public partial class DetailView : PageView
             (progress, token) => WingetService.UpgradeAsync(_package.Id, progress, token));
     }
 
+    /// <summary>
+    /// Uninstall, then install the new version, keyed to the id as the update
+    /// it stands in for was. Offered only once winget has refused to update
+    /// in place - see <c>AppPackage.CanReinstall</c>.
+    /// </summary>
+    private void OnReinstallClick(object sender, RoutedEventArgs e)
+    {
+        if (!OperationService.CanStart(_package.Id) || _state is null)
+            return;
+
+        var stand = new AppPackage
+        {
+            Id = _package.Id,
+            Name = _package.Name,
+            Version = _state.InstalledVersions.Count > 0 ? _state.InstalledVersions[0] : "installed version",
+            AvailableVersion = _state.AvailableVersion,
+            ClosesApp = SelfPackages.Includes(_package.Id),
+        };
+
+        var question = ManageLists.ReinstallQuestion(stand);
+
+        if (!Host.ConfirmAction(question.Title, question.Message, question.Confirm))
+            return;
+
+        OperationService.Start(
+            _package.Id, _package.Name, OperationKind.Reinstall,
+            (progress, token) => WingetService.ReinstallAsync(_package.Id, null, progress, token));
+    }
+
     private void OnUninstallClick(object sender, RoutedEventArgs e)
     {
         if (!OperationService.CanStart(_package.OperationKey))
@@ -492,12 +522,15 @@ public partial class DetailView : PageView
 
         InstallButton.IsEnabled = canStart;
         UpdateButton.IsEnabled = canStart;
+        ReinstallButton.IsEnabled = canStart;
         UninstallButton.IsEnabled = canStart;
 
         // Drives the progress bar bound to this page's package. Re-derived on
         // every call, which is what lets a page opened - or returned to -
         // halfway through an install draw the bar in the right place.
         OperationService.Paint(_package);
+
+        ShowReinstallOffer();
 
         if (mine is not null)
             SetProgress(mine.Status);
@@ -506,6 +539,21 @@ public partial class DetailView : PageView
 
         // Nothing running and nothing finished recently leaves the line as it
         // is, rather than blanking whatever it is already saying.
+    }
+
+    /// <summary>
+    /// The reinstall takes the update's place once winget has refused the
+    /// update: the same green button, saying what it will do instead. Called
+    /// from both paints, since either can put the Update button back.
+    /// </summary>
+    private void ShowReinstallOffer()
+    {
+        var reinstall = _package.CanReinstall && _state is { IsInstalled: true, HasUpdate: true };
+
+        ReinstallButton.Visibility = reinstall ? Visibility.Visible : Visibility.Collapsed;
+
+        if (reinstall)
+            UpdateButton.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>

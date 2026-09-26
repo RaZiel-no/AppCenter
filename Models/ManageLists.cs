@@ -15,7 +15,10 @@ public sealed record Question(string Title, string Message, string Confirm);
 /// </summary>
 public sealed class ManageLists
 {
-    /// <summary>Every update winget offers, in the order the batch would take them.</summary>
+    /// <summary>
+    /// Every update winget offers, of every kind, in the order the batch would
+    /// take them. Which list a row lands in is its <see cref="AppPackage.Group"/>.
+    /// </summary>
     private List<AppPackage> _allUpdates = [];
 
     /// <summary>Every install winget listed, one per row it printed.</summary>
@@ -37,10 +40,30 @@ public sealed class ManageLists
 
     public IReadOnlyList<AppPackage> AllInstalled => _allInstalled;
 
-    // What the two lists show: the above, filtered and sorted. The rows are
-    // the same AppPackage instances, so an operation painted on a package
-    // shows wherever the package is on screen.
+    /// <summary>The updates winget is sure of: what "update all" takes and the heading counts.</summary>
+    private IEnumerable<AppPackage> Pending => _allUpdates.Where(p => p.Group == UpdateGroup.Pending);
+
+    private IEnumerable<AppPackage> Unknown => _allUpdates.Where(p => p.Group == UpdateGroup.Unknown);
+
+    private IEnumerable<AppPackage> Skipped => _allUpdates.Where(p => p.Group == UpdateGroup.Skipped);
+
+    // What the lists show: the above, filtered and sorted. The rows are the
+    // same AppPackage instances, so an operation painted on a package shows
+    // wherever the package is on screen.
+
+    /// <summary>The updates winget is sure of.</summary>
     public ObservableCollection<AppPackage> Updates { get; } = [];
+
+    /// <summary>
+    /// The packages whose installed version winget cannot read. Listed apart:
+    /// winget offers them every time, whether or not anything is newer, and
+    /// pressing Update on one installs the version on offer over whatever is
+    /// there. See <see cref="UpdateGroup.Unknown"/>.
+    /// </summary>
+    public ObservableCollection<AppPackage> UnknownUpdates { get; } = [];
+
+    /// <summary>The packages a winget pin holds back, each with a way to resume.</summary>
+    public ObservableCollection<AppPackage> SkippedUpdates { get; } = [];
 
     public ObservableCollection<InstalledGroup> Installed { get; } = [];
 
@@ -122,14 +145,29 @@ public sealed class ManageLists
 
         // Updates: filtered, sorted, and still with whatever closes the app
         // at the end - the order shown is the order "update all" runs in.
-        var updates = _allUpdates.Where(Matches);
-        updates = descending
-            ? updates.OrderByDescending(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-            : updates.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase);
+        // Each of the three lists is sorted on its own; the filter reaches
+        // all three, since a package is found wherever it is.
+        IEnumerable<AppPackage> Sorted(IEnumerable<AppPackage> packages)
+        {
+            var matching = packages.Where(Matches);
+            var ordered = descending
+                ? matching.OrderByDescending(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+                : matching.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase);
+
+            return SelfPackages.LastInLine(ordered);
+        }
 
         Updates.Clear();
-        foreach (var package in SelfPackages.LastInLine(updates))
+        foreach (var package in Sorted(Pending))
             Updates.Add(package);
+
+        UnknownUpdates.Clear();
+        foreach (var package in Sorted(Unknown))
+            UnknownUpdates.Add(package);
+
+        SkippedUpdates.Clear();
+        foreach (var package in Sorted(Skipped))
+            SkippedUpdates.Add(package);
 
         // Installs: filtered, then folded into families, then sorted by what
         // the row will say. Folding after filtering means a family shrinks to
@@ -183,11 +221,44 @@ public sealed class ManageLists
     // What the page says
     // ---------------------------------------------------------------
 
-    // The counts are of every update, not of the ones the filter is showing -
-    // that is what "update all" would do.
-    public string UpdatesHeading => $"Updates available ({_allUpdates.Count})";
+    // The counts are of every update of the kind, not of the ones the filter
+    // is showing - that is what "update all" would do.
+    public string UpdatesHeading => $"Updates available ({Pending.Count()})";
 
-    public string UpdateAllLabel => _allUpdates.Count > 0 ? $"Update all ({_allUpdates.Count})" : "Update all";
+    public string UpdateAllLabel => Pending.Any() ? $"Update all ({Pending.Count()})" : "Update all";
+
+    /// <summary>
+    /// "Version unknown": winget's own word for what it cannot read, over a
+    /// list of the packages it says it of.
+    /// </summary>
+    public string UnknownHeading => $"Version unknown ({Unknown.Count()})";
+
+    /// <summary>
+    /// Under the heading: what these are, and what the buttons do about it.
+    /// </summary>
+    public const string UnknownExplanation =
+        "winget cannot read what version these are, so it lists them as updates every time. " +
+        "Update installs the version on offer over what is there; Skip stops winget listing one.";
+
+    /// <summary>
+    /// The batch for that list: every unknown-version package the version on
+    /// offer has not already been installed over. Never part of "update all"
+    /// - that would run every one of these installers on every visit.
+    /// </summary>
+    public string UpdateUnknownLabel
+    {
+        get
+        {
+            var count = UnknownBatch().Count;
+            return count > 0 ? $"Update all of these ({count})" : "Update all of these";
+        }
+    }
+
+    public string SkippedHeading => $"Skipped updates ({Skipped.Count()})";
+
+    public const string SkippedExplanation =
+        "Pinned in winget, here or in a terminal, so neither App Center nor winget updates them. " +
+        "Resume puts one back in the list above.";
 
     /// <summary>
     /// Every install the list would show with the filter box empty: the
@@ -201,10 +272,22 @@ public sealed class ManageLists
     private int Apps => _allInstalled.Count(p => _showSystem || !p.IsSystemPackage);
 
     /// <summary>What the updates card says when it has no rows to show.</summary>
-    public string UpdatesEmptyText(bool wingetAvailable) =>
-        !wingetAvailable ? "winget could not be started. Install App Installer from the Microsoft Store."
-        : _allUpdates.Count == 0 ? "Everything is up to date."
-        : $"None of the {_allUpdates.Count} updates match “{_needle}”.";
+    public string UpdatesEmptyText(bool wingetAvailable)
+    {
+        if (!wingetAvailable)
+            return "winget could not be started. Install App Installer from the Microsoft Store.";
+
+        var pending = Pending.Count();
+
+        if (pending > 0)
+            return $"None of the {pending} updates match “{_needle}”.";
+
+        // Not "everything is up to date" when the lists below say otherwise:
+        // a package winget cannot read the version of may well be out of date.
+        return _allUpdates.Count == 0
+            ? "Everything is up to date."
+            : "Nothing winget is sure needs updating. The lists below have the rest.";
+    }
 
     /// <summary>An empty list is a card that says why, not a hairline.</summary>
     public string InstalledEmptyText =>
@@ -243,7 +326,7 @@ public sealed class ManageLists
     /// </summary>
     public Question UpdateAllQuestion()
     {
-        var all = _allUpdates;
+        var all = SelfPackages.LastInLine(Pending);
 
         var names = string.Join(", ", all.Take(5).Select(p => p.Name));
         if (all.Count > 5)
@@ -269,16 +352,65 @@ public sealed class ManageLists
     /// What "update all" works through, snapshotted before it starts: the list
     /// is rebuilt by the reload that follows every finished update, and the
     /// batch has to keep working through the packages the user confirmed.
+    /// Only the updates winget is sure of - see <see cref="UnknownBatch"/>.
     /// </summary>
     public List<(string Id, string Name)> UpdateAllBatch() =>
-        _allUpdates.Select(p => (p.Id, p.Name)).ToList();
+        SelfPackages.LastInLine(Pending).Select(p => (p.Id, p.Name)).ToList();
 
-    public static Question UpdateQuestion(AppPackage package) => new(
-        $"Update {package.Name}?",
-        $"winget will install {package.AvailableVersion} over the installed {package.Version}.\n\n" +
-        "Windows may prompt for administrator permission." +
+    /// <summary>
+    /// The unknown-version list's own batch: the packages the version on offer
+    /// has not already been installed over. Asked for on its own button, so
+    /// that "update all" never reinstalls what may be up to date already.
+    /// </summary>
+    public List<(string Id, string Name)> UnknownBatch() =>
+        SelfPackages.LastInLine(Unknown.Where(p => !p.IsRecordedAsCurrent)).Select(p => (p.Id, p.Name)).ToList();
+
+    public Question UpdateUnknownQuestion()
+    {
+        var batch = UnknownBatch();
+        var names = string.Join(", ", batch.Take(5).Select(p => p.Name));
+        if (batch.Count > 5)
+            names += $", and {batch.Count - 5} more";
+
+        return new Question(
+            $"Install the newest version of {batch.Count} package{(batch.Count == 1 ? string.Empty : "s")}?",
+            $"winget cannot read what version is installed of: {names}. " +
+            "Each gets the newest version its source has installed over it, whether or not that is newer than what is there.\n\n" +
+            "Windows may prompt for administrator permission for some of them.",
+            "Install newest");
+    }
+
+    public static Question UpdateQuestion(AppPackage package) => package.HasUnknownVersion
+        ? new Question(
+            package.IsRecordedAsCurrent ? $"Reinstall {package.Name}?" : $"Update {package.Name}?",
+            $"winget cannot read which version of {package.Name} is installed, so it cannot say whether " +
+            $"{package.AvailableVersion} is newer. It will install {package.AvailableVersion} over what is there." +
+            (package.IsRecordedAsCurrent
+                ? $"\n\nApp Center installed {package.AvailableVersion} here on {package.RecordedInstall!.When:d MMMM} already."
+                : string.Empty) +
+            "\n\nWindows may prompt for administrator permission." +
+            (package.ClosesApp ? $"\n\n{SelfPackages.Warning}" : string.Empty),
+            package.IsRecordedAsCurrent ? "Reinstall" : "Update")
+        : new Question(
+            $"Update {package.Name}?",
+            $"winget will install {package.AvailableVersion} over the installed {package.Version}.\n\n" +
+            "Windows may prompt for administrator permission." +
+            (package.ClosesApp ? $"\n\n{SelfPackages.Warning}" : string.Empty),
+            "Update");
+
+    /// <summary>
+    /// The long way round, and the question has to say what that means: the
+    /// old copy comes off first, an installer's uninstaller may take settings
+    /// with it, and nothing goes back in if the install then fails.
+    /// </summary>
+    public static Question ReinstallQuestion(AppPackage package) => new(
+        $"Reinstall {package.Name} to update it?",
+        $"winget will uninstall the installed {package.Version}, then install {package.AvailableVersion} afresh. " +
+        "Settings kept in your user profile usually survive; anything the uninstaller removes does not. " +
+        $"Close {package.Name} first.\n\n" +
+        "Windows may prompt for administrator permission, once for each half." +
         (package.ClosesApp ? $"\n\n{SelfPackages.Warning}" : string.Empty),
-        "Update");
+        "Reinstall");
 
     /// <summary>
     /// A row that is one of several installed versions says which version it
@@ -350,14 +482,44 @@ public sealed class ManageLists
         // Backwards, so removing a row does not move the one after it out from
         // under the loop. Most calls find nothing: this runs on every line
         // winget prints, not only on the ones that end a package.
-        for (var i = Updates.Count - 1; i >= 0; i--)
+        foreach (var list in new[] { Updates, UnknownUpdates })
         {
-            if (batch.WasUpdated(Updates[i].Id))
-                Updates.RemoveAt(i);
+            for (var i = list.Count - 1; i >= 0; i--)
+            {
+                if (batch.WasUpdated(list[i].Id))
+                    list.RemoveAt(i);
+            }
         }
 
         return dropped;
     }
+
+    /// <summary>
+    /// Writes down what just went in over the packages whose version winget
+    /// cannot read, before the reload puts their rows back. winget will list
+    /// them again regardless; the memory is what lets the row say the version
+    /// on offer is already here rather than offering it a second time.
+    /// </summary>
+    public void RememberInstalls(Operation operation)
+    {
+        foreach (var package in _allUpdates)
+        {
+            if (!package.HasUnknownVersion || !WentThrough(package, operation))
+                continue;
+
+            UpdateMemory.Record(package.Id, package.AvailableVersion);
+            package.RecordedInstall = UpdateMemory.Recorded(package.Id);
+        }
+    }
+
+    /// <summary>Whether the operation updated this package: one of its own, or a batch that got to it.</summary>
+    private static bool WentThrough(AppPackage package, Operation operation) => operation.Kind switch
+    {
+        OperationKind.Update => !operation.Failed
+            && string.Equals(package.OperationKey, operation.Key, StringComparison.OrdinalIgnoreCase),
+        OperationKind.UpdateAll => operation.WasUpdated(package.Id),
+        _ => false,
+    };
 
     /// <summary>
     /// What the finished operation still needs to say above the lists. Nothing,
@@ -393,7 +555,7 @@ public sealed class ManageLists
     /// where it explains nothing to anybody.
     /// </summary>
     private bool SaidByARow(string key) =>
-        Updates.Concat(Installed.SelectMany(g => g.Members)).Any(p =>
+        Updates.Concat(UnknownUpdates).Concat(SkippedUpdates).Concat(Installed.SelectMany(g => g.Members)).Any(p =>
             p.Error.Length > 0
             && string.Equals(p.OperationKey, key, StringComparison.OrdinalIgnoreCase));
 
@@ -413,17 +575,14 @@ public sealed class ManageLists
     /// </summary>
     public void NoteUnfinishedUpdate(Operation operation)
     {
-        bool WentThrough(AppPackage package) => operation.Kind switch
-        {
-            OperationKind.Update => !operation.Failed
-                && string.Equals(package.OperationKey, operation.Key, StringComparison.OrdinalIgnoreCase),
-            OperationKind.UpdateAll => operation.WasUpdated(package.Id),
-            _ => false,
-        };
-
         foreach (var package in _allUpdates)
         {
-            if (package.IsBusy || !WentThrough(package))
+            if (package.IsBusy || !WentThrough(package, operation))
+                continue;
+
+            // A package winget cannot read the version of is back in the list
+            // whatever happened; its own note says what went in and when.
+            if (package.HasUnknownVersion)
                 continue;
 
             package.Status = operation.NeedsRestart(package.OperationKey)

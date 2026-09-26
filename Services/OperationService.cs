@@ -9,6 +9,15 @@ public enum OperationKind
     Update,
     Uninstall,
     UpdateAll,
+
+    /// <summary>Uninstall, then install the new version: an update the long way round.</summary>
+    Reinstall,
+
+    /// <summary>A winget pin: the package's updates are left alone from now on.</summary>
+    Skip,
+
+    /// <summary>The pin removed: its updates are offered again.</summary>
+    Resume,
 }
 
 /// <summary>
@@ -43,6 +52,19 @@ public sealed class Operation
 {
     /// <summary>"Update all" touches everything, so it runs under its own key.</summary>
     public const string UpdateAllKey = "*update-all*";
+
+    /// <summary>
+    /// The line a reinstall reports between its two halves - not winget's,
+    /// but this app's own - so the bar can start again for the install after
+    /// the uninstall has filled it once. See <see cref="WingetService.ReinstallAsync"/>.
+    /// </summary>
+    public const string ReinstallMarker = "Uninstalled. Installing the new version…";
+
+    /// <summary>
+    /// Which half a reinstall is in: 1 while the old copy comes off, 2 once
+    /// the new one is going in. 1 for everything else.
+    /// </summary>
+    private int _stage = 1;
 
     public required string Key { get; init; }
     public required string PackageName { get; init; }
@@ -101,8 +123,18 @@ public sealed class Operation
     /// </summary>
     private readonly HashSet<string> _wantAdmin = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The ones winget would not update in place because the new version is a
+    /// different kind of installer, which a reinstall gets round. Held like
+    /// the rest, so the offer survives the reload.
+    /// </summary>
+    private readonly HashSet<string> _needReinstall = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Whether this package failed for want of administrator rights.</summary>
     public bool WantsAdmin(string id) => _wantAdmin.Contains(id);
+
+    /// <summary>Whether this package's update failed for want of a reinstall.</summary>
+    public bool NeedsReinstall(string id) => _needReinstall.Contains(id);
 
     /// <summary>Whether this package is waiting on Windows being restarted.</summary>
     public bool NeedsRestart(string id) => _needRestart.Contains(id);
@@ -154,7 +186,12 @@ public sealed class Operation
     /// was left behind rather than updated. Either way it counts towards the
     /// tally: a package that failed still took its turn.
     /// </summary>
-    internal void EndItem(string id, string reason, RestartNeed restart = RestartNeed.None, bool wantsAdmin = false)
+    internal void EndItem(
+        string id,
+        string reason,
+        RestartNeed restart = RestartNeed.None,
+        bool wantsAdmin = false,
+        bool needsReinstall = false)
     {
         if (reason.Length > 0)
             _failures[id] = reason;
@@ -163,6 +200,9 @@ public sealed class Operation
 
         if (reason.Length > 0 && wantsAdmin)
             _wantAdmin.Add(id);
+
+        if (reason.Length > 0 && needsReinstall)
+            _needReinstall.Add(id);
 
         // Only for the ones that went in. A package that failed and wants a
         // restart before it will go in is a failure, and its reason says so in
@@ -186,6 +226,11 @@ public sealed class Operation
         OperationKind.Install => $"Installing {PackageName}…",
         OperationKind.Update => AsAdmin ? $"Updating {PackageName} as administrator…" : $"Updating {PackageName}…",
         OperationKind.Uninstall => $"Uninstalling {PackageName}…",
+        OperationKind.Reinstall => _stage == 1
+            ? $"Reinstalling {PackageName}: uninstalling the old version…"
+            : $"Reinstalling {PackageName}: installing the new version…",
+        OperationKind.Skip => $"Skipping updates for {PackageName}…",
+        OperationKind.Resume => $"Resuming updates for {PackageName}…",
         _ => BatchHeading,
     };
 
@@ -214,6 +259,9 @@ public sealed class Operation
         {
             OperationKind.Install => "Installing…",
             OperationKind.Uninstall => "Uninstalling…",
+            OperationKind.Reinstall => _stage == 1 ? "Uninstalling…" : "Installing…",
+            OperationKind.Skip => "Skipping…",
+            OperationKind.Resume => "Resuming…",
             _ => "Updating…",
         };
 
@@ -234,15 +282,28 @@ public sealed class Operation
     /// keeps the phase of whichever package it has reached, so that row fills
     /// like any single update would, and the list is what says how far in it is.
     /// </summary>
-    public double Percent => Phase switch
+    public double Percent
     {
-        OperationPhase.Starting => 0.04,
-        OperationPhase.Located => 0.15,
-        OperationPhase.Downloading => 0.40,
-        OperationPhase.Verified => 0.62,
-        OperationPhase.Installing => 0.80,
-        _ => 1.0,
-    };
+        get
+        {
+            var within = Phase switch
+            {
+                OperationPhase.Starting => 0.04,
+                OperationPhase.Located => 0.15,
+                OperationPhase.Downloading => 0.40,
+                OperationPhase.Verified => 0.62,
+                OperationPhase.Installing => 0.80,
+                _ => 1.0,
+            };
+
+            // A reinstall is two runs end to end. The uninstall is the shorter
+            // - nothing to download - so it gets the first third of the bar,
+            // and the install fills the rest from where that left off.
+            return Kind != OperationKind.Reinstall ? within
+                : _stage == 1 ? within * 0.35
+                : 0.35 + within * 0.65;
+        }
+    }
 
     /// <summary>
     /// True while the bar would be lying if it claimed to be moving: before
@@ -259,6 +320,16 @@ public sealed class Operation
 
     internal void Report(string line)
     {
+        // The seam between a reinstall's two halves: the phase goes back to
+        // the start for the install, the one time a bar is allowed to.
+        if (Kind == OperationKind.Reinstall && line == ReinstallMarker)
+        {
+            _stage = 2;
+            Phase = OperationPhase.Starting;
+            Detail = string.Empty;
+            return;
+        }
+
         Detail = Shorten(line);
         Advance(line);
     }
@@ -334,7 +405,14 @@ public sealed class Operation
 
         if (result is { Installed: true })
         {
-            Summary = said.Length > 0 ? said : "Done.";
+            // A pin's own words are "Pin added successfully", which says what
+            // winget did rather than what the user now has.
+            Summary = Kind switch
+            {
+                OperationKind.Skip => $"Updates for {PackageName} are skipped from now on. Resume them from the Skipped updates list.",
+                OperationKind.Resume => $"Updates for {PackageName} are offered again.",
+                _ => said.Length > 0 ? said : "Done.",
+            };
             return;
         }
 
@@ -351,11 +429,21 @@ public sealed class Operation
 
         // Explained where the code is a known one, else winget's own last
         // words behind the code - see WingetErrors for why both.
-        Summary = WingetErrors.Summarise(
-            result?.ExitCode ?? -1, said, uninstalling: Kind == OperationKind.Uninstall, result?.StdOut);
+        var uninstalling = Kind == OperationKind.Uninstall || (Kind == OperationKind.Reinstall && _stage == 1);
+
+        Summary = WingetErrors.Summarise(result?.ExitCode ?? -1, said, uninstalling, result?.StdOut);
+
+        // A reinstall that failed in its second half has already taken the
+        // old copy off. That is the one fact the closing words cannot leave
+        // out: the row it was on is about to be gone, and the package with it.
+        if (Kind == OperationKind.Reinstall && _stage == 2)
+            Summary = $"The old version was removed, but the new one did not install. {Summary} Install it again from its page.";
 
         if (!AsAdmin && result is not null && WingetErrors.WantsAdmin(result.ExitCode, said, result.StdOut))
             _wantAdmin.Add(Key);
+
+        if (Kind == OperationKind.Update && result is not null && WingetErrors.NeedsReinstall(result.ExitCode))
+            _needReinstall.Add(Key);
     }
 
     /// <summary>
@@ -438,6 +526,26 @@ public static class OperationService
         package.IsProgressPulsing = operation?.IsPulsing ?? false;
         package.Error = FailureFor(package.OperationKey, shows);
         package.CanRetryAsAdmin = OffersAdminRetry(package.OperationKey, shows);
+        package.CanReinstall = OffersReinstall(package.OperationKey, shows);
+    }
+
+    /// <summary>
+    /// Whether this package's update failed because the new version is a
+    /// different kind of installer, so its row can offer to uninstall and
+    /// install afresh. Only under an update's failure: the reinstall is an
+    /// update's remedy, and the reason it answers is the one painted above it.
+    /// </summary>
+    private static bool OffersReinstall(string id, OperationKind? shows)
+    {
+        if (shows is not (null or OperationKind.Update))
+            return false;
+
+        if (Batch?.FailureFor(id) is { Length: > 0 })
+            return Batch.NeedsReinstall(id);
+
+        return LastOutcome is { Failed: true, Kind: OperationKind.Update } last
+               && string.Equals(last.Key, id, StringComparison.OrdinalIgnoreCase)
+               && last.NeedsReinstall(id);
     }
 
     /// <summary>
@@ -486,11 +594,22 @@ public static class OperationService
         // line only describes the last thing that happened. Once the user is
         // reading a list, the row it happened to is where they will look.
         return LastOutcome is { Failed: true, Kind: not OperationKind.UpdateAll } last
-               && (shows is null || last.Kind == shows)
+               && (shows is null || Offers(last.Kind, shows.Value))
                && string.Equals(last.Key, id, StringComparison.OrdinalIgnoreCase)
             ? last.Summary
             : string.Empty;
     }
+
+    /// <summary>
+    /// Whether a row whose button offers <paramref name="shows"/> is the place
+    /// for a failure of <paramref name="kind"/>. An update row's button is
+    /// also where a reinstall, a skip and a resume are pressed, so their
+    /// failures belong under it too.
+    /// </summary>
+    private static bool Offers(OperationKind kind, OperationKind shows) =>
+        kind == shows
+        || (shows == OperationKind.Update
+            && kind is OperationKind.Reinstall or OperationKind.Skip or OperationKind.Resume);
 
     /// <summary>
     /// Whether this package's update failed for want of administrator rights,
@@ -536,8 +655,17 @@ public static class OperationService
     /// if it was, and what it still owes Windows. An empty reason means it went
     /// through.
     /// </summary>
-    public static void NoteBatchDone(string id, string reason, RestartNeed restart, bool wantsAdmin = false) =>
-        MoveBatch(batch => batch.EndItem(id, reason, restart, wantsAdmin));
+    public static void NoteBatchDone(
+        string id,
+        string reason,
+        RestartNeed restart,
+        bool wantsAdmin = false,
+        bool needsReinstall = false) =>
+        MoveBatch(batch => batch.EndItem(id, reason, restart, wantsAdmin, needsReinstall));
+
+    /// <summary>The same, from what the batch found out about the failure.</summary>
+    public static void NoteBatchDone(string id, string reason, RestartNeed restart, FailureKind kind) =>
+        NoteBatchDone(id, reason, restart, kind == FailureKind.WantsAdmin, kind == FailureKind.NeedsReinstall);
 
     /// <summary>
     /// Both of the above. Called from the batch as it works, on whatever thread

@@ -1,7 +1,8 @@
 <views:PageView x:Class="AppCenter.Views.ManageView"
                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                xmlns:views="clr-namespace:AppCenter.Views">
+                xmlns:views="clr-namespace:AppCenter.Views"
+                xmlns:models="clr-namespace:AppCenter.Models">
 
     <DockPanel>
 
@@ -31,6 +32,7 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="CheckButton"
                                 Style="{StaticResource PillButton}"
+                                AutomationProperties.Name="Check for updates"
                                 Click="OnCheckForUpdates">
                             <StackPanel Orientation="Horizontal">
                                 <Viewbox Width="16" Height="16">
@@ -45,6 +47,7 @@
                         <Button x:Name="UpdateAllButton"
                                 Style="{StaticResource GreenButton}"
                                 Margin="10,0,0,0"
+                                AutomationProperties.Name="Update all"
                                 Click="OnUpdateAll">
                             <StackPanel Orientation="Horizontal">
                                 <Viewbox Width="16" Height="16">
@@ -272,6 +275,77 @@
                                FontSize="13.5"
                                Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Border>
+
+                <!--  ================= Version unknown =================
+                      The packages winget cannot read the version of. It
+                      offers them as updates on every visit, so they sit
+                      apart from the updates it is sure of, out of the badge
+                      and out of "update all", with a batch of their own.
+                      Collapsed when there are none, which is most machines
+                      App Center set up itself.  -->
+                <StackPanel x:Name="UnknownSection" Visibility="Collapsed" Margin="0,34,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="UnknownHeading"
+                                   Style="{StaticResource SectionTitle}"
+                                   VerticalAlignment="Center"
+                                   Text="Version unknown" />
+                        <Button x:Name="UpdateUnknownButton"
+                                Grid.Column="1"
+                                Style="{StaticResource PillButton}"
+                                Height="32"
+                                Padding="14,0"
+                                FontSize="13"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Update all of these"
+                                Click="OnUpdateUnknown">
+                            <TextBlock x:Name="UpdateUnknownLabel" Text="Update all of these" />
+                        </Button>
+                    </Grid>
+                    <TextBlock Margin="0,8,0,0"
+                               FontSize="12.5"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="{x:Static models:ManageLists.UnknownExplanation}" />
+                    <Border Margin="0,14,0,0"
+                            Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <ItemsControl x:Name="UnknownList"
+                                      AlternationCount="4096"
+                                      ItemTemplate="{StaticResource UpdateRowTemplate}"
+                                      Button.Click="OnRowButtonClick" />
+                    </Border>
+                </StackPanel>
+
+                <!--  ================= Skipped =================
+                      What a winget pin holds back - made here with Skip, or
+                      in a terminal. Listed so the pin can be seen and taken
+                      off again; nothing here counts anywhere.  -->
+                <StackPanel x:Name="SkippedSection" Visibility="Collapsed" Margin="0,34,0,0">
+                    <TextBlock x:Name="SkippedHeading"
+                               Style="{StaticResource SectionTitle}"
+                               Text="Skipped updates" />
+                    <TextBlock Margin="0,8,0,0"
+                               FontSize="12.5"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="{x:Static models:ManageLists.SkippedExplanation}" />
+                    <Border Margin="0,14,0,0"
+                            Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                        <ItemsControl x:Name="SkippedList"
+                                      AlternationCount="4096"
+                                      ItemTemplate="{StaticResource UpdateRowTemplate}"
+                                      Button.Click="OnRowButtonClick" />
+                    </Border>
+                </StackPanel>
 
                 <!--  ================= Installed =================  -->
                 <TextBlock x:Name="InstalledHeading"

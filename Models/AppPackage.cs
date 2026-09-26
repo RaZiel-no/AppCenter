@@ -12,6 +12,34 @@ public enum BadgeKind
 }
 
 /// <summary>
+/// Where an update row belongs on Manage. The three are shown apart because
+/// they mean different things to press: a pending update is one winget is
+/// sure of; an unknown one may already be installed; a skipped one is being
+/// left alone on purpose.
+/// </summary>
+public enum UpdateGroup
+{
+    /// <summary>winget can read the installed version and has a newer one. Counted, and in "update all".</summary>
+    Pending,
+
+    /// <summary>
+    /// winget cannot read the installed version, so it cannot say whether the
+    /// newer one is newer. Listed every time, updated only when asked.
+    /// </summary>
+    Unknown,
+
+    /// <summary>Held where it is by a winget pin. Listed so it can be resumed.</summary>
+    Skipped,
+}
+
+/// <summary>
+/// A version App Center installed over one winget cannot read, and when.
+/// winget goes on listing such a package as an update for ever; this is what
+/// lets its row say "already done" instead.
+/// </summary>
+public sealed record RecordedInstall(string Version, DateTime When);
+
+/// <summary>
 /// One installable thing. The same type backs curated catalog entries,
 /// winget search hits, and rows in the Manage list, so most fields are
 /// optional depending on where the instance came from.
@@ -139,6 +167,174 @@ public sealed class AppPackage : INotifyPropertyChanged
         set => Set(ref _version, value);
     }
 
+    // ---------------------------------------------------------------
+    // What kind of update this is
+    // ---------------------------------------------------------------
+
+    /// <summary>
+    /// What winget prints for a version it cannot read. Not localised: it is
+    /// winget's version type saying so, not its resources.
+    /// </summary>
+    public const string UnknownVersion = "Unknown";
+
+    /// <summary>
+    /// True when winget cannot read the installed version. Such a package is
+    /// listed as an update whenever the source has any version at all -
+    /// winget sorts "unknown" below everything - and stays listed after the
+    /// update goes in, because the version is still unreadable.
+    /// </summary>
+    public bool HasUnknownVersion => string.Equals(Version, UnknownVersion, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True for a package whose publisher asked winget to update it only when
+    /// named - "requires explicit targeting" - which winget honours by leaving
+    /// it out of `upgrade --all` and listing it apart. App Center names every
+    /// package it updates, so this one is as updatable as any other.
+    /// </summary>
+    public bool RequiresExplicitUpdate { get; set; }
+
+    /// <summary>True when a winget pin holds this package where it is.</summary>
+    public bool IsPinned { get; set; }
+
+    /// <summary>The kind of pin, as `winget pin list` names it, or empty.</summary>
+    public string PinKind { get; set; } = string.Empty;
+
+    /// <summary>Which of the three update lists this row belongs in.</summary>
+    public UpdateGroup Group =>
+        IsPinned ? UpdateGroup.Skipped
+        : HasUnknownVersion ? UpdateGroup.Unknown
+        : UpdateGroup.Pending;
+
+    private RecordedInstall? _recordedInstall;
+
+    /// <summary>
+    /// What App Center last installed over this package's unreadable version,
+    /// if anything. Painted from <c>UpdateMemory</c> when the list is read.
+    /// </summary>
+    public RecordedInstall? RecordedInstall
+    {
+        get => _recordedInstall;
+        set
+        {
+            if (!Set(ref _recordedInstall, value))
+                return;
+
+            OnPropertyChanged(nameof(IsRecordedAsCurrent));
+            OnPropertyChanged(nameof(ActionLabel));
+            OnPropertyChanged(nameof(UpdateNote));
+        }
+    }
+
+    /// <summary>
+    /// True when the version on offer is the one App Center already installed
+    /// here: winget is listing it again only because it cannot read what is
+    /// installed. Left out of the unknown batch, and its button says Reinstall.
+    /// </summary>
+    public bool IsRecordedAsCurrent =>
+        HasUnknownVersion
+        && _recordedInstall is { } recorded
+        && string.Equals(recorded.Version, AvailableVersion, StringComparison.OrdinalIgnoreCase);
+
+    private bool _installerMismatch;
+
+    /// <summary>
+    /// True when a look ahead found the new version comes as a different kind
+    /// of installer from the one on the machine, which winget will not update
+    /// in place. Advice rather than a verdict - a listing can carry a second
+    /// installer the look-ahead does not see - so Update stays on offer beside
+    /// the reinstall. Painted by <c>UpdateProbe</c>.
+    /// </summary>
+    public bool InstallerMismatch
+    {
+        get => _installerMismatch;
+        set
+        {
+            if (!Set(ref _installerMismatch, value))
+                return;
+
+            OnPropertyChanged(nameof(OffersReinstall));
+            OnPropertyChanged(nameof(UpdateNote));
+        }
+    }
+
+    /// <summary>The kind of installer on the machine, as winget classes it: exe, msi, msix, portable.</summary>
+    public string InstalledKind { get; set; } = string.Empty;
+
+    /// <summary>The kind of installer the new version comes as: inno, wix, msix and so on.</summary>
+    public string OfferedKind { get; set; } = string.Empty;
+
+    private bool _canReinstall;
+
+    /// <summary>
+    /// True when this package's last update failed because the new version is
+    /// a different kind of installer. Painted on by OperationService.Paint,
+    /// like <see cref="CanRetryAsAdmin"/>.
+    /// </summary>
+    public bool CanReinstall
+    {
+        get => _canReinstall;
+        set
+        {
+            if (!Set(ref _canReinstall, value))
+                return;
+
+            OnPropertyChanged(nameof(OffersReinstall));
+            OnPropertyChanged(nameof(UpdateNote));
+        }
+    }
+
+    /// <summary>Whether the row shows "Reinstall to update": winget has said so, or the look-ahead has.</summary>
+    public bool OffersReinstall => _canReinstall || _installerMismatch;
+
+    /// <summary>What the row's main button says.</summary>
+    public string ActionLabel =>
+        Group == UpdateGroup.Skipped ? "Resume updates"
+        : IsRecordedAsCurrent ? "Reinstall"
+        : "Update";
+
+    /// <summary>What pressing it does, as the page's click handler reads it.</summary>
+    public string ActionTag => Group == UpdateGroup.Skipped ? "resume" : "update";
+
+    /// <summary>Whether the row offers to skip this package's updates. A skipped row offers the reverse.</summary>
+    public bool OffersSkip => Group != UpdateGroup.Skipped;
+
+    /// <summary>
+    /// The one sentence under the version line that says what is unusual
+    /// about this update, or nothing for the ordinary kind. One at a time,
+    /// most consequential first: a pin decides whether anything happens at
+    /// all, an unreadable version decides what pressing Update means, and
+    /// the rest is advice.
+    /// </summary>
+    public string UpdateNote
+    {
+        get
+        {
+            if (Group == UpdateGroup.Skipped)
+                return $"Skipped: winget leaves this at {Version} until its updates are resumed.";
+
+            if (IsRecordedAsCurrent && _recordedInstall is { } recorded)
+                return $"{recorded.Version} was installed on {recorded.When:d MMMM}. winget still cannot read the installed version, so it keeps listing this.";
+
+            if (HasUnknownVersion)
+                return $"winget cannot read the installed version, so it cannot tell whether {AvailableVersion} is newer. Update installs {AvailableVersion} over what is there.";
+
+            // The look-ahead's guess gives way once winget has refused for
+            // real: the reason in red under the row says it, with the code.
+            if (_installerMismatch && !_canReinstall)
+                return $"The new version comes as {Article(OfferedKind)} {OfferedKind} installer and the installed copy is {Article(InstalledKind)} {InstalledKind} one, " +
+                       "so winget will most likely refuse to update it in place. Reinstall to update.";
+
+            if (RequiresExplicitUpdate)
+                return "Updates itself, so winget leaves it out of “update all” at the publisher's request. App Center can still update it.";
+
+            return string.Empty;
+        }
+    }
+
+    /// <summary>"an exe", "an msi", "a portable": the letters read as names, not sounds.</summary>
+    private static string Article(string kind) =>
+        kind.Length > 0 && "aeioum".Contains(char.ToLowerInvariant(kind[0])) ? "an" : "a";
+
     /// <summary>
     /// True when the installed list held more than one version of this id, so
     /// the id on its own names two installs rather than this one.
@@ -234,6 +430,9 @@ public sealed class AppPackage : INotifyPropertyChanged
 
             OnPropertyChanged(nameof(VersionTransition));
             OnPropertyChanged(nameof(HasUpdate));
+            OnPropertyChanged(nameof(UpdateNote));
+            OnPropertyChanged(nameof(IsRecordedAsCurrent));
+            OnPropertyChanged(nameof(ActionLabel));
         }
     }
 
@@ -325,8 +524,15 @@ public sealed class AppPackage : INotifyPropertyChanged
     public string Error
     {
         get => _error;
-        set => Set(ref _error, value);
+        set
+        {
+            if (Set(ref _error, value))
+                OnPropertyChanged(nameof(HasError));
+        }
     }
+
+    /// <summary>The same as a yes or no, for the template that shows the reason and its remedies.</summary>
+    public bool HasError => _error.Length > 0;
 
     /// <summary>
     /// True when that reason is a want of administrator rights, which puts a

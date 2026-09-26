@@ -129,7 +129,7 @@ public class UpdateAllBatchTests
         // A known code is explained rather than quoted, and kept on the end -
         // the 0x8A15xxxx family is winget's own and reads as hex everywhere it
         // is documented.
-        Assert.StartsWith("winget has no update it can apply", finished[0].Reason);
+        Assert.StartsWith("winget listed a newer version but has no installer for it that fits this copy", finished[0].Reason);
         Assert.EndsWith("(0x8A15002B)", finished[0].Reason);
     }
 
@@ -147,24 +147,58 @@ public class UpdateAllBatchTests
     }
 
     [Fact]
-    public async Task Says_which_failures_were_for_want_of_administrator_rights()
+    public async Task Says_what_kind_of_failure_each_one_was()
     {
-        List<(string Id, bool WantsAdmin)> finished = [];
+        List<(string Id, FailureKind Kind)> finished = [];
 
         await WingetService.UpgradeEachAsync(
-            Three, null, null, (id, _, _, wantsAdmin) => finished.Add((id, wantsAdmin)),
+            Three, null, null, (id, _, _, kind) => finished.Add((id, kind)),
             Recording([], id => id switch
             {
                 "7zip.7zip" => Failed(unchecked((int)0x80073D28),
                     "Installer failed with exit code: 0x80073d28 : The package installation failed because administrator privileges are required."),
-                "Git.Git" => Failed(1603, "Installer failed with exit code: 1603"),
+                "Git.Git" => Failed(unchecked((int)0x8A15008E),
+                    "A newer version was found, but the install technology is different from the current version installed."),
                 _ => Ok(),
             }),
             default);
 
-        // Only the one a retry with the rights could put right: the rest either
-        // went through or failed for something else.
-        Assert.Equal([("7zip.7zip", true), ("Docker.DockerDesktop", false), ("Git.Git", false)], finished);
+        // The one a retry with the rights could put right, the one a reinstall
+        // gets round, and the one that went through - each row offers what fits.
+        Assert.Equal(
+            [("7zip.7zip", FailureKind.WantsAdmin), ("Docker.DockerDesktop", FailureKind.Other), ("Git.Git", FailureKind.NeedsReinstall)],
+            finished);
+    }
+
+    [Fact]
+    public async Task Groups_the_closing_tally_by_what_to_do_about_each_failure()
+    {
+        List<string> said = [];
+
+        await WingetService.UpgradeEachAsync(
+            [
+                ("7zip.7zip", "7-Zip"),
+                ("Docker.DockerDesktop", "Docker Desktop"),
+                ("Git.Git", "Git"),
+                ("Oracle.VirtualBox", "VirtualBox"),
+                ("Microsoft.WSL", "WSL"),
+            ],
+            said.Add, null, null,
+            Recording([], id => id switch
+            {
+                "Git.Git" or "Oracle.VirtualBox" => Failed(unchecked((int)0x8A15008E), "A newer version was found, but the install technology is different."),
+                "Microsoft.WSL" => Failed(unchecked((int)0x8A150019), "The command requires administrator privileges."),
+                "7zip.7zip" => Failed(1603, "Installer failed."),
+                _ => Ok(),
+            }),
+            default);
+
+        // A tally that only counted failures put a package waiting on a
+        // reinstall next to one whose installer crashed, and left the reader to
+        // open every row to find out which was which.
+        Assert.Equal(
+            "1 of 5 updated. 2 need a reinstall: Git, VirtualBox. 1 needs administrator rights: WSL. 1 failed: 7-Zip.",
+            said[^1]);
     }
 
     [Fact]

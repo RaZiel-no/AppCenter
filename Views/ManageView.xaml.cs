@@ -37,6 +37,8 @@ public partial class ManageView : PageView
         InitializeComponent();
 
         UpdatesList.ItemsSource = _lists.Updates;
+        UnknownList.ItemsSource = _lists.UnknownUpdates;
+        SkippedList.ItemsSource = _lists.SkippedUpdates;
         InstalledList.ItemsSource = _lists.Installed;
         SelfUpdateCard.DataContext = _self;
         SelfUpdateIcon.Source = IconService.AppIcon;
@@ -187,6 +189,9 @@ public partial class ManageView : PageView
         RefreshSelfUpdate();
         Host.Icons.BeginLoad(_lists.AllUpdates, Dispatcher);
 
+        // Verdicts from the look-ahead are painted onto the rows as they
+        // arrive; the ones already in hand went on in Begin.
+
         // The rows were just rebuilt from scratch, so anything winget is
         // still working on has to be marked busy again.
         ApplyOperations();
@@ -269,21 +274,43 @@ public partial class ManageView : PageView
 
     private void OnUpdateAll(object sender, RoutedEventArgs e)
     {
-        if (_lists.AllUpdates.Count == 0 || !OperationService.CanStart(Operation.UpdateAllKey))
-            return;
-
-        if (!Confirm(_lists.UpdateAllQuestion()))
+        if (!OperationService.CanStart(Operation.UpdateAllKey))
             return;
 
         var batch = _lists.UpdateAllBatch();
 
+        if (batch.Count == 0 || !Confirm(_lists.UpdateAllQuestion()))
+            return;
+
+        StartBatch(batch);
+    }
+
+    /// <summary>
+    /// The unknown-version list's own "update all": the same batch, over the
+    /// packages "update all" leaves alone. One at a time is what the rows
+    /// offer; this is for the machine where there are twenty of them.
+    /// </summary>
+    private void OnUpdateUnknown(object sender, RoutedEventArgs e)
+    {
+        if (!OperationService.CanStart(Operation.UpdateAllKey))
+            return;
+
+        var batch = _lists.UnknownBatch();
+
+        if (batch.Count == 0 || !Confirm(_lists.UpdateUnknownQuestion()))
+            return;
+
+        StartBatch(batch);
+    }
+
+    private static void StartBatch(List<(string Id, string Name)> batch) =>
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
             (progress, token) => WingetService.UpgradeEachAsync(
                 batch, progress,
-                OperationService.NoteBatchStart, OperationService.NoteBatchDone,
+                OperationService.NoteBatchStart,
+                OperationService.NoteBatchDone,
                 token));
-    }
 
     /// <summary>
     /// A press on a row, or on one of the buttons inside a row - the rows are
@@ -333,6 +360,30 @@ public partial class ManageView : PageView
             OperationService.Start(
                 package.OperationKey, package.Name, OperationKind.Update,
                 (progress, token) => WingetService.UpgradeAsync(package.Id, progress, token));
+        }
+        else if (action == "reinstall")
+        {
+            if (!Confirm(ManageLists.ReinstallQuestion(package)))
+                return;
+
+            OperationService.Start(
+                package.OperationKey, package.Name, OperationKind.Reinstall,
+                (progress, token) => WingetService.ReinstallAsync(
+                    package.Id, package.IdentifyingVersion, progress, token));
+        }
+        else if (action == "skip")
+        {
+            // No question: nothing is installed or removed, and the row moves
+            // to the skipped list with the way back on it.
+            OperationService.Start(
+                package.OperationKey, package.Name, OperationKind.Skip,
+                (progress, token) => WingetService.PinAsync(package.Id, progress, token));
+        }
+        else if (action == "resume")
+        {
+            OperationService.Start(
+                package.OperationKey, package.Name, OperationKind.Resume,
+                (progress, token) => WingetService.UnpinAsync(package.Id, progress, token));
         }
         else if (action == "update-admin")
         {
@@ -413,12 +464,23 @@ public partial class ManageView : PageView
         UpdatesPanel.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         UpdatesEmpty.Visibility = shown ? Visibility.Collapsed : Visibility.Visible;
         UpdatesEmptyText.Text = _lists.UpdatesEmptyText(WingetService.IsAvailable);
+
+        // The other two lists have no empty card: a section that has nothing
+        // in it is not there.
+        UnknownHeading.Text = _lists.UnknownHeading;
+        UpdateUnknownLabel.Text = _lists.UpdateUnknownLabel;
+        UnknownSection.Visibility = _lists.UnknownUpdates.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        SkippedHeading.Text = _lists.SkippedHeading;
+        SkippedSection.Visibility = _lists.SkippedUpdates.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RefreshButtons()
     {
-        UpdateAllButton.IsEnabled =
-            _lists.AllUpdates.Count > 0 && OperationService.CanStart(Operation.UpdateAllKey);
+        var idle = OperationService.CanStart(Operation.UpdateAllKey);
+
+        UpdateAllButton.IsEnabled = _lists.UpdateAllBatch().Count > 0 && idle;
+        UpdateUnknownButton.IsEnabled = _lists.UnknownBatch().Count > 0 && idle;
     }
 
     /// <summary>
@@ -473,6 +535,11 @@ public partial class ManageView : PageView
         // moment the reload takes, and not if the reload is cancelled before it
         // can have its own say.
         RefreshStatus();
+
+        // Before the reload, which rebuilds the rows this reads: what went in
+        // over a version winget cannot read is written down now, and the
+        // reload paints it back.
+        _lists.RememberInstalls(operation);
 
         // Versions and the installed list have both moved on; the reload ends
         // by re-marking whatever is still running.

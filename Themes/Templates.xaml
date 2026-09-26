@@ -532,50 +532,90 @@
                                Visibility="Collapsed"
                                Foreground="{DynamicResource AccentBrush}"
                                Text="{x:Static services:SelfPackages.RowNote}" />
+
+                    <!--  What is unusual about this update, when anything is:
+                          winget cannot read the version, a pin holds it, the
+                          new version is a different kind of installer, the
+                          publisher asks for it one at a time. In the secondary
+                          colour rather than red - nothing has gone wrong -
+                          and gone entirely for the ordinary row.  -->
+                    <TextBlock Margin="0,3,0,0"
+                               FontFamily="{StaticResource AppFont}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Text="{Binding UpdateNote}"
+                               Visibility="{Binding UpdateNote, Converter={StaticResource EmptyToCollapsed}}" />
                 </StackPanel>
 
                 <!--  Why "update all" left this one behind, in winget's own
                       words. Indented to the name it belongs to, wrapped rather
                       than trimmed - a reason nobody can finish reading is no
-                      better than no reason - and gone entirely when empty.  -->
-                <StackPanel Grid.Row="2"
+                      better than no reason - and gone entirely when empty.
+                      The remedies sit under it: a retry with administrator
+                      rights when that is what was missing, and a reinstall
+                      when the new version is a different kind of installer -
+                      which the look-ahead can also say before anything has
+                      failed, so that button has a place of its own below.  -->
+                <StackPanel x:Name="Remedies"
+                            Grid.Row="2"
                             Grid.Column="1"
                             Grid.ColumnSpan="2"
                             Margin="14,8,0,0"
-                            Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}">
+                            Visibility="Collapsed">
                     <TextBlock FontFamily="{StaticResource AppFont}"
                                FontSize="12"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource ErrorBrush}"
-                               Text="{Binding Error}" />
+                               Text="{Binding Error}"
+                               Visibility="{Binding Error, Converter={StaticResource EmptyToCollapsed}}" />
 
-                    <!--  Under the reason it answers, and only when the reason
-                          is a want of administrator rights. The shield is
-                          Windows' own mark for a button that asks for them.  -->
-                    <Button x:Name="AdminButton"
-                            Style="{StaticResource PillButton}"
-                            Tag="update-admin"
-                            Visibility="Collapsed"
-                            HorizontalAlignment="Left"
-                            Margin="0,8,0,0"
-                            Height="30"
-                            Padding="12,0"
-                            FontSize="12.5"
-                            AutomationProperties.Name="Retry as administrator">
-                        <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="15" Height="15">
-                                <Path Style="{StaticResource Icon}"
-                                      Data="{StaticResource IconShield}"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" />
-                            </Viewbox>
-                            <TextBlock Text="Retry as administrator" Margin="7,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
+                    <StackPanel Orientation="Horizontal">
+                        <!--  Under the reason it answers, and only when the reason
+                              is a want of administrator rights. The shield is
+                              Windows' own mark for a button that asks for them.  -->
+                        <Button x:Name="AdminButton"
+                                Style="{StaticResource PillButton}"
+                                Tag="update-admin"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Left"
+                                Margin="0,8,10,0"
+                                Height="30"
+                                Padding="12,0"
+                                FontSize="12.5"
+                                AutomationProperties.Name="Retry as administrator">
+                            <StackPanel Orientation="Horizontal">
+                                <Viewbox Width="15" Height="15">
+                                    <Path Style="{StaticResource Icon}"
+                                          Data="{StaticResource IconShield}"
+                                          Stroke="{DynamicResource TextPrimaryBrush}" />
+                                </Viewbox>
+                                <TextBlock Text="Retry as administrator" Margin="7,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!--  Uninstall, then install the new version: what winget
+                              itself asks for when it will not update in place.  -->
+                        <Button x:Name="ReinstallButton"
+                                Style="{StaticResource PillButton}"
+                                Tag="reinstall"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Left"
+                                Margin="0,8,0,0"
+                                Height="30"
+                                Padding="12,0"
+                                FontSize="12.5"
+                                Content="Reinstall to update"
+                                AutomationProperties.Name="Reinstall to update" />
+                    </StackPanel>
                 </StackPanel>
 
                 <!--  The status sits beside the button rather than over it: a
                       row can be idle and still have something to say, like an
-                      update that needs the app restarted before it takes.  -->
+                      update that needs the app restarted before it takes.
+                      Skip is the quiet word before the main button: it asks
+                      winget to leave this package alone, and the row moves to
+                      the skipped list, where the same place says Resume.  -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Margin="0,0,12,0"
                                VerticalAlignment="Center"
@@ -584,12 +624,18 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                Text="{Binding Status}"
                                Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+                    <Button x:Name="SkipButton"
+                            Style="{StaticResource QuietButton}"
+                            Tag="skip"
+                            Margin="0,0,6,0"
+                            Content="Skip"
+                            AutomationProperties.Name="Skip updates for this app" />
                     <Button x:Name="UpdateButton"
                             Style="{StaticResource PillButton}"
-                            Tag="update"
+                            Tag="{Binding ActionTag}"
                             Height="32"
                             Padding="16,0"
-                            Content="Update" />
+                            Content="{Binding ActionLabel}" />
                 </StackPanel>
 
                 <!--  Spans the row rather than sitting in the status column:
@@ -608,11 +654,24 @@
             </DataTrigger>
             <DataTrigger Binding="{Binding CanRetryAsAdmin}" Value="True">
                 <Setter TargetName="AdminButton" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Remedies" Property="Visibility" Value="Visible" />
             </DataTrigger>
-            <!--  After the one above, so a busy row hides both buttons.  -->
+            <DataTrigger Binding="{Binding OffersReinstall}" Value="True">
+                <Setter TargetName="ReinstallButton" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Remedies" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding HasError}" Value="True">
+                <Setter TargetName="Remedies" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding OffersSkip}" Value="False">
+                <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <!--  After the ones above, so a busy row hides every button.  -->
             <DataTrigger Binding="{Binding IsBusy}" Value="True">
                 <Setter TargetName="UpdateButton" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="AdminButton" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="ReinstallButton" Property="Visibility" Value="Collapsed" />
             </DataTrigger>
             <DataTrigger Binding="{Binding ClosesApp}" Value="True">
                 <Setter TargetName="ClosesAppNote" Property="Visibility" Value="Visible" />

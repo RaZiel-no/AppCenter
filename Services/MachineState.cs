@@ -40,11 +40,35 @@ public static class MachineState
     /// <summary>Every install winget listed, one per row it printed.</summary>
     public static IReadOnlyList<AppPackage> Installed { get; private set; } = [];
 
-    /// <summary>Every update winget offers.</summary>
+    /// <summary>
+    /// Every update winget offers, of every kind: the ones it is sure of, the
+    /// ones whose installed version it cannot read, and the ones a pin holds
+    /// back. See <see cref="UpdateGroup"/>.
+    /// </summary>
     public static IReadOnlyList<AppPackage> Upgrades { get; private set; } = [];
+
+    /// <summary>
+    /// The updates winget is sure of: what the badge counts and a card means
+    /// by "Update available". A package whose version winget cannot read may
+    /// already be up to date, and a pinned one is being left alone; neither
+    /// is a number to put on the sidebar.
+    /// </summary>
+    public static IReadOnlyList<AppPackage> PendingUpdates { get; private set; } = [];
 
     /// <summary>False until the first refresh has landed.</summary>
     public static bool HasLoaded { get; private set; }
+
+    /// <summary>True while a read of the machine is in flight.</summary>
+    public static bool IsReading
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _current is not null;
+            }
+        }
+    }
 
     /// <summary>Raised on the UI thread each time a refresh lands.</summary>
     public static event EventHandler? Changed;
@@ -82,16 +106,25 @@ public static class MachineState
         try
         {
             // Sequential rather than parallel: two winget processes contend
-            // on the same source database.
-            var upgrades = await WingetService.ListUpgradesAsync().ConfigureAwait(false);
+            // on the same source database. The pins come first because the
+            // update list is read in their light - see ReadUpgrades.
+            var pins = await WingetService.ListPinsAsync().ConfigureAwait(false);
+            var upgrades = await WingetService.ListUpgradesAsync(pins).ConfigureAwait(false);
             var installed = await WingetService.ListInstalledAsync().ConfigureAwait(false);
+
+            UpdateMemory.Apply(upgrades);
 
             await OnUiAsync(() =>
             {
                 Upgrades = upgrades;
+                PendingUpdates = upgrades.Where(p => p.Group == UpdateGroup.Pending).ToList();
                 Installed = installed;
                 HasLoaded = true;
                 Changed?.Invoke(null, EventArgs.Empty);
+
+                // After everyone has the list: the look-ahead paints onto the
+                // same rows as it finds things out.
+                UpdateProbe.Begin(upgrades);
             }).ConfigureAwait(false);
         }
         finally
@@ -120,7 +153,7 @@ public static class MachineState
         var installed = new HashSet<string>(Installed.Select(p => p.Id), StringComparer.OrdinalIgnoreCase);
         var upgrades = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var upgrade in Upgrades)
+        foreach (var upgrade in PendingUpdates)
             upgrades.TryAdd(upgrade.Id, upgrade.AvailableVersion);
 
         foreach (var package in packages)
@@ -161,6 +194,7 @@ public static class MachineState
 
         Installed = [];
         Upgrades = [];
+        PendingUpdates = [];
         HasLoaded = false;
         Changed = null;
     }

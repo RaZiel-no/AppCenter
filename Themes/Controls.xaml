@@ -635,6 +635,45 @@
         </Setter>
     </Style>
 
+    <!--  Text only, for the action a row offers beside its main one: "Skip".
+          No pill of its own, so a row with two buttons still reads as a row
+          with one. Underlined under the mouse and on focus, which is all the
+          affordance a word needs.  -->
+    <Style x:Key="QuietButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <!--  The underline is a border under the word, drawn
+                              only under the mouse, so it sits where an
+                              underline would and needs no text decoration.  -->
+                        <Border x:Name="Rule"
+                                BorderThickness="0,0,0,1"
+                                BorderBrush="Transparent"
+                                VerticalAlignment="Center">
+                            <ContentPresenter x:Name="Label"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Rule" Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}" />
+                            <Setter TargetName="Label" Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!--  Outlined, sits on the Explore banner: "Discover more"  -->
     <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
         <Setter Property="FontSize" Value="14" />

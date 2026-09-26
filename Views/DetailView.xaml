@@ -154,6 +154,17 @@
                             Height="40"
                             Content="Update"
                             Click="OnUpdateClick" />
+                    <!--  Only after an update has failed for the one reason a
+                          reinstall answers: the new version is a different
+                          kind of installer, and winget will not update in
+                          place. Uninstall, then install - what winget asks.  -->
+                    <Button x:Name="ReinstallButton"
+                            Style="{StaticResource GreenButton}"
+                            Visibility="Collapsed"
+                            MinWidth="120"
+                            Height="40"
+                            Content="Reinstall to update"
+                            Click="OnReinstallClick" />
                     <!--  Starts the installed app, when the Start menu has it.
                           The primary action once there is nothing to update;
                           beside Update, the quiet one.  -->
