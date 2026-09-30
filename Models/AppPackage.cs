@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using AppCenter.Services;
 
 namespace AppCenter.Models;
 
@@ -235,56 +236,63 @@ public sealed class AppPackage : INotifyPropertyChanged
         && _recordedInstall is { } recorded
         && string.Equals(recorded.Version, AvailableVersion, StringComparison.OrdinalIgnoreCase);
 
-    private bool _installerMismatch;
-
-    /// <summary>
-    /// True when a look ahead found the new version comes as a different kind
-    /// of installer from the one on the machine, which winget will not update
-    /// in place. Advice rather than a verdict - a listing can carry a second
-    /// installer the look-ahead does not see - so Update stays on offer beside
-    /// the reinstall. Painted by <c>UpdateProbe</c>.
-    /// </summary>
-    public bool InstallerMismatch
-    {
-        get => _installerMismatch;
-        set
-        {
-            if (!Set(ref _installerMismatch, value))
-                return;
-
-            OnPropertyChanged(nameof(OffersReinstall));
-            OnPropertyChanged(nameof(UpdateNote));
-        }
-    }
-
-    /// <summary>The kind of installer on the machine, as winget classes it: exe, msi, msix, portable.</summary>
-    public string InstalledKind { get; set; } = string.Empty;
-
-    /// <summary>The kind of installer the new version comes as: inno, wix, msix and so on.</summary>
-    public string OfferedKind { get; set; } = string.Empty;
-
     private bool _canReinstall;
 
     /// <summary>
     /// True when this package's last update failed because the new version is
-    /// a different kind of installer. Painted on by OperationService.Paint,
-    /// like <see cref="CanRetryAsAdmin"/>.
+    /// a different kind of installer, or its installer will not update the
+    /// copy in place - so the row offers to uninstall and install afresh.
+    /// Painted on by OperationService.Paint, like <see cref="CanRetryAsAdmin"/>.
     /// </summary>
     public bool CanReinstall
     {
         get => _canReinstall;
+        set => Set(ref _canReinstall, value);
+    }
+
+    private bool _cannotUpdate;
+
+    /// <summary>
+    /// True when this package's last update failed because winget cannot
+    /// update this copy from here: the new version is a different kind of
+    /// installer, or none of its installers fits what is there. Wider than
+    /// <see cref="CanReinstall"/> - a reinstall gets round the first of those
+    /// and only the first - and what the app's own updater gets round in
+    /// either case. Painted on by OperationService.Paint.
+    /// </summary>
+    public bool CannotUpdate
+    {
+        get => _cannotUpdate;
         set
         {
-            if (!Set(ref _canReinstall, value))
-                return;
-
-            OnPropertyChanged(nameof(OffersReinstall));
-            OnPropertyChanged(nameof(UpdateNote));
+            if (Set(ref _cannotUpdate, value))
+                OnPropertyChanged(nameof(OffersOpen));
         }
     }
 
-    /// <summary>Whether the row shows "Reinstall to update": winget has said so, or the look-ahead has.</summary>
-    public bool OffersReinstall => _canReinstall || _installerMismatch;
+    private StartEntry? _launch;
+
+    /// <summary>
+    /// What starts this app from the Start menu, when it is there. Painted by
+    /// <c>AppLauncher.PaintAsync</c> after each read of the machine.
+    /// </summary>
+    public StartEntry? Launch
+    {
+        get => _launch;
+        set
+        {
+            if (Set(ref _launch, value))
+                OnPropertyChanged(nameof(OffersOpen));
+        }
+    }
+
+    /// <summary>
+    /// Whether the row shows "Open to update": winget cannot update this copy,
+    /// and the app is in the Start menu to be opened and updated from inside.
+    /// An app that installs its own way mostly updates its own way too, and
+    /// that is what the offer is for.
+    /// </summary>
+    public bool OffersOpen => _launch is not null && _cannotUpdate;
 
     /// <summary>What the row's main button says.</summary>
     public string ActionLabel =>
@@ -318,22 +326,12 @@ public sealed class AppPackage : INotifyPropertyChanged
             if (HasUnknownVersion)
                 return $"winget cannot read the installed version, so it cannot tell whether {AvailableVersion} is newer. Update installs {AvailableVersion} over what is there.";
 
-            // The look-ahead's guess gives way once winget has refused for
-            // real: the reason in red under the row says it, with the code.
-            if (_installerMismatch && !_canReinstall)
-                return $"The new version comes as {Article(OfferedKind)} {OfferedKind} installer and the installed copy is {Article(InstalledKind)} {InstalledKind} one, " +
-                       "so winget will most likely refuse to update it in place. Reinstall to update.";
-
             if (RequiresExplicitUpdate)
                 return "Updates itself, so winget leaves it out of “update all” at the publisher's request. App Center can still update it.";
 
             return string.Empty;
         }
     }
-
-    /// <summary>"an exe", "an msi", "a portable": the letters read as names, not sounds.</summary>
-    private static string Article(string kind) =>
-        kind.Length > 0 && "aeioum".Contains(char.ToLowerInvariant(kind[0])) ? "an" : "a";
 
     /// <summary>
     /// True when the installed list held more than one version of this id, so

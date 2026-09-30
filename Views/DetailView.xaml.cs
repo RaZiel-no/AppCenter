@@ -130,7 +130,7 @@ public partial class DetailView : PageView
         // and Install is the one thing left worth offering.
         try
         {
-            await MachineState.RefreshAsync(_cts.Token);
+            await MachineState.ReadAsync(_cts.Token);
         }
         catch (OperationCanceledException)
         {

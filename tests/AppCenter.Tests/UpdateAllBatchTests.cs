@@ -197,7 +197,7 @@ public class UpdateAllBatchTests
         // reinstall next to one whose installer crashed, and left the reader to
         // open every row to find out which was which.
         Assert.Equal(
-            "1 of 5 updated. 2 need a reinstall: Git, VirtualBox. 1 needs administrator rights: WSL. 1 failed: 7-Zip.",
+            "1 of 5 updated. 2 cannot be updated in place: Git, VirtualBox. 1 needs administrator rights: WSL. 1 failed: 7-Zip.",
             said[^1]);
     }
 

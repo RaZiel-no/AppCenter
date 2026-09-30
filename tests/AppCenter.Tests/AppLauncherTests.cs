@@ -1,3 +1,4 @@
+using AppCenter.Models;
 using AppCenter.Services;
 using Xunit;
 
@@ -24,6 +25,34 @@ public class AppLauncherTests
         new("Python install manager", "PythonSoftwareFoundation.PythonManager_3847v3x7pw1km!Py.Manager.Exe"),
         new("Git Bash", @"{6D809377-6AF0-444B-8957-A3773F02200E}\Git\git-bash.exe"),
     ];
+
+    [Fact]
+    public async Task Paints_each_update_row_with_what_starts_it()
+    {
+        // winget lists Firefox by its Add/Remove name, locale and all; the
+        // catalogue's is the one Start goes by. Winamp is found past its
+        // uninstaller. 7-Zip is not in Start at all.
+        var firefox = new AppPackage { Id = "Mozilla.Firefox", Name = "Mozilla Firefox (x64 nb-NO)" };
+        var winamp = new AppPackage { Id = "Winamp.Winamp", Name = "Winamp" };
+        var sevenZip = new AppPackage { Id = "7zip.7zip", Name = "7-Zip" };
+        var catalogue = new Dictionary<string, CatalogEntry> { ["Mozilla.Firefox"] = new() { Name = "Firefox" } };
+
+        var reader = AppLauncher.Reader;
+        AppLauncher.Reader = () => Task.FromResult<IReadOnlyList<StartEntry>>(Start);
+
+        try
+        {
+            await AppLauncher.PaintAsync([firefox, winamp, sevenZip], catalogue);
+        }
+        finally
+        {
+            AppLauncher.Reader = reader;
+        }
+
+        Assert.Equal("Firefox", firefox.Launch?.Name);
+        Assert.Equal("Winamp", winamp.Launch?.Name);
+        Assert.Null(sevenZip.Launch);
+    }
 
     [Fact]
     public void Prefers_the_entry_called_just_what_the_package_is_called()

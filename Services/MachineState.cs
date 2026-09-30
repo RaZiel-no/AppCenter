@@ -58,36 +58,24 @@ public static class MachineState
     /// <summary>False until the first refresh has landed.</summary>
     public static bool HasLoaded { get; private set; }
 
-    /// <summary>True while a read of the machine is in flight.</summary>
-    public static bool IsReading
-    {
-        get
-        {
-            lock (Gate)
-            {
-                return _current is not null;
-            }
-        }
-    }
-
     /// <summary>Raised on the UI thread each time a refresh lands.</summary>
     public static event EventHandler? Changed;
 
     /// <summary>
-    /// Reads the machine again and returns when the result is in. The token
-    /// only stops the caller waiting; the read itself finishes regardless, so
-    /// a page that goes away mid-read still leaves a fresh answer for the next.
+    /// Reads the machine again because something may have changed - an
+    /// operation has just finished - and returns when the result is in. A run
+    /// that has only just started is joined; one that has been going for a
+    /// while may have looked before the change, so one more run is promised
+    /// after it. The token only stops the caller waiting; the read itself
+    /// finishes regardless, so a page that goes away mid-read still leaves a
+    /// fresh answer for the next.
     /// </summary>
     public static Task RefreshAsync(CancellationToken ct = default)
     {
         lock (Gate)
         {
             if (_current is null)
-            {
-                _currentStartedAt = Environment.TickCount64;
-                _current = RunAsync();
-                return _current.WaitAsync(ct);
-            }
+                return Start().WaitAsync(ct);
 
             if (Environment.TickCount64 - _currentStartedAt < JoinWindow.TotalMilliseconds)
                 return _current.WaitAsync(ct);
@@ -99,6 +87,32 @@ public static class MachineState
             _next ??= _current.ContinueWith(_ => RunAsync(), TaskScheduler.Default).Unwrap();
             return _next.WaitAsync(ct);
         }
+    }
+
+    /// <summary>
+    /// Reads the machine as it is, for a page opening on it: the read already
+    /// under way, however long it has been going, or a new one when there is
+    /// none. Nothing this caller knows of has changed, so the run in flight -
+    /// or the one already promised after it - is the answer. Going through
+    /// <see cref="RefreshAsync"/> instead promised a second read after the
+    /// launch one, and the first visit to Manage waited for both.
+    /// </summary>
+    public static Task ReadAsync(CancellationToken ct = default)
+    {
+        lock (Gate)
+        {
+            // A run already promised after the one in flight is there because
+            // someone knows of a change; a page opening now wants that one.
+            return (_next ?? _current ?? Start()).WaitAsync(ct);
+        }
+    }
+
+    /// <summary>Begins a run, under the lock.</summary>
+    private static Task Start()
+    {
+        _currentStartedAt = Environment.TickCount64;
+        _current = RunAsync();
+        return _current;
     }
 
     private static async Task RunAsync()
@@ -122,9 +136,10 @@ public static class MachineState
                 HasLoaded = true;
                 Changed?.Invoke(null, EventArgs.Empty);
 
-                // After everyone has the list: the look-ahead paints onto the
-                // same rows as it finds things out.
-                UpdateProbe.Begin(upgrades);
+                // After everyone has the list: which of the updates the Start
+                // menu can start, for the rows winget turns out not to be able
+                // to update.
+                _ = AppLauncher.PaintAsync(upgrades, CatalogService.AllById());
             }).ConfigureAwait(false);
         }
         finally

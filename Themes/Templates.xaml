@@ -553,10 +553,10 @@
                       than trimmed - a reason nobody can finish reading is no
                       better than no reason - and gone entirely when empty.
                       The remedies sit under it: a retry with administrator
-                      rights when that is what was missing, and a reinstall
-                      when the new version is a different kind of installer -
-                      which the look-ahead can also say before anything has
-                      failed, so that button has a place of its own below.  -->
+                      rights when that is what was missing, the app itself
+                      when winget cannot update the copy and Start can open
+                      it, and a reinstall when the new version is a different
+                      kind of installer.  -->
                 <StackPanel x:Name="Remedies"
                             Grid.Row="2"
                             Grid.Column="1"
@@ -593,6 +593,22 @@
                                 <TextBlock Text="Retry as administrator" Margin="7,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+
+                        <!--  Starts the app, for the update it can do from
+                              inside: an app that installs its own way mostly
+                              updates its own way too. Before Reinstall, which
+                              is the longer way round the same refusal.  -->
+                        <Button x:Name="OpenToUpdateButton"
+                                Style="{StaticResource PillButton}"
+                                Tag="open"
+                                Visibility="Collapsed"
+                                HorizontalAlignment="Left"
+                                Margin="0,8,10,0"
+                                Height="30"
+                                Padding="12,0"
+                                FontSize="12.5"
+                                Content="Open to update"
+                                AutomationProperties.Name="Open the app to update it from inside" />
 
                         <!--  Uninstall, then install the new version: what winget
                               itself asks for when it will not update in place.  -->
@@ -656,7 +672,11 @@
                 <Setter TargetName="AdminButton" Property="Visibility" Value="Visible" />
                 <Setter TargetName="Remedies" Property="Visibility" Value="Visible" />
             </DataTrigger>
-            <DataTrigger Binding="{Binding OffersReinstall}" Value="True">
+            <DataTrigger Binding="{Binding OffersOpen}" Value="True">
+                <Setter TargetName="OpenToUpdateButton" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Remedies" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding CanReinstall}" Value="True">
                 <Setter TargetName="ReinstallButton" Property="Visibility" Value="Visible" />
                 <Setter TargetName="Remedies" Property="Visibility" Value="Visible" />
             </DataTrigger>
@@ -672,6 +692,7 @@
                 <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="AdminButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="ReinstallButton" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="OpenToUpdateButton" Property="Visibility" Value="Collapsed" />
             </DataTrigger>
             <DataTrigger Binding="{Binding ClosesApp}" Value="True">
                 <Setter TargetName="ClosesAppNote" Property="Visibility" Value="Visible" />

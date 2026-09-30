@@ -787,36 +787,8 @@ public static class WingetService
     }
 
     // ---------------------------------------------------------------
-    // What winget knows about one installed package
+    // What winget knows about one package
     // ---------------------------------------------------------------
-
-    /// <summary>
-    /// `list --details` for one package: the show-like block winget prints
-    /// for an installed package, including the kind of installer it came
-    /// from and the scope it went in at. Empty when winget will not say -
-    /// the option arrived in winget 1.28.190, and an older one refuses it.
-    /// </summary>
-    public static async Task<string> ListDetailsAsync(string id, CancellationToken ct = default)
-    {
-        var result = await RunAsync(
-            ["list", "--id", id, "--exact", "--details", .. CommonArgs],
-            ct: ct).ConfigureAwait(false);
-
-        return result.Success ? result.StdOut : string.Empty;
-    }
-
-    /// <summary>
-    /// `show` for one package, as printed: the listing, and the installer
-    /// winget would pick for this machine. <see cref="ShowAsync"/> reads the
-    /// same output into fields, but drops the indented installer block on
-    /// the way, which is the part <see cref="UpdateProbe"/> is after.
-    /// </summary>
-    public static async Task<string> ShowOutputAsync(string id, CancellationToken ct = default)
-    {
-        var result = await RunAsync(["show", "--id", id, "--exact", .. CommonArgs], ct: ct).ConfigureAwait(false);
-
-        return result.Success ? result.StdOut : string.Empty;
-    }
 
     /// <summary>Fills in publisher, description and homepage for a single package.</summary>
     public static async Task<Dictionary<string, string>> ShowAsync(string id, CancellationToken ct = default)
@@ -1114,10 +1086,10 @@ public static class WingetService
         WingetErrors.Classify(result.ExitCode, Said(result), result.StdOut);
 
     /// <summary>
-    /// The failures of a batch, by what to do about them: " 2 need a reinstall:
-    /// A, B. 1 failed: C." A tally that only counted failures put a package
-    /// waiting on a reinstall next to one whose installer crashed, and left the
-    /// reader to open each row to find out which was which.
+    /// The failures of a batch, by what to do about them: " 2 cannot be updated
+    /// in place: A, B. 1 failed: C." A tally that only counted failures put a
+    /// package waiting on a reinstall next to one whose installer crashed, and
+    /// left the reader to open each row to find out which was which.
     /// </summary>
     internal static string Grouped(IReadOnlyList<(string Name, FailureKind Kind)> failed)
     {
@@ -1125,7 +1097,7 @@ public static class WingetService
 
         foreach (var (kind, sentence) in new[]
                  {
-                     (FailureKind.NeedsReinstall, "need a reinstall"),
+                     (FailureKind.NeedsReinstall, "cannot be updated in place"),
                      (FailureKind.WantsAdmin, "need administrator rights"),
                      (FailureKind.Pinned, "are skipped by a winget pin"),
                      (FailureKind.NotApplicable, "have no update winget can apply here"),
@@ -1137,12 +1109,11 @@ public static class WingetService
             if (names.Count == 0)
                 continue;
 
-            // "1 need a reinstall" reads wrong; "1 needs a reinstall" is what a
-            // person would write. The verbs that change are the ones that end in
-            // a consonant when plural.
+            // "1 need administrator rights" reads wrong; "1 needs administrator
+            // rights" is what a person would write. The verbs that change are
+            // the ones that end in a consonant when plural.
             var verb = names.Count == 1 ? sentence switch
             {
-                "need a reinstall" => "needs a reinstall",
                 "need administrator rights" => "needs administrator rights",
                 "are skipped by a winget pin" => "is skipped by a winget pin",
                 "have no update winget can apply here" => "has no update winget can apply here",

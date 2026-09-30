@@ -25,5 +25,15 @@ namespace AppCenter.Tests
         /// </summary>
         [System.Runtime.CompilerServices.ModuleInitializer]
         internal static void NoSettingsFile() => AppCenter.Services.UpdateMemory.UseScratch();
+
+        /// <summary>
+        /// The Start menu is read to find what starts each update row. The
+        /// tests get an empty one, so none of them enumerates the shell on the
+        /// machine running them; the ones about the match hand in their own.
+        /// </summary>
+        [System.Runtime.CompilerServices.ModuleInitializer]
+        internal static void NoStartMenu() =>
+            AppCenter.Services.AppLauncher.Reader =
+                () => System.Threading.Tasks.Task.FromResult<System.Collections.Generic.IReadOnlyList<AppCenter.Services.StartEntry>>([]);
     }
 }

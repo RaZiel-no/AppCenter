@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using AppCenter.Models;
 
 namespace AppCenter.Services;
 
@@ -63,6 +64,39 @@ public static partial class AppLauncher
         thread.Start();
 
         return done.Task;
+    }
+
+    /// <summary>The Start menu read, as a function so a test can stand in for it.</summary>
+    internal static Func<Task<IReadOnlyList<StartEntry>>> Reader = ReadAsync;
+
+    /// <summary>
+    /// Finds, for each update row, what starts the app, so a row winget turns
+    /// out not to be able to update can offer to open the app and let it
+    /// update itself. One read of the Start menu for the whole list, after
+    /// the list has landed; called on the UI thread, and paints back on it. A
+    /// read that fails only costs the offer.
+    ///
+    /// Matched on the name winget lists the package under and the one the
+    /// catalogue gives it, as the package's page does: winget's is the
+    /// Add/Remove name, which can carry a locale or an edition Start does not.
+    /// </summary>
+    public static async Task PaintAsync(
+        IReadOnlyList<AppPackage> packages, IReadOnlyDictionary<string, CatalogEntry> catalogue)
+    {
+        if (packages.Count == 0)
+            return;
+
+        var entries = await Reader();
+
+        foreach (var package in packages)
+        {
+            var names = new List<string> { package.Name };
+
+            if (catalogue.TryGetValue(package.Id, out var listed))
+                names.Add(listed.Name);
+
+            package.Launch = Find(entries, names, package.PackageFamilyName);
+        }
     }
 
     private static List<StartEntry> Read()

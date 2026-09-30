@@ -51,7 +51,10 @@ public enum FailureKind
 
     /// <summary>
     /// winget listed an update and then found no installer it could apply -
-    /// wrong scope, architecture or Windows version for this machine.
+    /// wrong scope, architecture or Windows version for this machine. A
+    /// version on offer that is no newer, and an installed version winget
+    /// cannot read, are not this: nothing about the installers is wrong
+    /// there, so neither a reinstall nor the app's own updater is the answer.
     /// </summary>
     NotApplicable,
 }
@@ -80,7 +83,7 @@ public static partial class WingetErrors
         return unchecked((uint)code) switch
         {
             0x8A150068 => FailureKind.Pinned,
-            0x8A15002B or 0x8A150010 or 0x8A15004F or 0x8A150050 => FailureKind.NotApplicable,
+            0x8A15002B or 0x8A150010 or 0x8A15005F => FailureKind.NotApplicable,
             _ => FailureKind.Other,
         };
     }
@@ -93,6 +96,17 @@ public static partial class WingetErrors
     /// </summary>
     public static bool NeedsReinstall(int code) =>
         unchecked((uint)code) is 0x8A15008E or 0x8A150114;
+
+    /// <summary>
+    /// Whether the failure means winget cannot update this copy from here at
+    /// all - the new version is a different kind of installer, or none of its
+    /// installers fits the copy that is there - as against a want of rights or
+    /// an installer that crashed, where a retry may do. The app's own updater,
+    /// if it has one, gets round every one of these, which is what a row's
+    /// Open button is for.
+    /// </summary>
+    public static bool CannotUpdateHere(FailureKind kind) =>
+        kind is FailureKind.NeedsReinstall or FailureKind.NotApplicable;
 
     [GeneratedRegex(@"exit code:?\s*(?:0x(?<hex>[0-9a-f]{1,8})\b|(?<dec>-?\d+))", RegexOptions.IgnoreCase)]
     private static partial Regex InstallerExitCode();
@@ -226,7 +240,7 @@ public static partial class WingetErrors
         0x8A150019 => "This needs administrator rights. Run App Center as administrator and try again.",
         0x8A15001B or 0x8A15001C => "A policy on this machine blocks the Microsoft Store, so Store packages cannot be installed from here.",
         0x8A15001E => "The Microsoft Store could not install this package. Try installing it from the Store app itself.",
-        0x8A15002B => "winget listed a newer version but has no installer for it that fits this copy - usually the new one installs for one user where this one is for the whole machine, or the other way round, or it needs a newer Windows. Reinstalling gets round it: App Center uninstalls this copy, then installs the new version.",
+        0x8A15002B => "winget listed a newer version but has no installer for it that fits this copy - usually the new one installs for one user where this one is for the whole machine, or the other way round, or it needs a newer Windows. Open the app and update it from inside, or uninstall it and install the new version afresh.",
         0x8A15002D => "The installer failed a security check, which normally means SmartScreen or an antivirus flagged it.",
         0x8A15002E or 0x8A150086 => "The download was cut short and the file is not what the listing says it should be. Check the connection and try again.",
         0x8A15002F => "Windows has no record of how to uninstall this package, so winget cannot do it. Try Windows Settings › Apps › Installed apps.",
@@ -255,7 +269,7 @@ public static partial class WingetErrors
         0x8A150075 or 0x8A150076 or 0x8A150077 or 0x8A150078 => "The package source needs you to sign in, and that did not succeed.",
         0x8A15007D => "This package was installed for the current user only, and cannot be changed while running as administrator. Run App Center normally and try again.",
         0x8A15007F or 0x8A150080 or 0x8A150081 or 0x8A150082 or 0x8A150083 or 0x8A150084 or 0x8A150085 => "The Microsoft Store could not supply this package. Try installing it from the Store app itself.",
-        0x8A15008E => "The new version comes as a different kind of installer from the one on this machine, so winget cannot update it in place. Reinstall to update: App Center uninstalls this copy, then installs the new version.",
+        0x8A15008E => "The new version comes as a different kind of installer from the one on this machine, so winget cannot update it in place. Open the app and update it from inside, or reinstall: App Center uninstalls this copy, then installs the new version.",
 
         // winget: what the installer told it.
         0x8A150101 or 0x8A150111 or 0x80073D02 => "The app is running. Close it and try again.",
@@ -272,7 +286,7 @@ public static partial class WingetErrors
         0x8A15010E => "A newer version than this one is already installed.",
         0x8A15010F => "Policies on this machine block this installation.",
         0x8A150113 => "This package does not support this version of Windows or this processor.",
-        0x8A150114 => "The installer cannot update the existing copy in place. Reinstall to update: App Center uninstalls this copy, then installs the new version.",
+        0x8A150114 => "The installer cannot update the existing copy in place. Open the app and update it from inside, or reinstall: App Center uninstalls this copy, then installs the new version.",
         0x8A150115 => "The installer failed with an error of its own.",
 
         // Windows: COM and Win32, wrapped as HRESULTs.

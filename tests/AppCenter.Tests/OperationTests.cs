@@ -214,7 +214,7 @@ public class OperationTests
 
         Assert.True(operation.Failed);
         Assert.StartsWith("The new version comes as a different kind of installer", operation.Summary);
-        Assert.Contains("Reinstall to update", operation.Summary);
+        Assert.Contains("update it from inside, or reinstall", operation.Summary);
         Assert.EndsWith("(0x8A15008E)", operation.Summary);
     }
 

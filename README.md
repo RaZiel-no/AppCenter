@@ -148,15 +148,15 @@ each kind apart, because each means something different to press:
 Some updates winget lists it then refuses, because the new version is a
 different kind of installer from the one on the machine (an MSI over an EXE, or
 the other way round) and winget will not update in place. When that happens
-the row says so in winget's words and offers **Reinstall to update**:
-uninstall, then install the new version, which is what winget itself asks for.
-On winget 1.28.190 and newer, App Center also looks ahead after the list has
-landed — `winget list --details` says what kind of installer a package came
-from, `winget show` what kind the new version comes as — and marks such rows
-before anything is pressed. That is advice, not a verdict (a listing can carry
-more than one installer), so Update stays on the row beside the reinstall. The
-closing line of "Update all" groups what it could not do by the same reasons:
-what needs a reinstall, what needs administrator rights, what a pin held back.
+the row says so in winget's words and offers two ways round it. **Open to
+update** starts the app, when the Start menu has it, for the update most apps
+can do from inside (Help › About, or their settings). **Reinstall to update**
+is uninstall, then install the new version, which is what winget itself asks
+for. Open is offered on its own when winget has no installer that fits the copy
+at all, where a reinstall is not the answer. The closing line of "Update all"
+groups what it could not do by the same reasons:
+what it cannot update in place, what needs administrator rights, what a pin
+held back.
 
 ### Keyboard
 
@@ -193,7 +193,6 @@ Models/ManageLists.cs     what Manage holds and says, apart from the page
 Services/
   WingetService.cs        async wrapper + fixed-width table parser
   MachineState.cs         the one shared read of what winget lists as installed
-  UpdateProbe.cs          the look-ahead for updates winget will refuse in place
   UpdateMemory.cs         what went in over the versions winget cannot read
   AppInfo.cs              this build's version, repository and package id
   AppUpdateService.cs     App Center's own releases from GitHub, ahead of winget

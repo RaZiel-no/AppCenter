@@ -323,7 +323,6 @@ public class OperationServiceTests : IDisposable
         OperationService.Paint(package, OperationKind.Update);
 
         Assert.True(package.CanReinstall);
-        Assert.True(package.OffersReinstall);
     }
 
     [Fact]
@@ -337,6 +336,80 @@ public class OperationServiceTests : IDisposable
         OperationService.Paint(package, OperationKind.Uninstall);
 
         Assert.False(package.CanReinstall);
+    }
+
+    [Fact]
+    public void Offers_to_open_the_app_once_winget_cannot_update_the_copy_from_here()
+    {
+        var package = new AppPackage { Id = "Git.Git", Name = "Git" };
+
+        var (_, finish) = Start("Git.Git");
+        Finish(finish, "Git.Git", new WingetResult(unchecked((int)0x8A15002B), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        // No installer fits: not a reinstall's to get round, but the app's own
+        // updater may be - once the Start menu has said what starts it.
+        Assert.True(package.CannotUpdate);
+        Assert.False(package.CanReinstall);
+        Assert.False(package.OffersOpen);
+
+        package.Launch = new StartEntry("Git Bash", @"{6D809377-6AF0-444B-8957-A3773F02200E}\Git\git-bash.exe");
+
+        Assert.True(package.OffersOpen);
+    }
+
+    [Fact]
+    public void Offers_to_open_the_app_under_a_batch_failure_winget_cannot_get_round()
+    {
+        var git = new AppPackage { Id = "Git.Git", Name = "Git", Launch = new StartEntry("Git Bash", @"C:\Git\git-bash.exe") };
+        var docker = new AppPackage { Id = "Docker.DockerDesktop", Name = "Docker Desktop", Launch = new StartEntry("Docker Desktop", @"C:\Docker\Docker Desktop.exe") };
+        var sevenZip = new AppPackage { Id = "7zip.7zip", Name = "7-Zip", Launch = new StartEntry("7-Zip File Manager", @"C:\7-Zip\7zFM.exe") };
+
+        Start(Operation.UpdateAllKey, OperationKind.UpdateAll, "all packages");
+        OperationService.NoteBatchDone("Git.Git", "A different kind of installer. (0x8A15008E)", RestartNeed.None, FailureKind.NeedsReinstall);
+        OperationService.NoteBatchDone("Docker.DockerDesktop", "No installer fits this copy. (0x8A15002B)", RestartNeed.None, FailureKind.NotApplicable);
+        OperationService.NoteBatchDone("7zip.7zip", "Installer failed. (1603)", RestartNeed.None, FailureKind.Other);
+
+        OperationService.Paint(git, OperationKind.Update);
+        OperationService.Paint(docker, OperationKind.Update);
+        OperationService.Paint(sevenZip, OperationKind.Update);
+
+        // Both ways round the refusal on the first; only the app's own on the
+        // second; neither for an installer that crashed, where a retry may do.
+        Assert.True(git.OffersOpen);
+        Assert.True(git.CanReinstall);
+        Assert.True(docker.OffersOpen);
+        Assert.False(docker.CanReinstall);
+        Assert.False(sevenZip.OffersOpen);
+    }
+
+    [Fact]
+    public void Offers_no_open_on_a_row_that_offers_an_uninstall()
+    {
+        var package = new AppPackage { Id = "Git.Git", Name = "Git", Launch = new StartEntry("Git Bash", @"C:\Git\git-bash.exe") };
+
+        var (_, finish) = Start("Git.Git");
+        Finish(finish, "Git.Git", new WingetResult(unchecked((int)0x8A15008E), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Uninstall);
+
+        Assert.False(package.OffersOpen);
+    }
+
+    [Fact]
+    public void Offers_no_open_when_the_version_on_offer_is_no_newer()
+    {
+        var package = new AppPackage { Id = "Git.Git", Name = "Git", Launch = new StartEntry("Git Bash", @"C:\Git\git-bash.exe") };
+
+        var (_, finish) = Start("Git.Git");
+        Finish(finish, "Git.Git", new WingetResult(unchecked((int)0x8A15004F), string.Empty, string.Empty));
+
+        OperationService.Paint(package, OperationKind.Update);
+
+        // Nothing to update, so nothing for the app's own updater to do either.
+        Assert.False(package.CannotUpdate);
+        Assert.False(package.OffersOpen);
     }
 
     [Fact]

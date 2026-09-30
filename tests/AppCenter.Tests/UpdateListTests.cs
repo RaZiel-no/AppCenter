@@ -200,24 +200,6 @@ public class UpdateListTests
     }
 
     [Fact]
-    public void A_row_the_look_ahead_flagged_offers_a_reinstall_beside_update()
-    {
-        var package = new AppPackage { Id = "Git.Git", Name = "Git", Version = "2.47", AvailableVersion = "2.55" };
-
-        package.InstalledKind = "msi";
-        package.OfferedKind = "inno";
-        package.InstallerMismatch = true;
-
-        // Advice, not a refusal: Update stays, a reinstall is offered beside it.
-        Assert.Equal("Update", package.ActionLabel);
-        Assert.True(package.OffersReinstall);
-        Assert.Equal(
-            "The new version comes as an inno installer and the installed copy is an msi one, " +
-            "so winget will most likely refuse to update it in place. Reinstall to update.",
-            package.UpdateNote);
-    }
-
-    [Fact]
     public void A_row_already_installed_over_says_when_and_offers_a_reinstall()
     {
         var package = new AppPackage { Id = "Git.Git", Name = "Git", Version = "Unknown", AvailableVersion = "2.55" };

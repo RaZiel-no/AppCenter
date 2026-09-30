@@ -66,10 +66,22 @@ public class WingetErrorsTests
     [InlineData(unchecked((int)0x8A150068), "", FailureKind.Pinned)]
     [InlineData(unchecked((int)0x8A15002B), "", FailureKind.NotApplicable)]
     [InlineData(unchecked((int)0x8A150010), "", FailureKind.NotApplicable)]
+    [InlineData(unchecked((int)0x8A15005F), "", FailureKind.NotApplicable)]                        // wants a folder App Center does not pick
+    [InlineData(unchecked((int)0x8A15004F), "", FailureKind.Other)]                                // not newer: nothing to apply, nothing to mend
+    [InlineData(unchecked((int)0x8A150050), "", FailureKind.Other)]                                // version unreadable: not an installer's fault
     [InlineData(1603, "", FailureKind.Other)]
     [InlineData(unchecked((int)0x8A150006), "Installer failed with exit code: 1603", FailureKind.Other)]
     public void Sorts_a_failure_by_what_to_do_about_it(int code, string said, FailureKind expected) =>
         Assert.Equal(expected, WingetErrors.Classify(code, said));
+
+    [Theory]
+    [InlineData(FailureKind.NeedsReinstall, true)]
+    [InlineData(FailureKind.NotApplicable, true)]
+    [InlineData(FailureKind.WantsAdmin, false)]
+    [InlineData(FailureKind.Pinned, false)]
+    [InlineData(FailureKind.Other, false)]
+    public void Knows_when_winget_cannot_update_the_copy_from_here(FailureKind kind, bool cannot) =>
+        Assert.Equal(cannot, WingetErrors.CannotUpdateHere(kind));
 
     [Fact]
     public void Says_when_windows_is_waiting_to_be_restarted_as_an_installer_fails()

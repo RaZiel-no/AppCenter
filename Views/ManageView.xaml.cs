@@ -141,7 +141,7 @@ public partial class ManageView : PageView
     /// lists until winget answers; every visit after opens on the lists as
     /// they were and lets the refresh land behind them.
     /// </summary>
-    private async Task ReloadAsync()
+    private async Task ReloadAsync(bool changed = false)
     {
         _cts.Cancel();
         _cts = new CancellationTokenSource();
@@ -158,8 +158,10 @@ public partial class ManageView : PageView
         try
         {
             // One read for the whole app - the badge and the cards on the
-            // browse pages follow from the same one. See MachineState.
-            await MachineState.RefreshAsync(token);
+            // browse pages follow from the same one, and a read already under
+            // way is joined rather than followed by another - unless this page
+            // knows of a change that read may have missed. See MachineState.
+            await (changed ? MachineState.RefreshAsync(token) : MachineState.ReadAsync(token));
             token.ThrowIfCancellationRequested();
 
             ShowLoading(false);
@@ -188,9 +190,6 @@ public partial class ManageView : PageView
         ApplyFilter();
         RefreshSelfUpdate();
         Host.Icons.BeginLoad(_lists.AllUpdates, Dispatcher);
-
-        // Verdicts from the look-ahead are painted onto the rows as they
-        // arrive; the ones already in hand went on in Begin.
 
         // The rows were just rebuilt from scratch, so anything winget is
         // still working on has to be marked busy again.
@@ -270,7 +269,9 @@ public partial class ManageView : PageView
     // ---------------------------------------------------------------
 
     /// <summary>The badge follows the same read, so nothing else to ask for.</summary>
-    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await ReloadAsync();
+    // The user asking is a caller that knows of a change: whatever they did
+    // since the last read is what they want to see.
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await ReloadAsync(changed: true);
 
     private void OnUpdateAll(object sender, RoutedEventArgs e)
     {
@@ -349,7 +350,32 @@ public partial class ManageView : PageView
             return;
         }
 
-        if (button?.DataContext is not AppPackage package || !OperationService.CanStart(package.OperationKey))
+        if (button?.DataContext is not AppPackage package)
+            return;
+
+        if (action == "open")
+        {
+            // The app updates itself from inside; App Center only starts it.
+            // Nothing to ask, and nothing to wait for: it starts no winget
+            // command, so it works while "update all" is still going down the
+            // list past the row it failed on - which is why it sits above the
+            // gate below.
+            if (package.Launch is { } launch)
+            {
+                try
+                {
+                    AppLauncher.Start(launch);
+                }
+                catch (Exception ex)
+                {
+                    SetProgress($"Could not start {launch.Name}: {ex.Message}");
+                }
+            }
+
+            return;
+        }
+
+        if (!OperationService.CanStart(package.OperationKey))
             return;
 
         if (action == "update")
@@ -543,7 +569,7 @@ public partial class ManageView : PageView
 
         // Versions and the installed list have both moved on; the reload ends
         // by re-marking whatever is still running.
-        await ReloadAsync();
+        await ReloadAsync(changed: true);
 
         _lists.NoteUnfinishedUpdate(operation);
     }

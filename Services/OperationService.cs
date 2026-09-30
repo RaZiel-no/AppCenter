@@ -130,11 +130,22 @@ public sealed class Operation
     /// </summary>
     private readonly HashSet<string> _needReinstall = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The ones winget cannot update from here at all - the kind of installer
+    /// differs, or none fits - which is when the app's own updater is the way
+    /// through. Every reinstall is one of these; not every one of these is a
+    /// reinstall.
+    /// </summary>
+    private readonly HashSet<string> _cannotUpdate = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Whether this package failed for want of administrator rights.</summary>
     public bool WantsAdmin(string id) => _wantAdmin.Contains(id);
 
     /// <summary>Whether this package's update failed for want of a reinstall.</summary>
     public bool NeedsReinstall(string id) => _needReinstall.Contains(id);
+
+    /// <summary>Whether this package's update failed because winget cannot update this copy from here.</summary>
+    public bool CannotUpdate(string id) => _cannotUpdate.Contains(id);
 
     /// <summary>Whether this package is waiting on Windows being restarted.</summary>
     public bool NeedsRestart(string id) => _needRestart.Contains(id);
@@ -191,7 +202,8 @@ public sealed class Operation
         string reason,
         RestartNeed restart = RestartNeed.None,
         bool wantsAdmin = false,
-        bool needsReinstall = false)
+        bool needsReinstall = false,
+        bool cannotUpdate = false)
     {
         if (reason.Length > 0)
             _failures[id] = reason;
@@ -203,6 +215,9 @@ public sealed class Operation
 
         if (reason.Length > 0 && needsReinstall)
             _needReinstall.Add(id);
+
+        if (reason.Length > 0 && cannotUpdate)
+            _cannotUpdate.Add(id);
 
         // Only for the ones that went in. A package that failed and wants a
         // restart before it will go in is a failure, and its reason says so in
@@ -444,6 +459,10 @@ public sealed class Operation
 
         if (Kind == OperationKind.Update && result is not null && WingetErrors.NeedsReinstall(result.ExitCode))
             _needReinstall.Add(Key);
+
+        if (Kind == OperationKind.Update && result is not null
+            && WingetErrors.CannotUpdateHere(WingetErrors.Classify(result.ExitCode, said, result.StdOut)))
+            _cannotUpdate.Add(Key);
     }
 
     /// <summary>
@@ -527,6 +546,7 @@ public static class OperationService
         package.Error = FailureFor(package.OperationKey, shows);
         package.CanRetryAsAdmin = OffersAdminRetry(package.OperationKey, shows);
         package.CanReinstall = OffersReinstall(package.OperationKey, shows);
+        package.CannotUpdate = CannotUpdate(package.OperationKey, shows);
     }
 
     /// <summary>
@@ -535,17 +555,34 @@ public static class OperationService
     /// install afresh. Only under an update's failure: the reinstall is an
     /// update's remedy, and the reason it answers is the one painted above it.
     /// </summary>
-    private static bool OffersReinstall(string id, OperationKind? shows)
+    private static bool OffersReinstall(string id, OperationKind? shows) =>
+        UnderUpdateFailure(id, shows, (failed, key) => failed.NeedsReinstall(key));
+
+    /// <summary>
+    /// Whether this package's update failed because winget cannot update this
+    /// copy from here. Under an update's failure only, like the reinstall.
+    /// Whether the row then offers to open the app is the row's own call: it
+    /// also needs the Start menu to have said what starts it.
+    /// </summary>
+    private static bool CannotUpdate(string id, OperationKind? shows) =>
+        UnderUpdateFailure(id, shows, (failed, key) => failed.CannotUpdate(key));
+
+    /// <summary>
+    /// Whether the failure under this update row <paramref name="has"/> what an
+    /// offer answers. Read from whichever operation FailureFor took the reason
+    /// from, so the offer always sits under the reason that explains it.
+    /// </summary>
+    private static bool UnderUpdateFailure(string id, OperationKind? shows, Func<Operation, string, bool> has)
     {
         if (shows is not (null or OperationKind.Update))
             return false;
 
-        if (Batch?.FailureFor(id) is { Length: > 0 })
-            return Batch.NeedsReinstall(id);
+        if (Batch is { } batch && batch.FailureFor(id) is { Length: > 0 })
+            return has(batch, id);
 
         return LastOutcome is { Failed: true, Kind: OperationKind.Update } last
                && string.Equals(last.Key, id, StringComparison.OrdinalIgnoreCase)
-               && last.NeedsReinstall(id);
+               && has(last, id);
     }
 
     /// <summary>
@@ -617,20 +654,8 @@ public static class OperationService
     /// is the one retry there is. Never when App Center already has them - a
     /// retry would run exactly as the attempt that failed.
     /// </summary>
-    private static bool OffersAdminRetry(string id, OperationKind? shows)
-    {
-        if (shows is not (null or OperationKind.Update) || RunningAsAdmin())
-            return false;
-
-        // Read from whichever FailureFor took the reason from, so the offer
-        // always sits under the reason that explains it.
-        if (Batch?.FailureFor(id) is { Length: > 0 })
-            return Batch.WantsAdmin(id);
-
-        return LastOutcome is { Failed: true, Kind: OperationKind.Update } last
-               && string.Equals(last.Key, id, StringComparison.OrdinalIgnoreCase)
-               && last.WantsAdmin(id);
-    }
+    private static bool OffersAdminRetry(string id, OperationKind? shows) =>
+        !RunningAsAdmin() && UnderUpdateFailure(id, shows, (failed, key) => failed.WantsAdmin(key));
 
     /// <summary>
     /// Whether App Center itself runs with administrator rights. A probe so a
@@ -660,12 +685,15 @@ public static class OperationService
         string reason,
         RestartNeed restart,
         bool wantsAdmin = false,
-        bool needsReinstall = false) =>
-        MoveBatch(batch => batch.EndItem(id, reason, restart, wantsAdmin, needsReinstall));
+        bool needsReinstall = false,
+        bool cannotUpdate = false) =>
+        MoveBatch(batch => batch.EndItem(id, reason, restart, wantsAdmin, needsReinstall, cannotUpdate));
 
     /// <summary>The same, from what the batch found out about the failure.</summary>
     public static void NoteBatchDone(string id, string reason, RestartNeed restart, FailureKind kind) =>
-        NoteBatchDone(id, reason, restart, kind == FailureKind.WantsAdmin, kind == FailureKind.NeedsReinstall);
+        NoteBatchDone(
+            id, reason, restart,
+            kind == FailureKind.WantsAdmin, kind == FailureKind.NeedsReinstall, WingetErrors.CannotUpdateHere(kind));
 
     /// <summary>
     /// Both of the above. Called from the batch as it works, on whatever thread
