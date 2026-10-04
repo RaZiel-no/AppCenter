@@ -420,6 +420,18 @@ public sealed class ManageLists
             .ToList();
 
     /// <summary>
+    /// "Update all" leaving out the machine-wide updates: the batch, and the
+    /// names of what it leaves out, which its closing line says. The one place
+    /// both the question's alternative and --without-admin come from.
+    /// </summary>
+    public (List<(string Id, string Name)> Batch, List<string> LeftOut) UpdateWithoutAdminPlan(IReadOnlySet<string> machineWide)
+    {
+        var batch = UpdateAllBatch(leaveOut: machineWide);
+        var leftOut = UpdateAllBatch().Except(batch).Select(b => b.Name).ToList();
+        return (batch, leftOut);
+    }
+
+    /// <summary>
     /// The unknown-version list's own batch: the packages the version on offer
     /// has not already been installed over. Asked for on its own button, so
     /// that "update all" never reinstalls what may be up to date already.
@@ -459,6 +471,21 @@ public sealed class ManageLists
             "Windows may prompt for administrator permission." +
             (package.ClosesApp ? $"\n\n{SelfPackages.Warning}" : string.Empty),
             "Update");
+
+    /// <summary>
+    /// For a row that went through and is still listed, when the user doubts
+    /// the restart is all it is waiting on. Says what is known and what is not.
+    /// </summary>
+    public static Question UpdateAgainQuestion(AppPackage package) => new(
+        $"Update {package.Name} again?",
+        $"winget said {package.AvailableVersion} went in, but still lists it as an update" +
+        (package.FinishesWithWindows
+            ? ", and said the update finishes when Windows restarts."
+            : " - most often because the app has not been restarted since, sometimes because the installer changed nothing.") +
+        $"\n\nwinget will run the installer for {package.AvailableVersion} again, over whatever is there." +
+        "\n\nWindows may prompt for administrator permission." +
+        (package.ClosesApp ? $"\n\n{SelfPackages.Warning}" : string.Empty),
+        "Update again");
 
     /// <summary>
     /// The long way round, and the question has to say what that means: the
@@ -563,10 +590,17 @@ public sealed class ManageLists
     /// offer is already here rather than offering it a second time. Over any
     /// other, winget lists it again only when it is waiting on a restart, and
     /// the reload marks it so - see <see cref="FinishingUpdates"/>.
+    ///
+    /// Read from the machine's last read, not from a page's rows: the window
+    /// calls this for every operation that ends, whatever page started it or
+    /// is showing, and Manage takes a batch's rows off as it goes - by the end,
+    /// the rows a batch updated are the ones no longer there.
     /// </summary>
-    public void RememberInstalls(Operation operation)
+    public static void RememberInstalls(Operation operation, IEnumerable<AppPackage> updates)
     {
-        foreach (var package in _allUpdates)
+        var finishing = new List<(string Id, string Version, bool Windows)>();
+
+        foreach (var package in updates)
         {
             if (!WentThrough(package, operation))
                 continue;
@@ -578,9 +612,19 @@ public sealed class ManageLists
             }
             else
             {
-                FinishingUpdates.Record(package.Id, package.AvailableVersion, operation.NeedsRestart(package.OperationKey));
+                var windows = operation.NeedsRestart(package.OperationKey);
+                finishing.Add((package.Id, package.AvailableVersion, windows));
+
+                // Marked now as well as by the next read: the row is repainted
+                // the moment the operation ends, and the read lands a couple of
+                // seconds later - long enough to press Update a second time.
+                package.FinishesWithWindows = windows;
+                package.IsFinishing = true;
             }
         }
+
+        // Together, so a batch of twenty writes the settings once rather than twenty times.
+        FinishingUpdates.Record(finishing);
     }
 
     /// <summary>Whether the operation updated this package: one of its own, or a batch that got to it.</summary>

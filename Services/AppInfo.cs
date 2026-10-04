@@ -29,6 +29,15 @@ public static class AppInfo
     public static string Version { get; } = ReadVersion();
 
     /// <summary>
+    /// The one line the csproj says about the app - its &lt;Description&gt;,
+    /// which the installer and the winget manifest carry too. --help opens
+    /// with it.
+    /// </summary>
+    public static string Description { get; } =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description
+        ?? string.Empty;
+
+    /// <summary>
     /// True when the running exe sits in a folder the installer made: Inno
     /// Setup leaves its uninstaller beside what it installs. The portable zip
     /// has no such thing, and no installer to run over it.

@@ -640,6 +640,16 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                Text="{Binding Status}"
                                Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+                    <!--  Gone through, still listed: the way back in when the
+                          mark turns out to be wrong - an installer that changed
+                          nothing - rather than a week with nothing to press.  -->
+                    <Button x:Name="UpdateAgainButton"
+                            Style="{StaticResource QuietButton}"
+                            Tag="update-again"
+                            Margin="0,0,6,0"
+                            Visibility="Collapsed"
+                            Content="Update again"
+                            AutomationProperties.Name="Update again" />
                     <Button x:Name="SkipButton"
                             Style="{StaticResource QuietButton}"
                             Tag="skip"
@@ -691,11 +701,13 @@
             <DataTrigger Binding="{Binding IsFinishing}" Value="True">
                 <Setter TargetName="UpdateButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="UpdateAgainButton" Property="Visibility" Value="Visible" />
             </DataTrigger>
             <!--  After the ones above, so a busy row hides every button.  -->
             <DataTrigger Binding="{Binding IsBusy}" Value="True">
                 <Setter TargetName="UpdateButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="UpdateAgainButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="AdminButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="ReinstallButton" Property="Visibility" Value="Collapsed" />
                 <Setter TargetName="OpenToUpdateButton" Property="Visibility" Value="Collapsed" />

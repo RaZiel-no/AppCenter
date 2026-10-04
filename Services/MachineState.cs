@@ -108,12 +108,32 @@ public static class MachineState
     }
 
     /// <summary>
-    /// Done when no read is under way - straight away when none is - for a
-    /// winget read of some other kind, which would contend with this one over
-    /// the source database. Starts nothing, and never faults: whether the
-    /// read worked is its own callers' business.
+    /// Which of the updates are installed for every user of the PC - see
+    /// <see cref="WingetService.ListMachineWideUpdatesAsync"/> - or null when
+    /// winget could not say. For "update all", from the button and from the
+    /// command line alike. Read once no read of the machine is under way, since
+    /// two winget processes contend over the source database; never faults.
     /// </summary>
-    public static Task WhenIdleAsync()
+    public static async Task<HashSet<string>?> ReadMachineWideAsync()
+    {
+        await WhenIdleAsync().ConfigureAwait(false);
+
+        try
+        {
+            return await WingetService.ListMachineWideUpdatesAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Done when no read is under way - straight away when none is. Starts
+    /// nothing, and never faults: whether the read worked is its own callers'
+    /// business.
+    /// </summary>
+    private static Task WhenIdleAsync()
     {
         lock (Gate)
         {
@@ -142,10 +162,13 @@ public static class MachineState
             var installed = await WingetService.ListInstalledAsync().ConfigureAwait(false);
 
             UpdateMemory.Apply(upgrades);
-            FinishingUpdates.Apply(upgrades);
 
             await OnUiAsync(() =>
             {
+                // On the UI thread, where everything else that touches the
+                // settings runs: this one can drop entries and save them.
+                FinishingUpdates.Apply(upgrades);
+
                 Upgrades = upgrades;
                 PendingUpdates = upgrades.Where(p => p.Group == UpdateGroup.Pending && !p.IsFinishing).ToList();
                 Installed = installed;
@@ -206,9 +229,14 @@ public static class MachineState
         if (!HasLoaded)
             return null;
 
+        // winget's installed list carries the version on offer as well, and
+        // knows nothing of an update that went in and waits on a restart: the
+        // page would offer Update for it where the Manage row does not.
+        var finishing = Upgrades.Any(p => p.IsFinishing && string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+
         var installs = Installed
             .Where(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase))
-            .Select(p => new WingetRow(p.Name, p.Id, p.Version, p.AvailableVersion, p.Source))
+            .Select(p => new WingetRow(p.Name, p.Id, p.Version, finishing ? string.Empty : p.AvailableVersion, p.Source))
             .ToList();
 
         return new InstallState(installs);

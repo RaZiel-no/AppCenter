@@ -50,7 +50,9 @@ public partial class App : Application
 
         try
         {
-            // Null command line: start it the way this copy was started.
+            // Null command line: the same exe, with no arguments - so a copy
+            // started with --update-all comes back as a plain window, rather
+            // than starting the batch it was in the middle of over again.
             RegisterApplicationRestart(null, NoCrash | NoHang | NoReboot);
         }
         catch (Exception)
@@ -58,6 +60,20 @@ public partial class App : Application
             // Nothing to fall back to and nothing worth interrupting a launch
             // over. The app simply will not let itself back in afterwards.
         }
+    }
+
+    /// <summary>
+    /// A launch with --update-all exits with how its batch went, however the
+    /// window was closed: with the batch's own code after --exit, and with
+    /// "interrupted" when closed while it ran, rather than a 0 that says
+    /// everything went through. See CommandLine.
+    /// </summary>
+    protected override void OnExit(ExitEventArgs e)
+    {
+        if (CommandLine.Outcome is { } code)
+            e.ApplicationExitCode = code;
+
+        base.OnExit(e);
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]

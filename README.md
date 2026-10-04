@@ -95,7 +95,9 @@ not show the same release twice.
 Install, update and uninstall run **real winget commands against this machine**.
 Every one of them goes through a confirmation dialog first, and Windows itself
 raises the UAC prompt when an installer needs elevation. Nothing is executed
-without an explicit click.
+without an explicit click. When App Center itself is running as administrator,
+the sidebar says so under its name: no installer will ask, and winget refuses
+to update some apps installed for one user only.
 
 `winget pin list`, `winget upgrade` and `winget list` are read once, shared, and
 re-read after every operation (`Services/MachineState.cs`). That one read drives the update
@@ -168,6 +170,84 @@ at all, where a reinstall is not the answer. The closing line of "Update all"
 groups what it could not do by the same reasons:
 what it cannot update in place, what needs administrator rights, what a pin
 held back.
+
+An update can go through and still be listed: Windows holds the update of an
+MSIX app that is running until it closes (Windows Terminal, Teams), and an
+installer that asked for a restart leaves the old version registered until
+then. Such a row stays in the list saying "Restart the app to finish" or
+"Restart Windows to finish", with nothing to press, and is left out of the
+count, the badge and "Update all". App Center remembers it across launches
+until winget offers a different version, Windows has restarted, or a week has
+passed. **Update again** is there for when the mark is wrong, as it is for an
+installer that reported success and changed nothing; it runs the update once
+more.
+
+#### From the command line
+
+```
+AppCenter.exe --update-all [--without-admin] [--exit]
+```
+
+This opens App Center on Manage and starts "Update all" without the
+confirmation. The batch is the same one the button runs.
+
+- `--without-admin` leaves out the apps installed for every user of the PC,
+  which are the updates Windows would ask administrator permission for. It
+  leaves them out the same as **Update without admin** does, and it does so
+  even when App Center runs as administrator. A run started this way needs
+  nobody there. If App Center cannot tell which updates those are, it starts
+  nothing rather than guess. Start it without administrator rights: an elevated
+  winget refuses some apps installed for one user only, so those fail.
+- `--exit` closes App Center when the batch is done. Without it, the window
+  stays open on the results.
+
+The exit code says how it went:
+
+- `0`: every update went through, or there was nothing to update.
+- `1`: at least one update did not go through.
+- `2`: nothing was started. winget could not be run or read, something else was
+  already running, or `--without-admin` could not tell which updates need
+  permission.
+- `3`: App Center closed while the batch was running, so some updates may have
+  gone in and some not.
+
+App Center is a Windows app, so a shell does not wait for it on its own: use
+`start /wait AppCenter.exe --update-all --exit` in cmd, or
+`Start-Process AppCenter.exe '--update-all','--exit' -Wait -PassThru` in
+PowerShell and read `ExitCode`.
+
+If App Center is already open, the request goes to that window instead of a
+second one, since two batches at once would fight over winget. The launch waits
+for that window's batch and exits with its code, and the window stays open
+whatever `--exit` said. The hand-over only happens between copies running
+without administrator rights: a launch without them must not be able to have an
+elevated App Center run installers, and an elevated launch must not quietly
+lose its rights to an unelevated window. So an elevated launch runs in a window
+of its own.
+
+A launch without `--update-all` opens the window as usual.
+
+`AppCenter.exe --help` lists the options and the exit codes, and opens no
+window. The text goes to the console the command was typed in, after the
+prompt, since the shell has not waited; sent to a file or a pipe
+(`AppCenter.exe --help > help.txt`), it lands there; and from Run or a
+shortcut, where there is no console, it is shown in a message box. `-h`, `-?`
+and `/?` do the same.
+
+Two scripts ship beside `AppCenter.exe` in the installed folder and the portable
+zip, for a double-click or a Task Scheduler action. Their source is in
+`scripts/`.
+
+- `update_all.bat` runs `--update-all --exit`.
+- `update_all_no_admin.bat` runs `--update-all --without-admin --exit`. This is
+  the one to schedule, because it needs nobody there.
+
+Each prints one line saying how it went and exits with App Center's code.
+
+In Task Scheduler, set the task to run only when the user is logged on. A task
+that runs whether the user is logged on or not runs in a session of its own,
+with no desktop: the window cannot show there, an App Center already open on
+the desktop is not found, and the updates of Store and MSIX apps fail.
 
 ### Keyboard
 

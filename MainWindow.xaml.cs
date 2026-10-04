@@ -53,6 +53,10 @@ public partial class MainWindow : Window, IShellHost
 
         Logo.Source = Warmup.Logo.Result;
 
+        // Said under the name, since there is no title bar to say it in.
+        if (Environment.IsPrivilegedProcess)
+            AdminMark.Visibility = Visibility.Visible;
+
         _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
         _searchDebounce.Tick += OnSearchDebounceElapsed;
 
@@ -67,6 +71,7 @@ public partial class MainWindow : Window, IShellHost
         // Operations outlive the page that started them, so the machine is
         // re-read from here - whichever page happens to be showing - and the
         // badge follows whatever the read says.
+        OperationService.Finished += (_, operation) => ManageLists.RememberInstalls(operation, MachineState.Upgrades);
         OperationService.Finished += (_, _) => RefreshUpdateBadge();
         MachineState.Changed += (_, _) => ShowBadge();
         AppUpdateService.Changed += (_, _) => ShowBadge();
@@ -126,7 +131,12 @@ public partial class MainWindow : Window, IShellHost
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         HookSearchClearButton();
-        await NavigateAsync("explore");
+
+        // Started to update everything: open where that can be watched.
+        if (CommandLine.Request is not null)
+            NavigateTo("manage");
+        else
+            await NavigateAsync("explore");
     }
 
     /// <summary>
@@ -142,10 +152,187 @@ public partial class MainWindow : Window, IShellHost
         Warmup.Release();
         RefreshUpdateBadge();
 
+        // Later launches asking for "update all" hand it to this window.
+        CommandLine.Listen(request => Dispatcher.InvokeAsync(() => RunUpdateAllAsync(request.WithoutAdmin)).Task.Unwrap());
+
+        if (CommandLine.Request is { } request)
+            _ = RunFromCommandLineAsync(request);
+
         // App Center's own newer release, from GitHub - one request, unless
-        // switched off in About.
-        if (SettingsService.Current.CheckForUpdates)
+        // switched off in About, and not for a run that closes when its batch
+        // is done: nobody would see the answer.
+        if (SettingsService.Current.CheckForUpdates && CommandLine.Request?.Exit != true)
             _ = AppUpdateService.CheckAsync();
+    }
+
+    /// <summary>
+    /// This launch's own --update-all. With --exit, the app closes once the
+    /// batch is done, with its exit code; without, the window stays open on
+    /// what the batch did.
+    /// </summary>
+    private async Task RunFromCommandLineAsync(UpdateAllRequest request)
+    {
+        int code;
+
+        try
+        {
+            code = await RunUpdateAllAsync(request.WithoutAdmin);
+        }
+        catch (Exception)
+        {
+            // Never left hanging: a scheduled task waits on this exit.
+            code = CommandLine.CouldNotRun;
+        }
+
+        // What the app exits with however it closes - see App.OnExit.
+        CommandLine.Outcome = code;
+
+        if (!request.Exit)
+            return;
+
+        // A batch this window took on for a later launch is that launch's,
+        // and closing would cut it short.
+        while (_updateAll is { IsCompleted: false } handedOver)
+        {
+            try
+            {
+                await handedOver;
+            }
+            catch (Exception)
+            {
+                // Its own caller hears of that.
+            }
+        }
+
+        // The batch's end set a re-read of the machine going, for the badge
+        // and the page. Closing in the middle of it would leave winget
+        // processes running on their own, so it is waited out - a couple of
+        // seconds - and the app leaves nothing behind.
+        try
+        {
+            await MachineState.ReadAsync();
+        }
+        catch (Exception)
+        {
+            // Then there is nothing to wait for.
+        }
+
+        // Behind whatever else is taking the finished batch in - the page
+        // writing down what went in - rather than in the middle of it.
+        _ = Dispatcher.BeginInvoke(() => Application.Current.Shutdown(code), DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>The "update all" this window is running from the command line, if any.</summary>
+    private Task<int>? _updateAll;
+
+    /// <summary>
+    /// "Update all" asked for on the command line - by this launch, or by a
+    /// later one handing it over. Shows Manage, waits for the read of the
+    /// machine, and starts the batch the button would, without the question:
+    /// whoever typed the command has answered it. Done when the batch is, with
+    /// the exit code that says how it went (see <see cref="CommandLine"/>).
+    ///
+    /// One at a time: a request that arrives while one is going joins it. The
+    /// batch running is the batch both asked for, and two launches a moment
+    /// apart - a double-click, a scheduled task beside a manual run - end
+    /// with the same answer rather than one of them with "could not start".
+    /// </summary>
+    public Task<int> RunUpdateAllAsync(bool withoutAdmin)
+    {
+        if (_updateAll is { IsCompleted: false } inFlight)
+            return inFlight;
+
+        return _updateAll = RunUpdateAllOnceAsync(withoutAdmin);
+    }
+
+    private async Task<int> RunUpdateAllOnceAsync(bool withoutAdmin)
+    {
+        List<(string Id, string Name)> batch;
+        List<string> leftOut = [];
+
+        // Anything going wrong before the batch starts is "nothing was
+        // started", never an exception: a launch is waiting on the answer.
+        try
+        {
+            if (PageHost.Content is not ManageView)
+            {
+                if (NavManage.IsChecked == true)
+                    await NavigateAsync("manage");
+                else
+                    NavigateTo("manage");
+            }
+
+            await MachineState.ReadAsync();
+
+            if (!WingetService.IsAvailable || !OperationService.CanStart(Operation.UpdateAllKey))
+                return CommandLine.CouldNotRun;
+
+            var lists = new ManageLists();
+            lists.Load(MachineState.Upgrades, MachineState.Installed, CatalogService.AllById());
+
+            batch = lists.UpdateAllBatch();
+
+            // Whether or not this copy runs as administrator: the option names
+            // the apps it leaves alone - the ones installed for every user -
+            // and someone who asked for them to be left alone gets that,
+            // elevated or not, rather than App Center deciding that running
+            // elevated makes the question moot.
+            if (withoutAdmin)
+            {
+                // Nobody is there to be asked, so not knowing is not good
+                // enough: one update that turns out to need permission would
+                // hold the run until someone came back to answer.
+                if (await MachineState.ReadMachineWideAsync() is not { } machineWide)
+                    return CommandLine.CouldNotRun;
+
+                (batch, leftOut) = lists.UpdateWithoutAdminPlan(machineWide);
+            }
+        }
+        catch (Exception)
+        {
+            return CommandLine.CouldNotRun;
+        }
+
+        if (batch.Count == 0)
+            return CommandLine.Done;
+
+        // Listening before the start, so the end cannot come first.
+        var finished = new TaskCompletionSource<Operation>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnFinished(object? sender, Operation operation)
+        {
+            if (operation.Key == Operation.UpdateAllKey)
+                finished.TrySetResult(operation);
+        }
+
+        OperationService.Finished += OnFinished;
+
+        try
+        {
+            try
+            {
+                if (ManageView.StartBatch(batch, leftOut) is null)
+                    return CommandLine.CouldNotRun;
+            }
+            catch (Exception)
+            {
+                // Not started, whatever the cause: a launch waiting on the
+                // answer must hear that, not silence.
+                return CommandLine.CouldNotRun;
+            }
+
+            // Closed from here on - by hand, or by an installer - a launch
+            // that came for this exits as interrupted, not as if nothing had
+            // happened.
+            if (CommandLine.Request is not null)
+                CommandLine.Outcome = CommandLine.Interrupted;
+
+            return CommandLine.ExitCodeFor(await finished.Task);
+        }
+        finally
+        {
+            OperationService.Finished -= OnFinished;
+        }
     }
 
     /// <summary>

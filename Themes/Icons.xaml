@@ -15,6 +15,9 @@
     <StreamGeometry x:Key="IconGamepad">M 4.6,6.6 L 19.4,6.6 A 2.1,2.1 0 0 1 21.5,8.7 L 21.5,15.3 A 2.1,2.1 0 0 1 19.4,17.4 L 4.6,17.4 A 2.1,2.1 0 0 1 2.5,15.3 L 2.5,8.7 A 2.1,2.1 0 0 1 4.6,6.6 Z M 6.2,12 L 9.4,12 M 7.8,10.4 L 7.8,13.6 M 15.9,10.6 L 15.9,10.61 M 18.1,13.4 L 18.1,13.41</StreamGeometry>
     <StreamGeometry x:Key="IconGrid">M 7,7 L 7,7.01 M 12,7 L 12,7.01 M 17,7 L 17,7.01 M 7,12 L 7,12.01 M 12,12 L 12,12.01 M 17,12 L 17,12.01 M 7,17 L 7,17.01 M 12,17 L 12,17.01 M 17,17 L 17,17.01</StreamGeometry>
     <StreamGeometry x:Key="IconAbout">M 12,21 A 9,9 0 1 1 12,3 A 9,9 0 1 1 12,21 Z M 9.4,9.4 A 2.7,2.7 0 1 1 12,12.7 L 12,14.3 M 12,17.3 L 12,17.31</StreamGeometry>
+    <!--  Under the name, when running as administrator: Windows' shield,
+          which is IconShield below without its tick.  -->
+    <StreamGeometry x:Key="IconShieldPlain">M 12,20.4 L 5.6,16.8 L 5.6,6.4 L 12,4.2 L 18.4,6.4 L 18.4,16.8 Z</StreamGeometry>
 
     <!--  Chrome and controls  -->
     <StreamGeometry x:Key="IconSearch">M 10.5,17 A 6.5,6.5 0 1 1 10.5,4 A 6.5,6.5 0 1 1 10.5,17 Z M 15.3,15.3 L 20,20</StreamGeometry>

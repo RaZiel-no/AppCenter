@@ -63,11 +63,38 @@
                                Margin="18,0,0,0"
                                RenderOptions.BitmapScalingMode="HighQuality" />
 
-                        <TextBlock Text="App Center"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontSize="15"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <!--  The name, and under it a word when this copy runs as
+                              administrator. There is no title bar to carry it,
+                              and it changes what an update does: no installer
+                              asks for permission, and winget refuses some apps
+                              installed for one user only. The constructor
+                              shows it.  -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="App Center"
+                                       HorizontalAlignment="Center"
+                                       FontSize="15"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                            <StackPanel x:Name="AdminMark"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,1,0,0"
+                                        Visibility="Collapsed"
+                                        ToolTip="App Center is running as administrator. No installer will ask for permission, and winget refuses to update some apps installed for one user only.">
+                                <!--  Filled, unlike the stroked nav icons: at this
+                                      size an outline's round joins turn it into a ring.  -->
+                                <Path Height="10"
+                                      Stretch="Uniform"
+                                      Fill="{DynamicResource TextSecondaryBrush}"
+                                      Data="{StaticResource IconShieldPlain}"
+                                      VerticalAlignment="Center" />
+                                <TextBlock Text="Administrator"
+                                           Margin="4,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
                     </Grid>
                 </Border>
 

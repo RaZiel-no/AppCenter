@@ -38,6 +38,12 @@ public partial class ManageView : PageView
     /// </summary>
     private bool _askingUpdateAll;
 
+    /// <summary>
+    /// While winget is being asked which updates are machine-wide: the button
+    /// reads "Checking…" and stays off, through any reload that lands meanwhile.
+    /// </summary>
+    private bool _checkingMachineWide;
+
     public ManageView()
     {
         InitializeComponent();
@@ -308,23 +314,23 @@ public partial class ManageView : PageView
 
         if (!OperationService.RunningAsAdmin())
         {
-            UpdateAllButton.IsEnabled = false;
-            UpdateAllLabel.Text = "Checking…";
+            _checkingMachineWide = true;
+            RefreshUpdatesSection();
+            RefreshButtons();
 
-            try
-            {
-                await MachineState.WhenIdleAsync();
-                machineWide = await WingetService.ListMachineWideUpdatesAsync();
-            }
-            catch (Exception)
-            {
-                // Then the question says what it always said: Windows may ask.
-            }
-            finally
-            {
-                UpdateAllLabel.Text = _lists.UpdateAllLabel;
-                RefreshButtons();
-            }
+            // Null when winget could not say; then the question says what it
+            // always said: Windows may ask.
+            machineWide = await MachineState.ReadMachineWideAsync();
+
+            _checkingMachineWide = false;
+
+            // The page may have been left while winget was asked; the question
+            // belongs to it, not to whatever is showing now.
+            if (!IsLoaded)
+                return;
+
+            RefreshUpdatesSection();
+            RefreshButtons();
 
             // Something else may have started meanwhile.
             if (!OperationService.CanStart(Operation.UpdateAllKey))
@@ -336,7 +342,7 @@ public partial class ManageView : PageView
         // Both taken before the question is up: a reload behind it rebuilds the
         // lists, and the batch is what the question named.
         var batch = _lists.UpdateAllBatch();
-        var narrow = _lists.UpdateAllBatch(leaveOut: machineWide);
+        var narrow = machineWide is null ? default : _lists.UpdateWithoutAdminPlan(machineWide);
 
         if (batch.Count == 0)
             return;
@@ -347,8 +353,9 @@ public partial class ManageView : PageView
                 StartBatch(batch);
                 break;
 
-            case Answer.Alternative:
-                StartBatch(narrow, leftOut: batch.Except(narrow).Select(b => b.Name).ToList());
+            // Only offered when there is a narrower batch to start.
+            case Answer.Alternative when narrow.Batch is not null:
+                StartBatch(narrow.Batch, narrow.LeftOut);
                 break;
         }
     }
@@ -371,7 +378,12 @@ public partial class ManageView : PageView
         StartBatch(batch);
     }
 
-    private static void StartBatch(List<(string Id, string Name)> batch, IReadOnlyList<string>? leftOut = null) =>
+    /// <summary>
+    /// Starts "update all" over <paramref name="batch"/>, or returns null when
+    /// something else is running. Also how the command line starts one - see
+    /// <see cref="MainWindow.RunUpdateAllAsync"/>.
+    /// </summary>
+    internal static Operation? StartBatch(List<(string Id, string Name)> batch, IReadOnlyList<string>? leftOut = null) =>
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
             (progress, token) => WingetService.UpgradeEachAsync(
@@ -450,6 +462,20 @@ public partial class ManageView : PageView
         {
             if (!Confirm(ManageLists.UpdateQuestion(package)))
                 return;
+
+            OperationService.Start(
+                package.OperationKey, package.Name, OperationKind.Update,
+                (progress, token) => WingetService.UpgradeAsync(package.Id, progress, token));
+        }
+        else if (action == "update-again")
+        {
+            if (!Confirm(ManageLists.UpdateAgainQuestion(package)))
+                return;
+
+            // The mark is what hid Update; it goes before the new attempt, and
+            // comes back only if the same version is still on offer after it.
+            FinishingUpdates.Forget(package.Id);
+            package.IsFinishing = false;
 
             OperationService.Start(
                 package.OperationKey, package.Name, OperationKind.Update,
@@ -553,7 +579,7 @@ public partial class ManageView : PageView
         var shown = _lists.Updates.Count > 0;
 
         UpdatesHeading.Text = _lists.UpdatesHeading;
-        UpdateAllLabel.Text = _lists.UpdateAllLabel;
+        UpdateAllLabel.Text = _checkingMachineWide ? "Checking…" : _lists.UpdateAllLabel;
 
         UpdatesPanel.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         UpdatesEmpty.Visibility = shown ? Visibility.Collapsed : Visibility.Visible;
@@ -573,7 +599,7 @@ public partial class ManageView : PageView
     {
         var idle = OperationService.CanStart(Operation.UpdateAllKey);
 
-        UpdateAllButton.IsEnabled = _lists.UpdateAllBatch().Count > 0 && idle;
+        UpdateAllButton.IsEnabled = _lists.UpdateAllBatch().Count > 0 && idle && !_checkingMachineWide;
         UpdateUnknownButton.IsEnabled = _lists.UnknownBatch().Count > 0 && idle;
     }
 
@@ -629,11 +655,6 @@ public partial class ManageView : PageView
         // moment the reload takes, and not if the reload is cancelled before it
         // can have its own say.
         RefreshStatus();
-
-        // Before the reload, which rebuilds the rows this reads: what went in
-        // over a version winget cannot read is written down now, and the
-        // reload paints it back.
-        _lists.RememberInstalls(operation);
 
         // Versions and the installed list have both moved on; the reload ends
         // by re-marking whatever is still running, and whatever went through

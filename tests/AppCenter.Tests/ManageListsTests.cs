@@ -388,11 +388,11 @@ public class ManageListsTests
 
         var app = Single("Microsoft.Teams");
         app.Complete(new WingetResult(0, string.Empty, string.Empty), null);
-        lists.RememberInstalls(app);
+        ManageLists.RememberInstalls(app, lists.AllUpdates);
 
         var windows = Single("Vendor.Driver");
         windows.Complete(new WingetResult(unchecked((int)0x8A150109), string.Empty, string.Empty), null);
-        lists.RememberInstalls(windows);
+        ManageLists.RememberInstalls(windows, lists.AllUpdates);
 
         // The next read lists both again, as winget does until the restart.
         var teams = Update("Microsoft.Teams", "Microsoft Teams");
@@ -417,7 +417,7 @@ public class ManageListsTests
 
         var operation = Single("Microsoft.WindowsTerminal");
         operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
-        lists.RememberInstalls(operation);
+        ManageLists.RememberInstalls(operation, lists.AllUpdates);
 
         // Restarted, and the source has a newer one still: an ordinary update.
         var newer = Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.25", "1.26");
@@ -466,6 +466,112 @@ public class ManageListsTests
     }
 
     [Fact]
+    public void Keeps_the_marks_through_a_read_that_came_back_empty()
+    {
+        FinishingUpdates.Clear();
+        FinishingUpdates.Record("Microsoft.WindowsTerminal", "1.25", windows: false);
+
+        // A failed read and an empty one look the same from here.
+        FinishingUpdates.Apply([]);
+
+        var terminal = Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.24", "1.25");
+        FinishingUpdates.Apply([terminal]);
+        Assert.True(terminal.IsFinishing);
+    }
+
+    [Fact]
+    public void Keeps_a_mark_for_an_update_a_short_read_left_out()
+    {
+        FinishingUpdates.Clear();
+        FinishingUpdates.Record("Microsoft.Teams", "25.1.0", windows: false);
+
+        // One source failed: the read lists the others and not Teams.
+        FinishingUpdates.Apply([Update("Git.Git", "Git")]);
+
+        var teams = Update("Microsoft.Teams", "Microsoft Teams", "24.1.0", "25.1.0");
+        FinishingUpdates.Apply([teams]);
+        Assert.True(teams.IsFinishing);
+    }
+
+    [Fact]
+    public void Marks_the_row_the_moment_its_update_ends()
+    {
+        FinishingUpdates.Clear();
+        var teams = Update("Microsoft.Teams", "Microsoft Teams");
+        var lists = Loaded([teams], []);
+
+        var operation = Single("Microsoft.Teams");
+        operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
+        ManageLists.RememberInstalls(operation, lists.AllUpdates);
+
+        // Before any read: the row is repainted now, the read lands later.
+        Assert.True(teams.IsFinishing);
+        Assert.Equal("Restart the app to finish", teams.FinishingNote);
+        Assert.Empty(lists.UpdateAllBatch());
+    }
+
+    [Fact]
+    public void Update_again_forgets_the_mark_and_says_what_it_is_doing()
+    {
+        FinishingUpdates.Clear();
+        FinishingUpdates.Record("Vendor.Tool", "2.0", windows: false);
+        FinishingUpdates.Forget("Vendor.Tool");
+
+        var tool = Update("Vendor.Tool", "Tool");
+        FinishingUpdates.Apply([tool]);
+        Assert.False(tool.IsFinishing);
+
+        tool.IsFinishing = true;
+        var question = ManageLists.UpdateAgainQuestion(tool);
+        Assert.Equal("Update Tool again?", question.Title);
+        Assert.Contains("winget said 2.0 went in, but still lists it as an update", question.Message);
+        Assert.Contains("the app has not been restarted since", question.Message);
+        Assert.Equal("Update again", question.Confirm);
+
+        tool.FinishesWithWindows = true;
+        Assert.Contains("finishes when Windows restarts", ManageLists.UpdateAgainQuestion(tool).Message);
+    }
+
+    [Fact]
+    public void Writes_the_settings_once_for_a_whole_batch()
+    {
+        FinishingUpdates.Clear();
+        var writes = 0;
+        FinishingUpdates.Persist = () => writes++;
+
+        var read = new List<AppPackage> { Update("Vendor.A", "A"), Update("Vendor.B", "B"), Update("Vendor.C", "C") };
+
+        var batch = Batch();
+        foreach (var package in read)
+        {
+            batch.BeginItem(package.Id, package.Name);
+            batch.EndItem(package.Id, string.Empty);
+        }
+
+        ManageLists.RememberInstalls(batch, read);
+
+        Assert.Equal(1, writes);
+        FinishingUpdates.Clear();
+    }
+
+    [Fact]
+    public void Plans_the_batch_without_admin_and_names_what_it_leaves_out()
+    {
+        var lists = Loaded(
+        [
+            Update("VideoLAN.VLC", "VLC media player"),
+            Update("Microsoft.WindowsTerminal", "Windows Terminal"),
+            Update("Unity.UnityHub", "Unity Hub"),
+        ], []);
+
+        var (batch, leftOut) = lists.UpdateWithoutAdminPlan(
+            new HashSet<string>(["VideoLAN.VLC", "Unity.UnityHub"], StringComparer.OrdinalIgnoreCase));
+
+        Assert.Equal(["Microsoft.WindowsTerminal"], batch.Select(b => b.Id));
+        Assert.Equal(["Unity Hub", "VLC media player"], leftOut.Order());
+    }
+
+    [Fact]
     public void Says_nothing_of_a_restart_for_an_update_that_failed()
     {
         FinishingUpdates.Clear();
@@ -473,7 +579,7 @@ public class ManageListsTests
 
         var operation = Single("Git.Git");
         operation.Complete(new WingetResult(1603, string.Empty, string.Empty), null);
-        lists.RememberInstalls(operation);
+        ManageLists.RememberInstalls(operation, lists.AllUpdates);
 
         var git = Update("Git.Git", "Git");
         FinishingUpdates.Apply([git]);
@@ -635,7 +741,7 @@ public class ManageListsTests
 
         var operation = Single("Vendor.Tool");
         operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
-        lists.RememberInstalls(operation);
+        ManageLists.RememberInstalls(operation, lists.AllUpdates);
 
         // The row says so at once, and the next read of the machine says it again.
         Assert.True(tool.IsRecordedAsCurrent);
@@ -657,9 +763,34 @@ public class ManageListsTests
         var batch = Batch();
         batch.BeginItem("Vendor.Tool", "Tool");
         batch.EndItem("Vendor.Tool", string.Empty);
-        lists.RememberInstalls(batch);
+        ManageLists.RememberInstalls(batch, lists.AllUpdates);
 
         Assert.NotNull(UpdateMemory.Recorded("Vendor.Tool"));
+    }
+
+    [Fact]
+    public void Remembers_what_a_batch_got_through_after_its_rows_have_gone_from_the_page()
+    {
+        FinishingUpdates.Clear();
+
+        var terminal = Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.24", "1.25");
+        var read = new List<AppPackage> { terminal };
+        var lists = Loaded(read, []);
+
+        var batch = Batch();
+        batch.BeginItem("Microsoft.WindowsTerminal", "Windows Terminal");
+        batch.EndItem("Microsoft.WindowsTerminal", string.Empty);
+
+        // The page takes the row off as soon as the batch is past it ...
+        lists.DropUpdated(batch);
+        Assert.Empty(lists.AllUpdates);
+
+        // ... so what went in is read from the machine's last read instead.
+        ManageLists.RememberInstalls(batch, read);
+
+        var again = Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.24", "1.25");
+        FinishingUpdates.Apply([again]);
+        Assert.True(again.IsFinishing);
     }
 
     [Fact]
@@ -672,7 +803,7 @@ public class ManageListsTests
 
         var operation = Single("Vendor.Tool");
         operation.Complete(new WingetResult(1603, string.Empty, string.Empty), null);
-        lists.RememberInstalls(operation);
+        ManageLists.RememberInstalls(operation, lists.AllUpdates);
 
         Assert.Null(UpdateMemory.Recorded("Vendor.Tool"));
         Assert.Null(tool.RecordedInstall);
@@ -703,7 +834,7 @@ public class ManageListsTests
 
         var operation = Single("Vendor.Tool");
         operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
-        lists.RememberInstalls(operation);
+        ManageLists.RememberInstalls(operation, lists.AllUpdates);
 
         // It is back in the list whatever happened; "restart the app to finish"
         // would be a guess dressed as an instruction. Its own note says what

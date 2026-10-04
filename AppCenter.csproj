@@ -84,6 +84,15 @@
     <Content Include="THIRD-PARTY-NOTICES.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!--  "Update all" from a double-click or a scheduled task, beside the exe
+          they start - see the README. Kept apart from the build scripts in
+          the root, which are for this repository rather than for users.  -->
+    <Content Include="scripts\update_all.bat" Link="update_all.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="scripts\update_all_no_admin.bat" Link="update_all_no_admin.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!--  ApplicationIcon covers the exe; Window.Icon needs it in the assembly too  -->
     <Resource Include="AppCenter.ico" />
   </ItemGroup>

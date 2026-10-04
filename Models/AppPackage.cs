@@ -214,10 +214,28 @@ public sealed class AppPackage : INotifyPropertyChanged
     /// press; it is not counted, and "update all" leaves it alone. Painted
     /// from <c>FinishingUpdates</c> on each read.
     /// </summary>
-    public bool IsFinishing { get; set; }
+    private bool _isFinishing;
+    public bool IsFinishing
+    {
+        get => _isFinishing;
+        set
+        {
+            if (Set(ref _isFinishing, value))
+                OnPropertyChanged(nameof(FinishingNote));
+        }
+    }
 
     /// <summary>When finishing: whether winget said it is Windows that has to restart.</summary>
-    public bool FinishesWithWindows { get; set; }
+    private bool _finishesWithWindows;
+    public bool FinishesWithWindows
+    {
+        get => _finishesWithWindows;
+        set
+        {
+            if (Set(ref _finishesWithWindows, value))
+                OnPropertyChanged(nameof(FinishingNote));
+        }
+    }
 
     /// <summary>
     /// What a finishing row says where a busy one shows its progress. Only

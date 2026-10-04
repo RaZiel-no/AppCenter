@@ -12,9 +12,16 @@ namespace AppCenter.Services;
 ///
 /// So each update that goes through is written down with the version it went
 /// to, and every read of the machine marks the rows still offering exactly
-/// that version as finishing rather than pending. An entry lasts as long as
-/// winget goes on listing that update: once the restart has happened the
-/// version moves on, the row goes, and so does the entry.
+/// that version as finishing rather than pending. An entry goes once winget
+/// offers that package a different version - the restart happened and the
+/// source has moved on - or once it is too old to believe (below). A package
+/// that simply stops being listed keeps its entry: a read comes back short
+/// when one source fails, and remembering an update that has taken costs
+/// nothing, since an entry only ever matches the exact version it names.
+///
+/// A mark can be wrong: an installer that exits 0 and changes nothing has
+/// winget say "Successfully installed" and list the same update again. The row
+/// offers "Update again" for that, which forgets the mark first.
 ///
 /// Kept in the settings file, so that closing App Center does not put an
 /// Update button back on an app that is still waiting. Which means a mark that
@@ -44,22 +51,46 @@ public static class FinishingUpdates
     /// <paramref name="version"/>, and whether winget said Windows has to
     /// restart before it counts.
     /// </summary>
-    public static void Record(string id, string version, bool windows)
+    public static void Record(string id, string version, bool windows) => Record([(id, version, windows)]);
+
+    /// <summary>The same for several at once, with one write of the settings.</summary>
+    public static void Record(IReadOnlyCollection<(string Id, string Version, bool Windows)> updates)
     {
-        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(version))
-            return;
+        var any = false;
 
         lock (Gate)
         {
-            Store()[Key(id)] = new FinishingUpdate(version, windows, Now());
+            foreach (var (id, version, windows) in updates)
+            {
+                if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(version))
+                    continue;
+
+                Store()[Key(id)] = new FinishingUpdate(version, windows, Now());
+                any = true;
+            }
         }
 
-        Persist();
+        if (any)
+            Persist();
+    }
+
+    /// <summary>Forgets one package's entry: the user is updating it again.</summary>
+    public static void Forget(string id)
+    {
+        bool had;
+
+        lock (Gate)
+        {
+            had = Store().Remove(Key(id));
+        }
+
+        if (had)
+            Persist();
     }
 
     /// <summary>
-    /// Marks a fresh read of the updates, and forgets every entry the read no
-    /// longer bears out.
+    /// Marks a fresh read of the updates, and forgets the entries it no longer
+    /// bears out.
     /// </summary>
     public static void Apply(IReadOnlyList<AppPackage> upgrades)
     {
@@ -70,24 +101,29 @@ public static class FinishingUpdates
             var store = Store();
             var bootedAt = BootedAt();
             var now = Now();
-            var stillListed = new HashSet<string>();
+
+            // Forgotten: entries too old to believe, and entries for a package
+            // winget now offers a different version of. Not entries for the
+            // packages this read did not list - see the summary above.
+            var gone = store
+                .Where(e => e.Value.When <= bootedAt || now - e.Value.When >= Lifetime)
+                .Select(e => e.Key)
+                .ToHashSet();
 
             foreach (var package in upgrades)
             {
                 var key = Key(package.Id);
                 var finishing = store.TryGetValue(key, out var entry)
-                    && entry.When > bootedAt
-                    && now - entry.When < Lifetime
+                    && !gone.Contains(key)
                     && string.Equals(package.AvailableVersion, entry.Version, StringComparison.OrdinalIgnoreCase);
 
                 package.IsFinishing = finishing;
                 package.FinishesWithWindows = finishing && entry!.Windows;
 
-                if (finishing)
-                    stillListed.Add(key);
+                if (entry is not null && !finishing)
+                    gone.Add(key);
             }
 
-            var gone = store.Keys.Where(key => !stillListed.Contains(key)).ToList();
             foreach (var key in gone)
                 store.Remove(key);
 
