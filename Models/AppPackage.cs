@@ -200,6 +200,29 @@ public sealed class AppPackage : INotifyPropertyChanged
     /// <summary>The kind of pin, as `winget pin list` names it, or empty.</summary>
     public string PinKind { get; set; } = string.Empty;
 
+    /// <summary>
+    /// True when this update has already gone through and winget lists it
+    /// all the same, because it only takes once the app - or Windows - has
+    /// restarted. The row stays where it is, saying so, with nothing to
+    /// press; it is not counted, and "update all" leaves it alone. Painted
+    /// from <c>FinishingUpdates</c> on each read.
+    /// </summary>
+    public bool IsFinishing { get; set; }
+
+    /// <summary>When finishing: whether winget said it is Windows that has to restart.</summary>
+    public bool FinishesWithWindows { get; set; }
+
+    /// <summary>
+    /// What a finishing row says where a busy one shows its progress. Only
+    /// Windows when winget said Windows: reopening an app is a moment,
+    /// restarting Windows is a decision, and being told the wrong one is
+    /// worse than being told nothing.
+    /// </summary>
+    public string FinishingNote =>
+        !IsFinishing ? string.Empty
+        : FinishesWithWindows ? "Restart Windows to finish"
+        : "Restart the app to finish";
+
     /// <summary>Which of the three update lists this row belongs in.</summary>
     public UpdateGroup Group =>
         IsPinned ? UpdateGroup.Skipped

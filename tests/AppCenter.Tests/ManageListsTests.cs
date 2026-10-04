@@ -381,35 +381,70 @@ public class ManageListsTests
     }
 
     [Fact]
-    public void Says_which_restart_an_update_that_went_through_is_waiting_on()
+    public void An_update_that_went_through_but_is_listed_again_waits_on_a_restart_with_nothing_to_press()
     {
-        var teams = Update("Microsoft.Teams", "Microsoft Teams");
-        var driver = Update("Vendor.Driver", "Some Driver");
-        var lists = Loaded([teams, driver], []);
+        FinishingUpdates.Clear();
+        var lists = Loaded([Update("Microsoft.Teams", "Microsoft Teams"), Update("Vendor.Driver", "Some Driver")], []);
 
         var app = Single("Microsoft.Teams");
         app.Complete(new WingetResult(0, string.Empty, string.Empty), null);
-        lists.NoteUnfinishedUpdate(app);
+        lists.RememberInstalls(app);
 
         var windows = Single("Vendor.Driver");
         windows.Complete(new WingetResult(unchecked((int)0x8A150109), string.Empty, string.Empty), null);
-        lists.NoteUnfinishedUpdate(windows);
+        lists.RememberInstalls(windows);
 
-        Assert.Equal("Restart the app to finish", teams.Status);
-        Assert.Equal("Restart Windows to finish", driver.Status);
+        // The next read lists both again, as winget does until the restart.
+        var teams = Update("Microsoft.Teams", "Microsoft Teams");
+        var driver = Update("Vendor.Driver", "Some Driver");
+        FinishingUpdates.Apply([teams, driver]);
+        var reloaded = Loaded([teams, driver], []);
+
+        Assert.Equal("Restart the app to finish", teams.FinishingNote);
+        Assert.Equal("Restart Windows to finish", driver.FinishingNote);
+
+        // Still shown, but not offered again.
+        Assert.Equal(2, reloaded.Updates.Count);
+        Assert.Empty(reloaded.UpdateAllBatch());
+        Assert.Equal("Update all", reloaded.UpdateAllLabel);
+    }
+
+    [Fact]
+    public void An_update_is_pending_again_once_the_version_on_offer_moves_on()
+    {
+        FinishingUpdates.Clear();
+        var lists = Loaded([Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.24", "1.25")], []);
+
+        var operation = Single("Microsoft.WindowsTerminal");
+        operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
+        lists.RememberInstalls(operation);
+
+        // Restarted, and the source has a newer one still: an ordinary update.
+        var newer = Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.25", "1.26");
+        FinishingUpdates.Apply([newer]);
+        Assert.False(newer.IsFinishing);
+
+        // And the entry is gone with it, so a 1.25 offered later is not marked.
+        var again = Update("Microsoft.WindowsTerminal", "Windows Terminal", "1.24", "1.25");
+        FinishingUpdates.Apply([again]);
+        Assert.False(again.IsFinishing);
     }
 
     [Fact]
     public void Says_nothing_of_a_restart_for_an_update_that_failed()
     {
-        var git = Update("Git.Git", "Git");
-        var lists = Loaded([git], []);
+        FinishingUpdates.Clear();
+        var lists = Loaded([Update("Git.Git", "Git")], []);
 
         var operation = Single("Git.Git");
         operation.Complete(new WingetResult(1603, string.Empty, string.Empty), null);
-        lists.NoteUnfinishedUpdate(operation);
+        lists.RememberInstalls(operation);
 
-        Assert.Equal(string.Empty, git.Status);
+        var git = Update("Git.Git", "Git");
+        FinishingUpdates.Apply([git]);
+
+        Assert.False(git.IsFinishing);
+        Assert.Equal(string.Empty, git.FinishingNote);
     }
 
     [Fact]
@@ -628,16 +663,20 @@ public class ManageListsTests
     [Fact]
     public void Says_nothing_of_a_restart_for_a_package_winget_cannot_read_the_version_of()
     {
-        var tool = Unknown("Vendor.Tool", "Tool");
-        var lists = Loaded([tool], []);
+        FinishingUpdates.Clear();
+        var lists = Loaded([Unknown("Vendor.Tool", "Tool")], []);
 
         var operation = Single("Vendor.Tool");
         operation.Complete(new WingetResult(0, string.Empty, string.Empty), null);
-        lists.NoteUnfinishedUpdate(operation);
+        lists.RememberInstalls(operation);
 
         // It is back in the list whatever happened; "restart the app to finish"
-        // would be a guess dressed as an instruction.
-        Assert.Equal(string.Empty, tool.Status);
+        // would be a guess dressed as an instruction. Its own note says what
+        // went in and when.
+        var tool = Unknown("Vendor.Tool", "Tool");
+        FinishingUpdates.Apply([tool]);
+
+        Assert.False(tool.IsFinishing);
     }
 
     [Fact]

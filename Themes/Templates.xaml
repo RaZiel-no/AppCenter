@@ -686,6 +686,12 @@
             <DataTrigger Binding="{Binding OffersSkip}" Value="False">
                 <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
             </DataTrigger>
+            <!--  Gone through, waiting on a restart: updating again would only
+                  run the same installer again, and skipping is beside the point.  -->
+            <DataTrigger Binding="{Binding IsFinishing}" Value="True">
+                <Setter TargetName="UpdateButton" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="SkipButton" Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
             <!--  After the ones above, so a busy row hides every button.  -->
             <DataTrigger Binding="{Binding IsBusy}" Value="True">
                 <Setter TargetName="UpdateButton" Property="Visibility" Value="Collapsed" />

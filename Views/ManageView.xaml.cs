@@ -636,10 +636,9 @@ public partial class ManageView : PageView
         _lists.RememberInstalls(operation);
 
         // Versions and the installed list have both moved on; the reload ends
-        // by re-marking whatever is still running.
+        // by re-marking whatever is still running, and whatever went through
+        // but waits on a restart.
         await ReloadAsync(changed: true);
-
-        _lists.NoteUnfinishedUpdate(operation);
     }
 
     private void SetProgress(string? text)

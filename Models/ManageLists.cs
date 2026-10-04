@@ -51,8 +51,15 @@ public sealed class ManageLists
 
     public IReadOnlyList<AppPackage> AllInstalled => _allInstalled;
 
-    /// <summary>The updates winget is sure of: what "update all" takes and the heading counts.</summary>
-    private IEnumerable<AppPackage> Pending => _allUpdates.Where(p => p.Group == UpdateGroup.Pending);
+    /// <summary>
+    /// The updates winget is sure of: what "update all" takes and the heading
+    /// counts. Not the ones that went through and are waiting on a restart -
+    /// those are listed (see <see cref="Listed"/>) but have nothing left to do.
+    /// </summary>
+    private IEnumerable<AppPackage> Pending => Listed.Where(p => !p.IsFinishing);
+
+    /// <summary>The rows of the first list: the pending updates and the finishing ones, together.</summary>
+    private IEnumerable<AppPackage> Listed => _allUpdates.Where(p => p.Group == UpdateGroup.Pending);
 
     private IEnumerable<AppPackage> Unknown => _allUpdates.Where(p => p.Group == UpdateGroup.Unknown);
 
@@ -169,7 +176,7 @@ public sealed class ManageLists
         }
 
         Updates.Clear();
-        foreach (var package in Sorted(Pending))
+        foreach (var package in Sorted(Listed))
             Updates.Add(package);
 
         UnknownUpdates.Clear();
@@ -550,20 +557,29 @@ public sealed class ManageLists
     }
 
     /// <summary>
-    /// Writes down what just went in over the packages whose version winget
-    /// cannot read, before the reload puts their rows back. winget will list
-    /// them again regardless; the memory is what lets the row say the version
-    /// on offer is already here rather than offering it a second time.
+    /// Writes down what just went in, before the reload puts the rows back.
+    /// Over a package whose version winget cannot read, winget will list it
+    /// again regardless; the memory is what lets the row say the version on
+    /// offer is already here rather than offering it a second time. Over any
+    /// other, winget lists it again only when it is waiting on a restart, and
+    /// the reload marks it so - see <see cref="FinishingUpdates"/>.
     /// </summary>
     public void RememberInstalls(Operation operation)
     {
         foreach (var package in _allUpdates)
         {
-            if (!package.HasUnknownVersion || !WentThrough(package, operation))
+            if (!WentThrough(package, operation))
                 continue;
 
-            UpdateMemory.Record(package.Id, package.AvailableVersion);
-            package.RecordedInstall = UpdateMemory.Recorded(package.Id);
+            if (package.HasUnknownVersion)
+            {
+                UpdateMemory.Record(package.Id, package.AvailableVersion);
+                package.RecordedInstall = UpdateMemory.Recorded(package.Id);
+            }
+            else
+            {
+                FinishingUpdates.Record(package.Id, package.AvailableVersion, operation.NeedsRestart(package.OperationKey));
+            }
         }
     }
 
@@ -613,36 +629,4 @@ public sealed class ManageLists
         Updates.Concat(UnknownUpdates).Concat(SkippedUpdates).Concat(Installed.SelectMany(g => g.Members)).Any(p =>
             p.Error.Length > 0
             && string.Equals(p.OperationKey, key, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>
-    /// An update winget called a success can leave the row exactly where it
-    /// was - Teams and anything else that swaps itself out on next launch
-    /// keeps reporting the old version until it restarts. Silently redrawing
-    /// the same row reads as "the button did nothing", so the row says why.
-    ///
-    /// A batch needs the same sentence more than a single update does: it took
-    /// the row off the list on its way past, and the reload has just put it
-    /// back. Without a word on it, that reads as a package it skipped.
-    ///
-    /// Which restart it is matters. Reopening one app is a moment; restarting
-    /// Windows is a decision, and being told the wrong one is worse than being
-    /// told nothing - so the row only says Windows when winget said Windows.
-    /// </summary>
-    public void NoteUnfinishedUpdate(Operation operation)
-    {
-        foreach (var package in _allUpdates)
-        {
-            if (package.IsBusy || !WentThrough(package, operation))
-                continue;
-
-            // A package winget cannot read the version of is back in the list
-            // whatever happened; its own note says what went in and when.
-            if (package.HasUnknownVersion)
-                continue;
-
-            package.Status = operation.NeedsRestart(package.OperationKey)
-                ? "Restart Windows to finish"
-                : "Restart the app to finish";
-        }
-    }
 }

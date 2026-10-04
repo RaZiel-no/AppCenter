@@ -540,7 +540,7 @@ public static class OperationService
         var operation = Touching(package);
 
         package.IsBusy = operation is not null;
-        package.Status = operation?.RowLabel ?? string.Empty;
+        package.Status = operation?.RowLabel ?? package.FinishingNote;
         package.Progress = operation?.Percent ?? 0;
         package.IsProgressPulsing = operation?.IsPulsing ?? false;
         package.Error = FailureFor(package.OperationKey, shows);

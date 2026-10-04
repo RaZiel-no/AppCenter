@@ -142,11 +142,12 @@ public static class MachineState
             var installed = await WingetService.ListInstalledAsync().ConfigureAwait(false);
 
             UpdateMemory.Apply(upgrades);
+            FinishingUpdates.Apply(upgrades);
 
             await OnUiAsync(() =>
             {
                 Upgrades = upgrades;
-                PendingUpdates = upgrades.Where(p => p.Group == UpdateGroup.Pending).ToList();
+                PendingUpdates = upgrades.Where(p => p.Group == UpdateGroup.Pending && !p.IsFinishing).ToList();
                 Installed = installed;
                 HasLoaded = true;
                 Changed?.Invoke(null, EventArgs.Empty);
