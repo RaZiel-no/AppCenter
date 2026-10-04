@@ -342,7 +342,7 @@ public partial class ManageView : PageView
         // Both taken before the question is up: a reload behind it rebuilds the
         // lists, and the batch is what the question named.
         var batch = _lists.UpdateAllBatch();
-        var narrow = machineWide is null ? default : _lists.UpdateWithoutAdminPlan(machineWide);
+        var narrow = machineWide is null ? default : _lists.UpdateUserOnlyPlan(machineWide);
 
         if (batch.Count == 0)
             return;

@@ -380,7 +380,7 @@ public sealed class ManageLists
                         : "All of them are installed for every user of this PC, so Windows will ask for administrator permission before updating each one."
                     : $"{Together(asks)} {(asks.Count == 1 ? "is" : "are")} installed for every user of this PC, " +
                       $"so Windows will ask for administrator permission before updating {(asks.Count == 1 ? "it" : "them")}, " +
-                      "and someone has to be there to answer. “Update without admin” leaves them out, " +
+                      "and someone has to be there to answer. “Update this user's apps” leaves them out, " +
                       "so the rest can run with nobody there.";
 
         return new Question(
@@ -393,7 +393,7 @@ public sealed class ManageLists
                   $"left until last. {SelfPackages.Warning}"),
             "Update all",
             // Counted the way the page's own "Update all (n)" is.
-            asks.Count > 0 && rest > 0 ? $"Update without admin ({rest})" : null);
+            asks.Count > 0 && rest > 0 ? $"Update this user's apps ({rest})" : null);
     }
 
     /// <summary>"A", "A and B", "A, B, and C" - and past five, a count of the rest.</summary>
@@ -422,9 +422,9 @@ public sealed class ManageLists
     /// <summary>
     /// "Update all" leaving out the machine-wide updates: the batch, and the
     /// names of what it leaves out, which its closing line says. The one place
-    /// both the question's alternative and --without-admin come from.
+    /// both the question's alternative and --user come from.
     /// </summary>
-    public (List<(string Id, string Name)> Batch, List<string> LeftOut) UpdateWithoutAdminPlan(IReadOnlySet<string> machineWide)
+    public (List<(string Id, string Name)> Batch, List<string> LeftOut) UpdateUserOnlyPlan(IReadOnlySet<string> machineWide)
     {
         var batch = UpdateAllBatch(leaveOut: machineWide);
         var leftOut = UpdateAllBatch().Except(batch).Select(b => b.Name).ToList();

@@ -128,7 +128,7 @@ The confirmation also names the ones Windows will ask administrator permission
 for. Before asking, App Center runs `winget upgrade --scope machine` to find
 which apps are installed for every user of the PC, since their installers have
 to write where only an administrator may. When some updates are like that and
-some are not, the confirmation offers **Update without admin (n)**, a batch
+some are not, the confirmation offers **Update this user's apps (n)**, a batch
 that can be started and left to run without anyone there to answer a
 permission prompt.
 Its closing line names the ones it left out. Where an app is installed is a good
@@ -185,19 +185,20 @@ more.
 #### From the command line
 
 ```
-AppCenter.exe --update-all [--without-admin] [--exit]
+AppCenter.exe --update-all [--user] [--exit]
 ```
 
 This opens App Center on Manage and starts "Update all" without the
 confirmation. The batch is the same one the button runs.
 
-- `--without-admin` leaves out the apps installed for every user of the PC,
-  which are the updates Windows would ask administrator permission for. It
-  leaves them out the same as **Update without admin** does, and it does so
-  even when App Center runs as administrator. A run started this way needs
-  nobody there. If App Center cannot tell which updates those are, it starts
-  nothing rather than guess. Start it without administrator rights: an elevated
-  winget refuses some apps installed for one user only, so those fail.
+- `--user` updates only the apps installed for this user. The ones installed
+  for every user of the PC are left out, since their updates are the ones
+  Windows asks administrator permission for, so a run started this way needs
+  nobody there. It is the same batch **Update this user's apps** starts, and
+  they are left out even when App Center runs as administrator. If App Center
+  cannot tell which apps are which, it starts nothing rather than guess. Start
+  it without administrator rights: an elevated winget refuses some apps
+  installed for one user only, so those fail.
 - `--exit` closes App Center when the batch is done. Without it, the window
   stays open on the results.
 
@@ -206,8 +207,8 @@ The exit code says how it went:
 - `0`: every update went through, or there was nothing to update.
 - `1`: at least one update did not go through.
 - `2`: nothing was started. winget could not be run or read, something else was
-  already running, or `--without-admin` could not tell which updates need
-  permission.
+  already running, or `--user` could not tell which apps are installed for
+  every user.
 - `3`: App Center closed while the batch was running, so some updates may have
   gone in and some not.
 
@@ -225,22 +226,28 @@ elevated App Center run installers, and an elevated launch must not quietly
 lose its rights to an unelevated window. So an elevated launch runs in a window
 of its own.
 
-A launch without `--update-all` opens the window as usual.
+A launch with nothing on the line opens the window as usual.
 
 `AppCenter.exe --help` lists the options and the exit codes, and opens no
-window. The text goes to the console the command was typed in, after the
-prompt, since the shell has not waited; sent to a file or a pipe
-(`AppCenter.exe --help > help.txt`), it lands there; and from Run or a
-shortcut, where there is no console, it is shown in a message box. `-h`, `-?`
-and `/?` do the same.
+window. The text goes to the console the command was typed in. A shell does
+not wait for a Windows app, so its prompt is already back by then and the
+text lands under it; App Center then presses Enter in that console on the
+shell's behalf, and a fresh prompt follows the text as it would after any
+other command. Sent to a file or a pipe (`AppCenter.exe --help > help.txt`),
+the text lands there and nothing is pressed; and from Run or a shortcut,
+where there is no console, it is shown in a message box. `-h`, `-?` and `/?`
+do the same. So does a line App Center cannot make sense of: an
+option it does not know, or `--user` or `--exit` with no
+`--update-all` to go with. It prints what was wrong above the options, opens
+no window, and exits with 2.
 
 Two scripts ship beside `AppCenter.exe` in the installed folder and the portable
 zip, for a double-click or a Task Scheduler action. Their source is in
 `scripts/`.
 
 - `update_all.bat` runs `--update-all --exit`.
-- `update_all_no_admin.bat` runs `--update-all --without-admin --exit`. This is
-  the one to schedule, because it needs nobody there.
+- `update_all_user.bat` runs `--update-all --user --exit`. This is the one to
+  schedule, because it needs nobody there.
 
 Each prints one line saying how it went and exits with App Center's code.
 

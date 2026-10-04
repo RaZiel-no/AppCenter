@@ -153,7 +153,7 @@ public partial class MainWindow : Window, IShellHost
         RefreshUpdateBadge();
 
         // Later launches asking for "update all" hand it to this window.
-        CommandLine.Listen(request => Dispatcher.InvokeAsync(() => RunUpdateAllAsync(request.WithoutAdmin)).Task.Unwrap());
+        CommandLine.Listen(request => Dispatcher.InvokeAsync(() => RunUpdateAllAsync(request.UserOnly)).Task.Unwrap());
 
         if (CommandLine.Request is { } request)
             _ = RunFromCommandLineAsync(request);
@@ -176,7 +176,7 @@ public partial class MainWindow : Window, IShellHost
 
         try
         {
-            code = await RunUpdateAllAsync(request.WithoutAdmin);
+            code = await RunUpdateAllAsync(request.UserOnly);
         }
         catch (Exception)
         {
@@ -237,15 +237,15 @@ public partial class MainWindow : Window, IShellHost
     /// apart - a double-click, a scheduled task beside a manual run - end
     /// with the same answer rather than one of them with "could not start".
     /// </summary>
-    public Task<int> RunUpdateAllAsync(bool withoutAdmin)
+    public Task<int> RunUpdateAllAsync(bool userOnly)
     {
         if (_updateAll is { IsCompleted: false } inFlight)
             return inFlight;
 
-        return _updateAll = RunUpdateAllOnceAsync(withoutAdmin);
+        return _updateAll = RunUpdateAllOnceAsync(userOnly);
     }
 
-    private async Task<int> RunUpdateAllOnceAsync(bool withoutAdmin)
+    private async Task<int> RunUpdateAllOnceAsync(bool userOnly)
     {
         List<(string Id, string Name)> batch;
         List<string> leftOut = [];
@@ -272,12 +272,11 @@ public partial class MainWindow : Window, IShellHost
 
             batch = lists.UpdateAllBatch();
 
-            // Whether or not this copy runs as administrator: the option names
-            // the apps it leaves alone - the ones installed for every user -
-            // and someone who asked for them to be left alone gets that,
-            // elevated or not, rather than App Center deciding that running
-            // elevated makes the question moot.
-            if (withoutAdmin)
+            // Whether or not this copy runs as administrator: --user asks for
+            // this user's apps and no others, and someone who asked for that
+            // gets it, elevated or not, rather than App Center deciding that
+            // running elevated makes the question moot.
+            if (userOnly)
             {
                 // Nobody is there to be asked, so not knowing is not good
                 // enough: one update that turns out to need permission would
@@ -285,7 +284,7 @@ public partial class MainWindow : Window, IShellHost
                 if (await MachineState.ReadMachineWideAsync() is not { } machineWide)
                     return CommandLine.CouldNotRun;
 
-                (batch, leftOut) = lists.UpdateWithoutAdminPlan(machineWide);
+                (batch, leftOut) = lists.UpdateUserOnlyPlan(machineWide);
             }
         }
         catch (Exception)

@@ -90,7 +90,7 @@
     <Content Include="scripts\update_all.bat" Link="update_all.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="scripts\update_all_no_admin.bat" Link="update_all_no_admin.bat">
+    <Content Include="scripts\update_all_user.bat" Link="update_all_user.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <!--  ApplicationIcon covers the exe; Window.Icon needs it in the assembly too  -->

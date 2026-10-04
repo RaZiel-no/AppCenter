@@ -4,7 +4,7 @@ using Xunit;
 namespace AppCenter.Tests;
 
 /// <summary>
-/// `AppCenter.exe --update-all [--without-admin] [--exit]`: what the line is
+/// `AppCenter.exe --update-all [--user] [--exit]`: what the line is
 /// read as, what exit code a batch ends in, and the hand-over to a window that
 /// is already open - over a pipe of the test's own, so nothing here reaches an
 /// App Center running on the machine.
@@ -31,11 +31,29 @@ public class CommandLineTests : IDisposable
     public void Reads_update_all_and_its_two_options_in_any_order_and_case()
     {
         Assert.Equal(new UpdateAllRequest(false, false), CommandLine.Parse(["--update-all"]));
-        Assert.Equal(new UpdateAllRequest(true, true), CommandLine.Parse(["--EXIT", "--update-all", "--without-admin"]));
+        Assert.Equal(new UpdateAllRequest(true, true), CommandLine.Parse(["--EXIT", "--update-all", "--user"]));
 
-        // The options mean nothing on their own: an ordinary launch.
-        Assert.Null(CommandLine.Parse(["--without-admin", "--exit"]));
+        // The options mean nothing on their own: no request, and Mistake says why.
+        Assert.Null(CommandLine.Parse(["--user", "--exit"]));
         Assert.Null(CommandLine.Parse([]));
+    }
+
+    [Fact]
+    public void Finds_fault_with_an_option_it_does_not_know_and_with_options_lacking_update_all()
+    {
+        Assert.Null(CommandLine.Mistake([]));
+        Assert.Null(CommandLine.Mistake(["--update-all"]));
+        Assert.Null(CommandLine.Mistake(["--EXIT", "--update-all", "--user"]));
+        Assert.Null(CommandLine.Mistake(["--help"]));
+
+        // Named, so that a typo can be seen for what it is.
+        Assert.Equal("Unknown option: --updateall", CommandLine.Mistake(["--updateall"]));
+        Assert.Equal("Unknown option: update-all", CommandLine.Mistake(["update-all", "--exit"]));
+
+        // The options mean nothing on their own, and saying so beats a window
+        // that opened and did nothing it was asked.
+        Assert.NotNull(CommandLine.Mistake(["--exit"]));
+        Assert.NotNull(CommandLine.Mistake(["--user", "--exit"]));
     }
 
     [Fact]
@@ -48,7 +66,7 @@ public class CommandLineTests : IDisposable
         Assert.True(CommandLine.AsksForHelp(["--update-all", "--exit", "--HELP"]));
 
         Assert.False(CommandLine.AsksForHelp([]));
-        Assert.False(CommandLine.AsksForHelp(["--update-all", "--without-admin", "--exit"]));
+        Assert.False(CommandLine.AsksForHelp(["--update-all", "--user", "--exit"]));
     }
 
     [Fact]
@@ -58,7 +76,7 @@ public class CommandLineTests : IDisposable
 
         Assert.Contains($"App Center {AppInfo.Version}", help);
         Assert.Contains("--update-all", help);
-        Assert.Contains("--without-admin", help);
+        Assert.Contains("--user", help);
         Assert.Contains("--exit", help);
         Assert.Contains("--help", help);
 
@@ -109,12 +127,12 @@ public class CommandLineTests : IDisposable
             return Task.FromResult(CommandLine.SomeFailed);
         });
 
-        var code = await Task.Run(() => CommandLine.HandOff(new UpdateAllRequest(WithoutAdmin: true, Exit: true)));
+        var code = await Task.Run(() => CommandLine.HandOff(new UpdateAllRequest(UserOnly: true, Exit: true)));
 
         Assert.Equal(CommandLine.SomeFailed, code);
 
         // --exit stays behind: the open window is not the launch's to close.
-        Assert.Equal(new UpdateAllRequest(WithoutAdmin: true, Exit: false), received);
+        Assert.Equal(new UpdateAllRequest(UserOnly: true, Exit: false), received);
     }
 
     [Fact]

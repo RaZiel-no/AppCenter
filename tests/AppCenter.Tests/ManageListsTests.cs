@@ -284,11 +284,11 @@ public class ManageListsTests
         Assert.Contains(
             "VLC media player and Unity Hub are installed for every user of this PC, " +
             "so Windows will ask for administrator permission before updating them, " +
-            "and someone has to be there to answer. “Update without admin” leaves them out, " +
+            "and someone has to be there to answer. “Update this user's apps” leaves them out, " +
             "so the rest can run with nobody there.",
             question.Message);
         Assert.Equal("Update all", question.Confirm);
-        Assert.Equal("Update without admin (1)", question.Alternative);
+        Assert.Equal("Update this user's apps (1)", question.Alternative);
 
         // The alternative's batch is the rest, in the same order.
         Assert.Equal(["Microsoft.WindowsTerminal"], lists.UpdateAllBatch(leaveOut: machineWide).Select(b => b.Id));
@@ -555,7 +555,7 @@ public class ManageListsTests
     }
 
     [Fact]
-    public void Plans_the_batch_without_admin_and_names_what_it_leaves_out()
+    public void Plans_the_batch_for_this_user_and_names_what_it_leaves_out()
     {
         var lists = Loaded(
         [
@@ -564,7 +564,7 @@ public class ManageListsTests
             Update("Unity.UnityHub", "Unity Hub"),
         ], []);
 
-        var (batch, leftOut) = lists.UpdateWithoutAdminPlan(
+        var (batch, leftOut) = lists.UpdateUserOnlyPlan(
             new HashSet<string>(["VideoLAN.VLC", "Unity.UnityHub"], StringComparer.OrdinalIgnoreCase));
 
         Assert.Equal(["Microsoft.WindowsTerminal"], batch.Select(b => b.Id));

@@ -10,7 +10,7 @@ rem
 rem  Windows asks for administrator permission before updating an app that is
 rem  installed for every user of the PC, and the updates wait until someone
 rem  answers. To leave those apps out and let it run on its own - from Task
-rem  Scheduler, say - use update_all_no_admin.bat instead.
+rem  Scheduler, say - use update_all_user.bat instead.
 rem
 rem  Exit code:  0  every update went through, or there was nothing to update
 rem              1  at least one update did not go through

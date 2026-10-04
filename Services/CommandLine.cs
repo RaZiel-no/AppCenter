@@ -7,21 +7,23 @@ using System.Windows;
 namespace AppCenter.Services;
 
 /// <summary>"Update all", asked for on the command line rather than with the button.</summary>
-/// <param name="WithoutAdmin">Leave out the updates Windows would ask administrator permission for.</param>
+/// <param name="UserOnly">Update only the apps installed for this user, leaving out the ones installed for every user of the PC.</param>
 /// <param name="Exit">Close App Center once the batch is done.</param>
-public sealed record UpdateAllRequest(bool WithoutAdmin, bool Exit);
+public sealed record UpdateAllRequest(bool UserOnly, bool Exit);
 
 /// <summary>
 /// What App Center does with its command line:
 ///
-///     AppCenter.exe --update-all [--without-admin] [--exit]
+///     AppCenter.exe --update-all [--user] [--exit]
 ///     AppCenter.exe --help
 ///
 /// The window opens on Manage and starts the same batch "Update all" does,
 /// without the question - whoever typed the command has answered it. --help
-/// lists the options and opens no window, whatever else is on the line.
-/// Anything else on the line is ignored, and a launch with neither opens the
-/// window as it always has.
+/// lists the options and opens no window, whatever else is on the line. So
+/// does anything App Center does not know, or an option with no --update-all
+/// to go with: a mistyped line gets the options, not a window that did
+/// nothing it was asked. A launch with nothing on the line opens the window
+/// as it always has.
 ///
 /// The exit code says how it went, for a script or a scheduled task that waits
 /// for it (`start /wait`, `Start-Process -Wait`). See <see cref="Done"/> and the
@@ -44,8 +46,8 @@ public static class CommandLine
 
     /// <summary>
     /// Nothing was started: winget could not be run or read, a batch or another
-    /// operation was already running, or - with --without-admin - it could not
-    /// be told which updates need administrator permission.
+    /// operation was already running, or - with --user - it could not be told
+    /// which apps are installed for every user of the PC.
     /// </summary>
     public const int CouldNotRun = 2;
 
@@ -71,7 +73,7 @@ public static class CommandLine
     {
         bool Has(string flag) => args.Any(a => string.Equals(a, flag, StringComparison.OrdinalIgnoreCase));
 
-        return Has("--update-all") ? new UpdateAllRequest(Has("--without-admin"), Has("--exit")) : null;
+        return Has("--update-all") ? new UpdateAllRequest(Has("--user"), Has("--exit")) : null;
     }
 
     /// <summary>The exit code for a batch that ran to its end.</summary>
@@ -91,6 +93,33 @@ public static class CommandLine
     public static bool AsksForHelp(IReadOnlyList<string> args) =>
         args.Any(a => HelpFlags.Contains(a, StringComparer.OrdinalIgnoreCase));
 
+    /// <summary>The options a line may carry, besides the ones asking for help.</summary>
+    private static readonly string[] KnownFlags = ["--update-all", "--user", "--exit"];
+
+    /// <summary>
+    /// What is wrong with the line, or null when nothing is: an argument App
+    /// Center does not know, or --user or --exit with no --update-all to go
+    /// with. Either gets the help, headed by this, and exits with
+    /// <see cref="CouldNotRun"/> - nothing was started. Asked after
+    /// <see cref="AsksForHelp"/>, which wins whatever else is on the line.
+    /// </summary>
+    public static string? Mistake(IReadOnlyList<string> args)
+    {
+        var unknown = args.FirstOrDefault(a =>
+            !KnownFlags.Contains(a, StringComparer.OrdinalIgnoreCase) &&
+            !HelpFlags.Contains(a, StringComparer.OrdinalIgnoreCase));
+
+        if (unknown is not null)
+            return $"Unknown option: {unknown}";
+
+        var dangling = args.Any(a => KnownFlags.Contains(a, StringComparer.OrdinalIgnoreCase)) && Parse(args) is null;
+
+        if (dangling)
+            return "--user and --exit go with --update-all.";
+
+        return null;
+    }
+
     /// <summary>
     /// The options and the exit codes, as --help prints them. Plain ASCII,
     /// since a console's code page is anyone's guess, and under eighty
@@ -102,17 +131,19 @@ public static class CommandLine
 
         Usage:
           AppCenter.exe
-          AppCenter.exe --update-all [--without-admin] [--exit]
+          AppCenter.exe --update-all [--user] [--exit]
           AppCenter.exe --help
 
-        Without options, App Center opens as usual.
+        Without options, App Center opens as usual. An option it does not know
+        prints this instead, and exits with 2.
 
         Options:
           --update-all      Open on Manage and start "Update all" without asking.
                             If App Center is already open, that window does it.
-          --without-admin   Leave out the apps installed for every user of the PC,
-                            which Windows would ask administrator permission for.
-                            A run started this way needs nobody there.
+          --user            Update only the apps installed for this user. The ones
+                            installed for every user of the PC are left out, since
+                            Windows asks administrator permission to update them,
+                            so a run started this way needs nobody there.
           --exit            Close App Center when the updates are done. Without it
                             the window stays open on the results.
           --help            Print this and exit. Also -h, -? and /?.
@@ -121,8 +152,8 @@ public static class CommandLine
           0  every update went through, or there was nothing to update
           1  at least one update did not go through
           2  nothing was started: winget could not be run, something else was
-             already running, or --without-admin could not tell which updates
-             need administrator permission
+             already running, or --user could not tell which apps are installed
+             for every user
           3  App Center closed while the updates ran; some may have gone in
 
         A shell does not wait for a Windows app. To read the exit code, use
@@ -133,23 +164,28 @@ public static class CommandLine
         """;
 
     /// <summary>
-    /// Prints <see cref="Help"/> and returns the code to exit with. A Windows
-    /// app has no console of its own, so where the text goes depends on how
-    /// the launch was made. Output sent to a file or a pipe is written to;
-    /// a console the command was typed in is borrowed for the write, and the
-    /// text starts on a line of its own because the prompt is already back,
-    /// a shell not waiting for a Windows app; and from Run or a shortcut,
-    /// where there is neither, a message box shows it.
+    /// Prints <see cref="Help"/>, under what was wrong with the line when
+    /// something was, and returns the code to exit with: <see cref="Done"/>
+    /// for help that was asked for, <see cref="CouldNotRun"/> for a mistake.
+    /// A Windows app has no console of its own, so where the text goes
+    /// depends on how the launch was made. Output sent to a file or a pipe is
+    /// written to; a console the command was typed in is borrowed for the
+    /// write, and the text starts on a line of its own because the prompt is
+    /// already back, a shell not waiting for a Windows app, after which Enter
+    /// is pressed on the shell's behalf so that a fresh prompt follows (see
+    /// <see cref="PressEnter"/>); and from Run or a shortcut, where there is
+    /// neither, a message box shows it.
     /// </summary>
-    public static int ShowHelp()
+    public static int ShowHelp(string? mistake = null)
     {
-        var text = Help;
+        var text = mistake is null ? Help : $"{mistake}{Environment.NewLine}{Environment.NewLine}{Help}";
+        var code = mistake is null ? Done : CouldNotRun;
 
         if (HasStandardOutput())
         {
             Console.Out.Write(text);
             Console.Out.Flush();
-            return Done;
+            return code;
         }
 
         if (AttachConsole(AttachParentProcess))
@@ -159,17 +195,23 @@ public static class CommandLine
                 Console.Out.WriteLine();
                 Console.Out.Write(text);
                 Console.Out.Flush();
+                PressEnter();
             }
             finally
             {
                 FreeConsole();
             }
 
-            return Done;
+            return code;
         }
 
-        MessageBox.Show(text, "App Center", MessageBoxButton.OK, MessageBoxImage.Information);
-        return Done;
+        MessageBox.Show(
+            text,
+            "App Center",
+            MessageBoxButton.OK,
+            mistake is null ? MessageBoxImage.Information : MessageBoxImage.Warning);
+
+        return code;
     }
 
     /// <summary>
@@ -186,9 +228,73 @@ public static class CommandLine
         return handle != IntPtr.Zero && handle != InvalidHandleValue;
     }
 
+    /// <summary>
+    /// Types Enter into the borrowed console, for the shell at its prompt to
+    /// read as an empty line and answer with a fresh prompt under the help.
+    ///
+    /// The shell printed its prompt the moment this process started, since it
+    /// does not wait for a Windows app, and the help then landed under that
+    /// prompt. Nothing but reading a line makes a shell print another, so
+    /// without this the cursor is left below the text with no prompt before
+    /// it, which looks like a program still running when it has in fact
+    /// exited. A console program never has the problem: the shell holds its
+    /// prompt until it ends. This is the one way to have the same from here.
+    ///
+    /// It is typing into someone's console, so it is done once, only into an
+    /// empty input buffer, and only in this branch - never into a file, a
+    /// pipe, or a console this process was not started from. What it cannot
+    /// rule out is a key pressed in the moment the help took to print: the
+    /// shell would already have taken that key, and this Enter follows it.
+    /// A console that refuses is left alone; the help is out either way.
+    /// </summary>
+    private static void PressEnter()
+    {
+        var input = GetStdHandle(StdInputHandle);
+
+        if (input == IntPtr.Zero || input == InvalidHandleValue)
+            return;
+
+        if (!GetNumberOfConsoleInputEvents(input, out var pending) || pending > 0)
+            return;
+
+        InputRecord[] enter = [EnterKey(down: true), EnterKey(down: false)];
+        WriteConsoleInput(input, enter, (uint)enter.Length, out _);
+    }
+
+    private static InputRecord EnterKey(bool down) => new()
+    {
+        EventType = KeyEvent,
+        KeyDown = down ? 1 : 0,
+        RepeatCount = 1,
+        VirtualKeyCode = VkReturn,
+        VirtualScanCode = ScanReturn,
+        UnicodeChar = '\r',
+        ControlKeyState = 0,
+    };
+
+    /// <summary>
+    /// INPUT_RECORD holding a KEY_EVENT_RECORD, laid out as kernel32 has it:
+    /// the event type, two bytes of padding, then the key event.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 20)]
+    private struct InputRecord
+    {
+        [FieldOffset(0)] public ushort EventType;
+        [FieldOffset(4)] public int KeyDown;
+        [FieldOffset(8)] public ushort RepeatCount;
+        [FieldOffset(10)] public ushort VirtualKeyCode;
+        [FieldOffset(12)] public ushort VirtualScanCode;
+        [FieldOffset(14)] public ushort UnicodeChar;
+        [FieldOffset(16)] public uint ControlKeyState;
+    }
+
+    private const int StdInputHandle = -10;
     private const int StdOutputHandle = -11;
     private const uint AttachParentProcess = unchecked((uint)-1);
     private static readonly IntPtr InvalidHandleValue = new(-1);
+    private const ushort KeyEvent = 0x0001;
+    private const ushort VkReturn = 0x0D;
+    private const ushort ScanReturn = 0x1C;
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool AttachConsole(uint processId);
@@ -198,6 +304,12 @@ public static class CommandLine
 
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetStdHandle(int handle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetNumberOfConsoleInputEvents(IntPtr consoleInput, out uint count);
+
+    [DllImport("kernel32.dll", EntryPoint = "WriteConsoleInputW", SetLastError = true)]
+    private static extern bool WriteConsoleInput(IntPtr consoleInput, InputRecord[] records, uint count, out uint written);
 
     // ---------------------------------------------------------------
     // Handing over to the open window
@@ -243,7 +355,7 @@ public static class CommandLine
             using var reader = new StreamReader(pipe, leaveOpen: true);
             using var writer = new StreamWriter(pipe, leaveOpen: true) { AutoFlush = true };
 
-            writer.WriteLine(request.WithoutAdmin ? "--update-all --without-admin" : "--update-all");
+            writer.WriteLine(request.UserOnly ? "--update-all --user" : "--update-all");
 
             // No answer at all: the window closed before it could give one.
             return int.TryParse(reader.ReadLine(), out var code) ? code : Interrupted;

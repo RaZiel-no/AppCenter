@@ -1,12 +1,12 @@
 @echo off
 setlocal
 
-rem  App Center - update every app that needs no administrator permission, and
-rem  close when done.
+rem  App Center - update this user's apps, and close when done.
 rem
-rem  The same as "Update without admin" in App Center, without the question:
-rem  the window opens on Manage, works through the updates and closes again. If
-rem  App Center is already open, that window does the updating and stays open.
+rem  The same as "Update this user's apps" in App Center, without the question:
+rem  the window opens on Manage, works through the updates of the apps
+rem  installed for this user, and closes again. If App Center is already open,
+rem  that window does the updating and stays open.
 rem
 rem  Apps installed for every user of the PC are left out, since Windows would
 rem  ask for administrator permission before updating them and wait for an
@@ -24,13 +24,13 @@ rem
 rem  Exit code:  0  every update went through, or there was nothing to update
 rem              1  at least one update did not go through
 rem              2  nothing was started - including when App Center could not
-rem                 tell which updates need administrator permission
+rem                 tell which apps are installed for every user
 rem              3  App Center closed before the updates finished
 
-start "" /wait "%~dp0AppCenter.exe" --update-all --without-admin --exit
+start "" /wait "%~dp0AppCenter.exe" --update-all --user --exit
 set "CODE=%errorlevel%"
 
-if "%CODE%"=="0" echo Updates done. Any that need administrator permission were left out.
+if "%CODE%"=="0" echo Updates done. Apps installed for every user of the PC were left out.
 if "%CODE%"=="1" echo Some updates did not go through. Open App Center to see why.
 if "%CODE%"=="2" echo Nothing was updated: App Center could not start the updates.
 if "%CODE%"=="3" echo App Center closed before the updates finished. Open it to see which went in.

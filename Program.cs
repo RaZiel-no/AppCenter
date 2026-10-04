@@ -13,9 +13,13 @@ public static class Program
     public static int Main(string[] args)
     {
         // --help lists the options and opens no window, whatever else is on
-        // the line. See CommandLine.
+        // the line; so does a line App Center cannot make sense of. See
+        // CommandLine.
         if (CommandLine.AsksForHelp(args))
             return CommandLine.ShowHelp();
+
+        if (CommandLine.Mistake(args) is { } mistake)
+            return CommandLine.ShowHelp(mistake);
 
         // "Update all" from the command line goes to the window already open,
         // if there is one, and this launch only waits for its answer. See
