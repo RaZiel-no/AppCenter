@@ -223,6 +223,22 @@ public class UpdateAllBatchTests
     }
 
     [Fact]
+    public async Task Ends_by_naming_what_was_left_out_for_needing_administrator_permission()
+    {
+        List<string> said = [];
+
+        // Left to run on its own, the batch's closing line is what the user
+        // comes back to - so it says what is still waiting for them.
+        await WingetService.UpgradeEachAsync(
+            Three, said.Add, null, null, Recording([]), default,
+            leftOut: ["VLC media player", "Unity Hub"]);
+
+        Assert.Equal(
+            "Updated 3 packages. Left out, as they need administrator permission: VLC media player, Unity Hub.",
+            said[^1]);
+    }
+
+    [Fact]
     public async Task Ends_by_naming_the_packages_it_could_not_update()
     {
         List<string> said = [];

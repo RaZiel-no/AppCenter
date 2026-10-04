@@ -607,6 +607,9 @@ public partial class MainWindow : Window, IShellHost
     public bool ConfirmAction(string title, string message, string confirmLabel) =>
         ConfirmDialog.Show(this, title, message, confirmLabel);
 
+    public Answer Ask(Question question) =>
+        ConfirmDialog.Choose(this, question.Title, question.Message, question.Confirm, question.Alternative);
+
     // ---------------------------------------------------------------
     // Lightbox
     // ---------------------------------------------------------------

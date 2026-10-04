@@ -122,6 +122,17 @@ The filter box reaches every list; the system-package switch only the installed
 one. "Update all" always means every update, whatever the filter is showing, and
 the confirmation names them.
 
+The confirmation also names the ones Windows will ask administrator permission
+for. Before asking, App Center runs `winget upgrade --scope machine` to find
+which apps are installed for every user of the PC, since their installers have
+to write where only an administrator may. When some updates are like that and
+some are not, the confirmation offers **Update without admin (n)**, a batch
+that can be started and left to run without anyone there to answer a
+permission prompt.
+Its closing line names the ones it left out. Where an app is installed is a good
+guess at what its installer will ask for, not a promise: a per-user installer
+can still ask to run as administrator.
+
 #### Three kinds of update
 
 winget's list of updates compares version numbers and nothing else, so what it

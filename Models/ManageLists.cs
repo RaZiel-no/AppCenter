@@ -4,8 +4,19 @@ using AppCenter.Services;
 
 namespace AppCenter.Models;
 
-/// <summary>A question to put to the user before something changes the machine.</summary>
-public sealed record Question(string Title, string Message, string Confirm);
+/// <summary>
+/// A question to put to the user before something changes the machine. Some
+/// offer a second, narrower way to go ahead beside the first.
+/// </summary>
+public sealed record Question(string Title, string Message, string Confirm, string? Alternative = null);
+
+/// <summary>Which way the user went: not at all, the question's own way, or its alternative.</summary>
+public enum Answer
+{
+    Cancel,
+    Confirm,
+    Alternative,
+}
 
 /// <summary>
 /// What the Manage page holds and says: the updates and the installs winget
@@ -323,8 +334,15 @@ public sealed class ManageLists
     /// <summary>
     /// "Update all": everything winget offers, not only what the filter is
     /// showing - the button says "all", and the question names them.
+    ///
+    /// <paramref name="machineWide"/> is which of them are installed for every
+    /// user of the PC (see <see cref="WingetService.ListMachineWideUpdatesAsync"/>),
+    /// or null when that could not be read. Those are the ones Windows asks
+    /// administrator permission for, which stops the batch until somebody
+    /// answers; when only some of them are, the question offers to update the
+    /// rest, so that a batch can be started and left to run.
     /// </summary>
-    public Question UpdateAllQuestion()
+    public Question UpdateAllQuestion(IReadOnlySet<string>? machineWide = null)
     {
         var all = SelfPackages.LastInLine(Pending);
 
@@ -337,25 +355,62 @@ public sealed class ManageLists
         // afterwards is exactly the position this is here to avoid.
         var closes = all.Where(p => p.ClosesApp).Select(p => p.Name).ToList();
 
+        List<string> asks = machineWide is null
+            ? []
+            : all.Where(p => machineWide.Contains(p.Id)).Select(p => p.Name).ToList();
+        var rest = all.Count - asks.Count;
+
+        // Said as "should": where an app is installed is a good guess at what its
+        // installer will ask for, not a promise - a per-user installer can still
+        // ask to run as administrator.
+        var permission = machineWide is null
+            ? "Windows may prompt for administrator permission for some of them."
+            : asks.Count == 0
+                ? "None of them is installed for every user of this PC, so Windows should not need to ask for administrator permission."
+                : rest == 0
+                    ? all.Count == 1
+                        ? $"{asks[0]} is installed for every user of this PC, so Windows will ask for administrator permission before updating it."
+                        : "All of them are installed for every user of this PC, so Windows will ask for administrator permission before updating each one."
+                    : $"{Together(asks)} {(asks.Count == 1 ? "is" : "are")} installed for every user of this PC, " +
+                      $"so Windows will ask for administrator permission before updating {(asks.Count == 1 ? "it" : "them")}, " +
+                      "and someone has to be there to answer. “Update without admin” leaves them out, " +
+                      "so the rest can run with nobody there.";
+
         return new Question(
             $"Update {all.Count} package{(all.Count == 1 ? string.Empty : "s")}?",
             $"winget will download and install updates for: {names}.\n\n" +
-            "Windows may prompt for administrator permission for some of them." +
+            permission +
             (closes.Count == 0
                 ? string.Empty
                 : $"\n\n{string.Join(", ", closes)} {(closes.Count == 1 ? "is" : "are")} " +
                   $"left until last. {SelfPackages.Warning}"),
-            "Update all");
+            "Update all",
+            // Counted the way the page's own "Update all (n)" is.
+            asks.Count > 0 && rest > 0 ? $"Update without admin ({rest})" : null);
     }
+
+    /// <summary>"A", "A and B", "A, B, and C" - and past five, a count of the rest.</summary>
+    private static string Together(IReadOnlyList<string> names) => names.Count switch
+    {
+        1 => names[0],
+        2 => $"{names[0]} and {names[1]}",
+        <= 5 => $"{string.Join(", ", names.Take(names.Count - 1))}, and {names[^1]}",
+        _ => $"{string.Join(", ", names.Take(5))}, and {names.Count - 5} more",
+    };
 
     /// <summary>
     /// What "update all" works through, snapshotted before it starts: the list
     /// is rebuilt by the reload that follows every finished update, and the
     /// batch has to keep working through the packages the user confirmed.
     /// Only the updates winget is sure of - see <see cref="UnknownBatch"/>.
+    /// <paramref name="leaveOut"/> is the packages the user chose to leave for
+    /// later: the question's alternative.
     /// </summary>
-    public List<(string Id, string Name)> UpdateAllBatch() =>
-        SelfPackages.LastInLine(Pending).Select(p => (p.Id, p.Name)).ToList();
+    public List<(string Id, string Name)> UpdateAllBatch(IReadOnlySet<string>? leaveOut = null) =>
+        SelfPackages.LastInLine(Pending)
+            .Where(p => leaveOut is null || !leaveOut.Contains(p.Id))
+            .Select(p => (p.Id, p.Name))
+            .ToList();
 
     /// <summary>
     /// The unknown-version list's own batch: the packages the version on offer

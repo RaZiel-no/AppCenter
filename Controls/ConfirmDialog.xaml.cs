@@ -1,4 +1,5 @@
 using System.Windows;
+using AppCenter.Models;
 
 namespace AppCenter.Controls;
 
@@ -9,12 +10,22 @@ namespace AppCenter.Controls;
 /// </summary>
 public partial class ConfirmDialog : Window
 {
+    private Answer _answer = Answer.Cancel;
+
     private ConfirmDialog()
     {
         InitializeComponent();
     }
 
-    public static bool Show(Window owner, string title, string message, string confirmLabel)
+    public static bool Show(Window owner, string title, string message, string confirmLabel) =>
+        Choose(owner, title, message, confirmLabel, null) == Answer.Confirm;
+
+    /// <summary>
+    /// The same prompt with a second way to go ahead, between Cancel and the
+    /// confirm button, when there is one. Closing the window any other way is
+    /// Cancel.
+    /// </summary>
+    public static Answer Choose(Window owner, string title, string message, string confirmLabel, string? alternativeLabel)
     {
         var dialog = new ConfirmDialog
         {
@@ -25,18 +36,26 @@ public partial class ConfirmDialog : Window
         dialog.MessageText.Text = message;
         dialog.ConfirmButton.Content = confirmLabel;
 
-        return dialog.ShowDialog() == true;
+        if (alternativeLabel is not null)
+        {
+            dialog.AlternativeButton.Content = alternativeLabel;
+            dialog.AlternativeButton.Visibility = Visibility.Visible;
+        }
+
+        dialog.ShowDialog();
+        return dialog._answer;
     }
 
-    private void OnConfirm(object sender, RoutedEventArgs e)
-    {
-        DialogResult = true;
-        Close();
-    }
+    private void OnConfirm(object sender, RoutedEventArgs e) => Finish(Answer.Confirm);
 
-    private void OnCancel(object sender, RoutedEventArgs e)
+    private void OnAlternative(object sender, RoutedEventArgs e) => Finish(Answer.Alternative);
+
+    private void OnCancel(object sender, RoutedEventArgs e) => Finish(Answer.Cancel);
+
+    private void Finish(Answer answer)
     {
-        DialogResult = false;
+        _answer = answer;
+        DialogResult = answer != Answer.Cancel;
         Close();
     }
 }

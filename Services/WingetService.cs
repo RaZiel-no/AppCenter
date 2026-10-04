@@ -653,6 +653,33 @@ public static class WingetService
     }
 
     /// <summary>
+    /// The ids of the updates installed for every user of the PC rather than
+    /// for this one: the same listing, narrowed by winget to the machine scope.
+    /// winget takes an install's scope from where Windows keeps its uninstall
+    /// entry, and an installer that writes to the machine's half of the
+    /// registry needs administrator rights to do it - so these are the updates
+    /// Windows will ask permission for. Null when winget could not be asked,
+    /// which is not the same as none.
+    ///
+    /// Read when "update all" is pressed rather than with every refresh: only
+    /// that question uses it, and a refresh is slow enough already.
+    /// </summary>
+    public static async Task<HashSet<string>?> ListMachineWideUpdatesAsync(CancellationToken ct = default)
+    {
+        var result = await RunAsync(
+            ["upgrade", "--include-unknown", "--include-pinned", "--scope", "machine", .. CommonArgs],
+            ct: ct).ConfigureAwait(false);
+
+        // An empty listing exits 0 as well; anything else is winget failing.
+        if (result.ExitCode != 0)
+            return null;
+
+        return ReadUpgrades(result.StdOut, new Dictionary<string, string>())
+            .Select(p => p.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The update rows out of winget's output. The first table is the
     /// updates. Any table after it is one winget printed apart, under a
     /// sentence: the packages whose publishers ask to be updated one at a time
@@ -956,16 +983,23 @@ public static class WingetService
     /// so on. So the row for it can say why, offer the remedy, say what is
     /// still owed, or go, rather than the batch reducing it to a name in a tally.
     /// </param>
+    /// <param name="leftOut">
+    /// The names of the updates the user chose to leave out because Windows
+    /// would ask administrator permission for them. Not the batch's to do, but
+    /// its closing line names them: that line is what is still on the page when
+    /// the user comes back to a batch they left running.
+    /// </param>
     public static Task<WingetResult> UpgradeEachAsync(
         IReadOnlyList<(string Id, string Name)> packages,
         Action<string>? onOutput,
         Action<string, string>? onStart = null,
         Action<string, string, RestartNeed, FailureKind>? onDone = null,
-        CancellationToken ct = default) =>
+        CancellationToken ct = default,
+        IReadOnlyList<string>? leftOut = null) =>
         UpgradeEachAsync(
             packages, onOutput, onStart, onDone,
             (id, output, token) => UpgradeAsync(id, output, token),
-            ct);
+            ct, leftOut: leftOut);
 
     /// <summary>
     /// The batch itself, over whatever "upgrade one package" happens to mean.
@@ -980,7 +1014,8 @@ public static class WingetService
         Action<string, string, RestartNeed, FailureKind>? onDone,
         Func<string, Action<string>?, CancellationToken, Task<WingetResult>> upgrade,
         CancellationToken ct,
-        ShellWatch? shell = null)
+        ShellWatch? shell = null,
+        IReadOnlyList<string>? leftOut = null)
     {
         var failed = new List<(string Name, FailureKind Kind)>();
         var restarting = new List<string>();
@@ -1057,6 +1092,9 @@ public static class WingetService
         // there would otherwise be nothing left saying it ever went.
         if (shellClosedBy.Count > 0)
             tally += $" {ShellWatch.Note(shellClosedBy)}";
+
+        if (leftOut is { Count: > 0 })
+            tally += $" Left out, as {(leftOut.Count == 1 ? "it needs" : "they need")} administrator permission: {string.Join(", ", leftOut)}.";
 
         onOutput?.Invoke(tally);
 

@@ -269,6 +269,54 @@ public class ManageListsTests
     }
 
     [Fact]
+    public void Update_all_names_what_Windows_will_ask_permission_for_and_offers_the_rest()
+    {
+        var lists = Loaded(
+        [
+            Update("VideoLAN.VLC", "VLC media player"),
+            Update("Microsoft.WindowsTerminal", "Windows Terminal"),
+            Update("Unity.UnityHub", "Unity Hub"),
+        ], []);
+        var machineWide = new HashSet<string>(["videolan.vlc", "Unity.UnityHub"], StringComparer.OrdinalIgnoreCase);
+
+        var question = lists.UpdateAllQuestion(machineWide);
+
+        Assert.Contains(
+            "VLC media player and Unity Hub are installed for every user of this PC, " +
+            "so Windows will ask for administrator permission before updating them, " +
+            "and someone has to be there to answer. “Update without admin” leaves them out, " +
+            "so the rest can run with nobody there.",
+            question.Message);
+        Assert.Equal("Update all", question.Confirm);
+        Assert.Equal("Update without admin (1)", question.Alternative);
+
+        // The alternative's batch is the rest, in the same order.
+        Assert.Equal(["Microsoft.WindowsTerminal"], lists.UpdateAllBatch(leaveOut: machineWide).Select(b => b.Id));
+        Assert.Equal(3, lists.UpdateAllBatch().Count);
+    }
+
+    [Fact]
+    public void Update_all_offers_no_alternative_when_there_is_nothing_to_choose_between()
+    {
+        var lists = Loaded([Update("VideoLAN.VLC", "VLC media player"), Update("Git.Git", "Git")], []);
+
+        // None of them installed for every user: nothing for Windows to ask.
+        var none = lists.UpdateAllQuestion(new HashSet<string>());
+        Assert.Contains("None of them is installed for every user of this PC", none.Message);
+        Assert.Null(none.Alternative);
+
+        // All of them: leaving those out would leave nothing.
+        var all = lists.UpdateAllQuestion(new HashSet<string>(["VideoLAN.VLC", "Git.Git"]));
+        Assert.Contains("All of them are installed for every user of this PC", all.Message);
+        Assert.Null(all.Alternative);
+
+        // Not known: what the question always said.
+        var unknown = lists.UpdateAllQuestion();
+        Assert.Contains("Windows may prompt for administrator permission for some of them.", unknown.Message);
+        Assert.Null(unknown.Alternative);
+    }
+
+    [Fact]
     public void Uninstalling_one_of_several_versions_says_the_others_stay()
     {
         var older = Install("7zip.7zip", "7-Zip", "22.01");

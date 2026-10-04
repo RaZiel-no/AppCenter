@@ -32,6 +32,12 @@ public partial class ManageView : PageView
     /// </summary>
     private CancellationTokenSource _cts = new();
 
+    /// <summary>
+    /// "Update all" is between the press and its question: a reload in that
+    /// time enables the button again, and a second press must not ask twice.
+    /// </summary>
+    private bool _askingUpdateAll;
+
     public ManageView()
     {
         InitializeComponent();
@@ -273,17 +279,78 @@ public partial class ManageView : PageView
     // since the last read is what they want to see.
     private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await ReloadAsync(changed: true);
 
-    private void OnUpdateAll(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// "Update all" first finds out which of the updates Windows will ask
+    /// administrator permission for, so the question can name them and offer
+    /// to leave them out - the batch then runs without anyone there. Running
+    /// as administrator already, nothing will ask, so there is nothing to find.
+    /// </summary>
+    private async void OnUpdateAll(object sender, RoutedEventArgs e)
     {
-        if (!OperationService.CanStart(Operation.UpdateAllKey))
+        if (_askingUpdateAll || !OperationService.CanStart(Operation.UpdateAllKey) || _lists.UpdateAllBatch().Count == 0)
             return;
 
+        _askingUpdateAll = true;
+
+        try
+        {
+            await AskUpdateAllAsync();
+        }
+        finally
+        {
+            _askingUpdateAll = false;
+        }
+    }
+
+    private async Task AskUpdateAllAsync()
+    {
+        HashSet<string>? machineWide = null;
+
+        if (!OperationService.RunningAsAdmin())
+        {
+            UpdateAllButton.IsEnabled = false;
+            UpdateAllLabel.Text = "Checking…";
+
+            try
+            {
+                await MachineState.WhenIdleAsync();
+                machineWide = await WingetService.ListMachineWideUpdatesAsync();
+            }
+            catch (Exception)
+            {
+                // Then the question says what it always said: Windows may ask.
+            }
+            finally
+            {
+                UpdateAllLabel.Text = _lists.UpdateAllLabel;
+                RefreshButtons();
+            }
+
+            // Something else may have started meanwhile.
+            if (!OperationService.CanStart(Operation.UpdateAllKey))
+                return;
+        }
+
+        var question = _lists.UpdateAllQuestion(machineWide);
+
+        // Both taken before the question is up: a reload behind it rebuilds the
+        // lists, and the batch is what the question named.
         var batch = _lists.UpdateAllBatch();
+        var narrow = _lists.UpdateAllBatch(leaveOut: machineWide);
 
-        if (batch.Count == 0 || !Confirm(_lists.UpdateAllQuestion()))
+        if (batch.Count == 0)
             return;
 
-        StartBatch(batch);
+        switch (Host.Ask(question))
+        {
+            case Answer.Confirm:
+                StartBatch(batch);
+                break;
+
+            case Answer.Alternative:
+                StartBatch(narrow, leftOut: batch.Except(narrow).Select(b => b.Name).ToList());
+                break;
+        }
     }
 
     /// <summary>
@@ -304,14 +371,15 @@ public partial class ManageView : PageView
         StartBatch(batch);
     }
 
-    private static void StartBatch(List<(string Id, string Name)> batch) =>
+    private static void StartBatch(List<(string Id, string Name)> batch, IReadOnlyList<string>? leftOut = null) =>
         OperationService.Start(
             Operation.UpdateAllKey, "all packages", OperationKind.UpdateAll,
             (progress, token) => WingetService.UpgradeEachAsync(
                 batch, progress,
                 OperationService.NoteBatchStart,
                 OperationService.NoteBatchDone,
-                token));
+                token,
+                leftOut));
 
     /// <summary>
     /// A press on a row, or on one of the buttons inside a row - the rows are

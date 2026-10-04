@@ -107,6 +107,21 @@ public static class MachineState
         }
     }
 
+    /// <summary>
+    /// Done when no read is under way - straight away when none is - for a
+    /// winget read of some other kind, which would contend with this one over
+    /// the source database. Starts nothing, and never faults: whether the
+    /// read worked is its own callers' business.
+    /// </summary>
+    public static Task WhenIdleAsync()
+    {
+        lock (Gate)
+        {
+            var run = _next ?? _current;
+            return run is null ? Task.CompletedTask : run.ContinueWith(_ => { }, TaskScheduler.Default);
+        }
+    }
+
     /// <summary>Begins a run, under the lock.</summary>
     private static Task Start()
     {

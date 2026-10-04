@@ -43,6 +43,11 @@
                         Content="Cancel"
                         IsCancel="True"
                         Click="OnCancel" />
+                <Button x:Name="AlternativeButton"
+                        Style="{StaticResource PillButton}"
+                        Margin="10,0,0,0"
+                        Visibility="Collapsed"
+                        Click="OnAlternative" />
                 <Button x:Name="ConfirmButton"
                         Style="{StaticResource GreenButton}"
                         Margin="10,0,0,0"

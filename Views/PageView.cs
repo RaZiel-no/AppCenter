@@ -37,6 +37,12 @@ public interface IShellHost
     bool ConfirmAction(string title, string message, string confirmLabel);
 
     /// <summary>
+    /// Ask the same, with the question's alternative beside its own way to go
+    /// ahead when it has one.
+    /// </summary>
+    Answer Ask(Question question);
+
+    /// <summary>
     /// Open the lightbox over the whole window on one of a page's
     /// screenshots, with the rest a keypress away.
     /// </summary>
