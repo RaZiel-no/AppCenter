@@ -19,12 +19,17 @@ namespace AppCenter.Tests
         internal static void NoPendingRestart() => AppCenter.Services.PendingRestart.Probe = () => false;
 
         /// <summary>
-        /// What was installed over an unreadable version is kept in the settings
-        /// file. The tests get a dictionary of their own and no file, so they
-        /// never read the settings on this machine, let alone write them.
+        /// What was installed over an unreadable version, and which updates wait
+        /// on a restart, are kept in the settings file. The tests get
+        /// dictionaries of their own and no file, so they never read the
+        /// settings on this machine, let alone write them.
         /// </summary>
         [System.Runtime.CompilerServices.ModuleInitializer]
-        internal static void NoSettingsFile() => AppCenter.Services.UpdateMemory.UseScratch();
+        internal static void NoSettingsFile()
+        {
+            AppCenter.Services.UpdateMemory.UseScratch();
+            AppCenter.Services.FinishingUpdates.UseScratch();
+        }
 
         /// <summary>
         /// The Start menu is read to find what starts each update row. The

@@ -431,6 +431,41 @@ public class ManageListsTests
     }
 
     [Fact]
+    public void Stops_believing_a_restart_is_awaited_once_Windows_has_restarted_or_a_week_has_gone()
+    {
+        FinishingUpdates.Clear();
+        var start = new DateTime(2026, 10, 4, 12, 0, 0, DateTimeKind.Utc);
+        FinishingUpdates.Now = () => start;
+        FinishingUpdates.BootedAt = () => start.AddDays(-1);
+
+        FinishingUpdates.Record("Vendor.Tool", "2.0", windows: false);
+
+        // Closing App Center is no restart of the app: the mark holds.
+        var tool = Update("Vendor.Tool", "Tool");
+        FinishingUpdates.Apply([tool]);
+        Assert.True(tool.IsFinishing);
+
+        // Windows restarted since, and the update still did not take: whatever
+        // the row is waiting for, it is not a restart. Update is offered again.
+        FinishingUpdates.BootedAt = () => start.AddHours(1);
+        var afterBoot = Update("Vendor.Tool", "Tool");
+        FinishingUpdates.Apply([afterBoot]);
+        Assert.False(afterBoot.IsFinishing);
+
+        // A machine that is never restarted gets a week.
+        FinishingUpdates.Clear();
+        FinishingUpdates.Now = () => start;
+        FinishingUpdates.BootedAt = () => start.AddDays(-30);
+        FinishingUpdates.Record("Vendor.Tool", "2.0", windows: false);
+        FinishingUpdates.Now = () => start.AddDays(8);
+        var aWeekOn = Update("Vendor.Tool", "Tool");
+        FinishingUpdates.Apply([aWeekOn]);
+        Assert.False(aWeekOn.IsFinishing);
+
+        FinishingUpdates.Clear();
+    }
+
+    [Fact]
     public void Says_nothing_of_a_restart_for_an_update_that_failed()
     {
         FinishingUpdates.Clear();

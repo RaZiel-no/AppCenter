@@ -41,6 +41,13 @@ public enum UpdateGroup
 public sealed record RecordedInstall(string Version, DateTime When);
 
 /// <summary>
+/// An update that went through and is waiting on a restart before winget sees
+/// it: the version it went to, whether winget said Windows (rather than the
+/// app) has to restart, and when, in UTC.
+/// </summary>
+public sealed record FinishingUpdate(string Version, bool Windows, DateTime When);
+
+/// <summary>
 /// One installable thing. The same type backs curated catalog entries,
 /// winget search hits, and rows in the Manage list, so most fields are
 /// optional depending on where the instance came from.

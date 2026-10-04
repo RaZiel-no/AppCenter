@@ -24,6 +24,12 @@ public sealed class Settings
     /// read, by lower-cased package id. See <see cref="UpdateMemory"/>.
     /// </summary>
     public Dictionary<string, AppCenter.Models.RecordedInstall> UnknownVersionInstalls { get; set; } = new();
+
+    /// <summary>
+    /// The updates that went through and wait on a restart, by lower-cased
+    /// package id. See <see cref="FinishingUpdates"/>.
+    /// </summary>
+    public Dictionary<string, AppCenter.Models.FinishingUpdate> FinishingUpdates { get; set; } = new();
 }
 
 /// <summary>

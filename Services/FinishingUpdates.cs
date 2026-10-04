@@ -16,17 +16,28 @@ namespace AppCenter.Services;
 /// winget goes on listing that update: once the restart has happened the
 /// version moves on, the row goes, and so does the entry.
 ///
-/// Kept for this session only. A restart of App Center is not a restart of the
-/// app, but it is the one thing that clears a mark that turned out to be
-/// wrong - an installer whose own version never matches what its source says,
-/// for one.
+/// Kept in the settings file, so that closing App Center does not put an
+/// Update button back on an app that is still waiting. Which means a mark that
+/// turned out to be wrong - an installer whose own version never matches what
+/// its source says, for one - needs a way out that does not depend on App
+/// Center being restarted. Two: Windows having restarted since, by when every
+/// app has been restarted too, so anything still listed did not take; and age,
+/// for the machine that only ever sleeps or shuts down with Fast Startup.
+/// Either way the row offers Update again.
 /// </summary>
 public static class FinishingUpdates
 {
-    private sealed record Entry(string Version, bool Windows);
+    /// <summary>How long a mark is believed without Windows restarting.</summary>
+    private static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
 
     private static readonly object Gate = new();
-    private static readonly Dictionary<string, Entry> Entries = new(StringComparer.OrdinalIgnoreCase);
+
+    // Where the entries live and how they are kept, and the clocks, as
+    // functions so a test can give it a dictionary and a time of its own.
+    internal static Func<Dictionary<string, FinishingUpdate>> Store = () => SettingsService.Current.FinishingUpdates;
+    internal static Action Persist = SettingsService.Save;
+    internal static Func<DateTime> Now = () => DateTime.UtcNow;
+    internal static Func<DateTime> BootedAt = () => DateTime.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64);
 
     /// <summary>
     /// Writes down that <paramref name="id"/> was just updated to
@@ -40,8 +51,10 @@ public static class FinishingUpdates
 
         lock (Gate)
         {
-            Entries[id] = new Entry(version, windows);
+            Store()[Key(id)] = new FinishingUpdate(version, windows, Now());
         }
+
+        Persist();
     }
 
     /// <summary>
@@ -50,33 +63,61 @@ public static class FinishingUpdates
     /// </summary>
     public static void Apply(IReadOnlyList<AppPackage> upgrades)
     {
+        bool forgot;
+
         lock (Gate)
         {
-            var stillListed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var store = Store();
+            var bootedAt = BootedAt();
+            var now = Now();
+            var stillListed = new HashSet<string>();
 
             foreach (var package in upgrades)
             {
-                var finishing = Entries.TryGetValue(package.Id, out var entry)
+                var key = Key(package.Id);
+                var finishing = store.TryGetValue(key, out var entry)
+                    && entry.When > bootedAt
+                    && now - entry.When < Lifetime
                     && string.Equals(package.AvailableVersion, entry.Version, StringComparison.OrdinalIgnoreCase);
 
                 package.IsFinishing = finishing;
                 package.FinishesWithWindows = finishing && entry!.Windows;
 
                 if (finishing)
-                    stillListed.Add(package.Id);
+                    stillListed.Add(key);
             }
 
-            foreach (var id in Entries.Keys.Where(id => !stillListed.Contains(id)).ToList())
-                Entries.Remove(id);
+            var gone = store.Keys.Where(key => !stillListed.Contains(key)).ToList();
+            foreach (var key in gone)
+                store.Remove(key);
+
+            forgot = gone.Count > 0;
+        }
+
+        // Every read comes through here; the file is only written when it changes.
+        if (forgot)
+            Persist();
+    }
+
+    private static string Key(string id) => id.Trim().ToLowerInvariant();
+
+    /// <summary>
+    /// Gives the entries a dictionary of their own and no file to write, so a
+    /// test never reads or touches the settings on the machine it runs on.
+    /// </summary>
+    internal static void UseScratch()
+    {
+        var scratch = new Dictionary<string, FinishingUpdate>();
+
+        lock (Gate)
+        {
+            Store = () => scratch;
+            Persist = () => { };
+            Now = () => DateTime.UtcNow;
+            BootedAt = () => DateTime.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64);
         }
     }
 
-    /// <summary>Forgets everything. For tests, which share the static.</summary>
-    internal static void Clear()
-    {
-        lock (Gate)
-        {
-            Entries.Clear();
-        }
-    }
+    /// <summary>Forgets everything, clocks included. For tests, which share the static.</summary>
+    internal static void Clear() => UseScratch();
 }
