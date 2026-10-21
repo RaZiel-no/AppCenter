@@ -93,6 +93,14 @@
     <Content Include="scripts\update_all_user.bat" Link="update_all_user.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!--  The type metadata of winget's COM API, beside the exe. The API's
+          objects live in winget's own server process, and Windows marshals a
+          call to one of them from this metadata; an app without a package
+          identity can only find it in its own folder. 64 KB, MIT, the very
+          file App Installer carries - see WingetApi and THIRD-PARTY-NOTICES.  -->
+    <Content Include="lib\Microsoft.Management.Deployment.winmd" Link="Microsoft.Management.Deployment.winmd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!--  ApplicationIcon covers the exe; Window.Icon needs it in the assembly too  -->
     <Resource Include="AppCenter.ico" />
   </ItemGroup>

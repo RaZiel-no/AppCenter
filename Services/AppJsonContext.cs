@@ -24,4 +24,5 @@ namespace AppCenter.Services;
 [JsonSerializable(typeof(Settings))]
 [JsonSerializable(typeof(FlathubAppstream))]
 [JsonSerializable(typeof(StoreEdgeDocument))]
+[JsonSerializable(typeof(PatchRecord))]
 internal partial class AppJsonContext : JsonSerializerContext;

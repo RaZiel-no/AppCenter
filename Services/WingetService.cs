@@ -653,6 +653,67 @@ public static class WingetService
     }
 
     /// <summary>
+    /// The same update rows out of what the API read of the machine - see
+    /// <see cref="WingetApi.CheckForUpdatesAsync"/> - for a refresh that did
+    /// not need the winget process. The rows winget prints are the installs
+    /// whose newest available version it counts as newer, the unreadable
+    /// versions and the pinned ones among them, which is what the API rows
+    /// say of themselves; the pins tell the pinned apart, as they do for the
+    /// tables. One thing the API does not carry is winget's second table,
+    /// the packages whose publishers ask to be updated only by name, so
+    /// <see cref="AppPackage.RequiresExplicitUpdate"/> stays false here -
+    /// nothing reads it; App Center names every package it updates.
+    /// </summary>
+    internal static List<AppPackage> ReadUpgrades(
+        IReadOnlyList<WingetInstalled> installed,
+        IReadOnlyDictionary<string, string> pins)
+    {
+        var packages = new List<AppPackage>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // In the order winget prints its table, which is by name.
+        var updates = installed
+            .Where(row => row.IsUpdate && !string.IsNullOrWhiteSpace(row.Name) && !string.IsNullOrWhiteSpace(row.Latest))
+            .OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(row => row.Id, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in updates)
+        {
+            var id = string.IsNullOrWhiteSpace(row.Id) ? row.Name : row.Id;
+
+            if (!seen.Add(id))
+                continue;
+
+            var pinned = pins.TryGetValue(id, out var pinKind);
+
+            packages.Add(new AppPackage
+            {
+                Id = id,
+                Name = row.Name,
+                Version = row.Version,
+                AvailableVersion = row.Latest,
+                Source = row.Source,
+                IsInstalled = true,
+                ClosesApp = SelfPackages.Includes(id),
+                IsPinned = pinned,
+                PinKind = pinned ? pinKind ?? string.Empty : string.Empty,
+            });
+        }
+
+        return packages;
+    }
+
+    /// <summary>
+    /// Whether the update list has to come from winget.exe after all. A pin
+    /// of the plain kind - the only kind App Center makes - leaves the
+    /// question of what is newer alone; a blocking or gating pin, made in a
+    /// terminal, changes which version winget offers by rules the API read
+    /// does not apply. A machine with one of those is read as it always was.
+    /// </summary>
+    internal static bool UpgradesNeedWinget(IReadOnlyDictionary<string, string> pins) =>
+        pins.Values.Any(kind => !string.Equals(kind, "Pinning", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// The ids of the updates installed for every user of the PC rather than
     /// for this one: the same listing, narrowed by winget to the machine scope.
     /// winget takes an install's scope from where Windows keeps its uninstall
@@ -817,20 +878,50 @@ public static class WingetService
     // What winget knows about one package
     // ---------------------------------------------------------------
 
-    /// <summary>Fills in publisher, description and homepage for a single package.</summary>
+    /// <summary>
+    /// Fills in publisher, description and homepage for a single package: the
+    /// fields `winget show` prints, under winget's own labels.
+    ///
+    /// The API is asked first - milliseconds, against a quarter of a second
+    /// for a winget process - and what it says is written out the way winget
+    /// prints it and read by the same parser, so the page sees one vocabulary
+    /// whichever answered and the two cannot drift apart. When the API has no
+    /// answer to give, winget.exe is asked as it always was.
+    /// </summary>
     public static async Task<Dictionary<string, string>> ShowAsync(string id, CancellationToken ct = default)
     {
-        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var answer = await WingetApi.ShowAsync(id, ct).ConfigureAwait(false);
+        if (answer.Answered)
+            return answer.Value is null ? NoFields() : ParseShow(RenderShow(answer.Value));
 
+        return await ShowWithWingetAsync(id, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The same, from winget.exe alone. What the API path is measured against.</summary>
+    internal static async Task<Dictionary<string, string>> ShowWithWingetAsync(string id, CancellationToken ct = default)
+    {
         var result = await RunAsync(
             ["show", "--id", id, "--exact", .. CommonArgs],
             ct: ct).ConfigureAwait(false);
 
-        if (!result.Success)
-            return fields;
+        return result.Success ? ParseShow(result.StdOut) : NoFields();
+    }
+
+    private static Dictionary<string, string> NoFields() => new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The fields out of what `winget show` prints, by label. A line of
+    /// "Label: value" is a field; indented lines without a colon of their own
+    /// continue the field before them, as a description of several lines and
+    /// the tags do; everything else - the "Found" line, the installer block's
+    /// indented details - is passed over.
+    /// </summary>
+    internal static Dictionary<string, string> ParseShow(string stdout)
+    {
+        var fields = NoFields();
 
         string? lastKey = null;
-        foreach (var raw in result.StdOut.Replace("\r\n", "\n").Split('\n'))
+        foreach (var raw in stdout.Replace("\r\n", "\n").Split('\n'))
         {
             if (string.IsNullOrWhiteSpace(raw))
                 continue;
@@ -859,6 +950,112 @@ public static class WingetService
         }
 
         return fields;
+    }
+
+    /// <summary>
+    /// A manifest written out as `winget show` prints one, so that
+    /// <see cref="ParseShow"/> reads it the same. Every rule here is
+    /// winget's (ShowFlow.cpp): the fields come in its order and under its
+    /// labels; a field with nothing in it is left out; a value of several
+    /// lines, or a list of several values, goes under its label with each
+    /// line indented by two spaces, while a single one stays on the label's
+    /// line; the description falls back to the short one; documentation and
+    /// agreements are listed under their headings in winget's shapes. Two
+    /// things winget prints are not here: the moniker, which the API does not
+    /// carry, and the installer block's details - the block is its heading
+    /// alone. The parser takes no field from those details; what it does
+    /// take from the block, where winget lists the package's dependencies, is
+    /// their names under "Installer", and nothing reads that.
+    /// </summary>
+    internal static string RenderShow(WingetManifest manifest)
+    {
+        var text = new StringBuilder();
+
+        text.Append("Found ").Append(manifest.Name).Append(" [").Append(manifest.Id).Append("]\n");
+        Field("Version", manifest.Version);
+        Field("Publisher", manifest.Publisher);
+        Field("Publisher Url", manifest.PublisherUrl);
+        Field("Publisher Support Url", manifest.PublisherSupportUrl);
+        Field("Author", manifest.Author);
+        Lines("Description", manifest.Description.Length > 0 ? manifest.Description : manifest.ShortDescription);
+        Field("Homepage", manifest.Homepage);
+        Field("License", manifest.License);
+        Field("License Url", manifest.LicenseUrl);
+        Field("Privacy Url", manifest.PrivacyUrl);
+        Field("Copyright", manifest.Copyright);
+        Field("Copyright Url", manifest.CopyrightUrl);
+        Lines("Release Notes", manifest.ReleaseNotes);
+        Field("Release Notes Url", manifest.ReleaseNotesUrl);
+        Field("Purchase Url", manifest.PurchaseUrl);
+        Lines("Installation Notes", manifest.InstallationNotes);
+
+        if (manifest.Documentation.Count > 0)
+        {
+            text.Append("Documentation:\n");
+            foreach (var link in manifest.Documentation)
+            {
+                if (link.Url.Length == 0)
+                    continue;
+
+                text.Append("  ");
+                if (link.Label.Length > 0)
+                    text.Append(link.Label).Append(": ");
+
+                text.Append(link.Url).Append('\n');
+            }
+        }
+
+        Values("Tags", manifest.Tags);
+
+        if (manifest.Agreements.Count > 0)
+        {
+            text.Append("Agreements:\n");
+            foreach (var agreement in manifest.Agreements)
+            {
+                if (agreement.Label.Length > 0)
+                    text.Append("  ").Append(agreement.Label).Append(": ");
+
+                if (agreement.Text.Length > 0)
+                    text.Append(agreement.Text).Append('\n');
+
+                if (agreement.Url.Length > 0)
+                    text.Append(agreement.Url).Append('\n');
+            }
+        }
+
+        text.Append("Installer:\n");
+
+        return text.ToString();
+
+        void Field(string label, string value)
+        {
+            if (value.Length > 0)
+                text.Append(label).Append(": ").Append(value).Append('\n');
+        }
+
+        void Lines(string label, string value)
+        {
+            if (value.Length > 0)
+                Values(label, value.Split('\n').Select(line => line.TrimEnd('\r')).ToList());
+        }
+
+        void Values(string label, IReadOnlyList<string> values)
+        {
+            if (values.Count == 0)
+                return;
+
+            text.Append(label).Append(':');
+
+            if (values.Count == 1)
+            {
+                text.Append(' ').Append(values[0]).Append('\n');
+                return;
+            }
+
+            text.Append('\n');
+            foreach (var value in values)
+                text.Append("  ").Append(value).Append('\n');
+        }
     }
 
     public static Task<WingetResult> InstallAsync(string id, Action<string>? onOutput, CancellationToken ct = default) =>

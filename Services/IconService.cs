@@ -16,8 +16,10 @@ namespace AppCenter.Services;
 /// <summary>
 /// Fetches an icon per package and caches it on disk.
 ///
-/// winget carries no icon data, so icons come from each app's own homepage:
-/// the page is read for whatever it declares in
+/// A manifest may declare the app's icon, as its publisher submitted it; that
+/// comes first, read through winget's API and fetched from winget's own
+/// content network. About a third of them do. The rest come from each app's
+/// own homepage: the page is read for whatever it declares in
 /// <c>&lt;link rel="apple-touch-icon"&gt;</c> or <c>&lt;link rel="icon"&gt;</c>,
 /// falling back to the well-known paths at the site root. Nothing is sent to a
 /// third-party icon service - only the app's own site, and whatever host it
@@ -63,11 +65,15 @@ public sealed class IconService
     /// the source it was hunted from. Its version token moves with
     /// <see cref="CacheSuffix"/> whenever that one moves - a rule that changes
     /// which icon is chosen can turn a miss into a hit too - and on its own when
-    /// a change can only do the latter. v4 is that: SVG icons and the request
+    /// a change can only do the latter. v4 was that: SVG icons and the request
     /// headers some sites insist on gave the hunt new places to look, and every
-    /// v3 image on disk is still the right image.
+    /// v3 image on disk is still the right image. v5 is the same again: the
+    /// manifest's own icons are a new place to look, ahead of the homepage, and
+    /// a package whose homepage had nothing may have one. What is on disk from
+    /// a homepage stays: it is a good icon, and re-hunting every package to
+    /// prefer the manifest's would cost everyone the whole hunt over again.
     /// </summary>
-    private const string MissSuffix = ".v4.none";
+    private const string MissSuffix = ".v5.none";
 
     /// <summary>
     /// How long such a marker is trusted before the hunt runs again. Long enough
@@ -282,14 +288,16 @@ public sealed class IconService
         }
     }
 
+    /// <summary>Where the icons are kept, beside the settings.</summary>
+    public static string CacheDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AppCenter",
+        "icons");
+
     public IconService()
     {
-        var root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AppCenter");
-
-        _cacheDir = Path.Combine(root, "icons");
-        _screenshotDir = Path.Combine(root, "screenshots");
+        _cacheDir = CacheDirectory;
+        _screenshotDir = Path.Combine(Path.GetDirectoryName(_cacheDir)!, "screenshots");
 
         try
         {
@@ -335,6 +343,40 @@ public sealed class IconService
                 // Locked or read-only; it is only stale cache, so leave it.
             }
         }
+    }
+
+    /// <summary>
+    /// Discards every file in <paramref name="directory"/> written before
+    /// <paramref name="cutoff"/>: icons and miss markers alike, so that a
+    /// change in where icons come from reaches machines that cached theirs
+    /// under the old rules. Run as a patch, once per machine - see
+    /// <see cref="LightweightPatching"/> - and safe to run again, since
+    /// nothing newer than the cutoff is touched. Returns how many went.
+    /// </summary>
+    internal static int ClearCacheBefore(string directory, DateTime cutoff)
+    {
+        if (!Directory.Exists(directory))
+            return 0;
+
+        var discarded = 0;
+
+        foreach (var file in Directory.EnumerateFiles(directory))
+        {
+            try
+            {
+                if (File.GetLastWriteTimeUtc(file) >= cutoff)
+                    continue;
+
+                File.Delete(file);
+                discarded++;
+            }
+            catch (Exception)
+            {
+                // Locked or read-only; it is only cache, so leave it.
+            }
+        }
+
+        return discarded;
     }
 
     private static HttpClient CreateClient()
@@ -706,30 +748,43 @@ public sealed class IconService
 
     /// <summary>
     /// Ordered list of places an icon might live. A catalogue entry with an
-    /// explicit "icon" settles it. Otherwise the homepage is asked what it
-    /// declares, and only then are the conventional root paths guessed at -
-    /// those are a last resort, because the root of a site is the company, not
-    /// the product, and mozilla.org's icon is the Mozilla flag rather than
-    /// Firefox's.
+    /// explicit "icon" settles it. Otherwise the manifest's own icons come
+    /// first, when winget's API can be asked and the manifest declares any:
+    /// the app's icon as its publisher submitted it. Then the homepage is
+    /// asked what it declares, and only then are the conventional root paths
+    /// guessed at - those are a last resort, because the root of a site is
+    /// the company, not the product, and mozilla.org's icon is the Mozilla
+    /// flag rather than Firefox's.
     /// </summary>
     private async Task<IReadOnlyList<string>> CandidateUrlsAsync(AppPackage package, CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(package.IconUrl))
             return new[] { package.IconUrl! };
 
+        var candidates = new List<string>();
+
+        // Only an id winget knows a package by has a manifest to ask about;
+        // the handles it makes up for installs it could not match have none.
+        if (PackageFamilies.IsWingetId(package.Id))
+        {
+            var icons = await WingetApi.IconsAsync(package.Id, ct).ConfigureAwait(false);
+            if (icons.Answered)
+                candidates.AddRange(ManifestCandidates(icons.Value));
+        }
+
         if (string.IsNullOrWhiteSpace(package.Homepage))
-            return Array.Empty<string>();
+            return candidates;
 
         if (!Uri.TryCreate(package.Homepage, UriKind.Absolute, out var home))
-            return Array.Empty<string>();
+            return candidates;
 
         if (home.Scheme != Uri.UriSchemeHttp && home.Scheme != Uri.UriSchemeHttps)
-            return Array.Empty<string>();
+            return candidates;
 
         if (SharedHosts.Contains(home.Host))
-            return Array.Empty<string>();
+            return candidates;
 
-        var candidates = new List<string>(await DeclaredIconsAsync(home, ct).ConfigureAwait(false));
+        candidates.AddRange(await DeclaredIconsAsync(home, ct).ConfigureAwait(false));
 
         var root = $"{home.Scheme}://{home.Host}";
         candidates.Add($"{root}/apple-touch-icon.png");
@@ -739,6 +794,39 @@ public sealed class IconService
 
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
+
+    /// <summary>
+    /// The manifest's icons as URLs for the hunt, best first - best being
+    /// what draws best at <see cref="IconDecodeWidth"/>. An icon for any
+    /// background, which a manifest calls default or leaves unsaid, comes
+    /// ahead of one drawn for a dark or a light one: the cache is one file
+    /// per package, so the theme on screen cannot come into it, and of the
+    /// two, dark is the look the app opens with. Within a theme the largest
+    /// comes first, since an image is brought down to size and a 256 brought
+    /// down is sharper than a 48 drawn up; a size the manifest calls custom,
+    /// which says nothing, last; and a JPEG, which has no transparency, after
+    /// the rest. At most two: each is a request, and the second is only there
+    /// for a first that turns out not to be an image after all.
+    /// </summary>
+    internal static IReadOnlyList<string> ManifestCandidates(IReadOnlyList<WingetIcon> icons) =>
+        icons
+            .Where(icon => Uri.TryCreate(icon.Url, UriKind.Absolute, out var uri)
+                           && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+            .OrderBy(icon => icon.Theme switch
+            {
+                WingetIconTheme.Default or WingetIconTheme.Unknown => 0,
+                WingetIconTheme.Dark => 1,
+                WingetIconTheme.Light => 2,
+                _ => 3,
+            })
+            .ThenBy(icon => icon.Type == WingetIconType.Jpeg ? 1 : 0)
+            .ThenByDescending(icon => icon.Pixels)
+            .Select(icon => icon.Url)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxManifestIcons)
+            .ToList();
+
+    private const int MaxManifestIcons = 2;
 
     /// <summary>
     /// Reads the homepage and returns the icons it declares, best first:

@@ -10,9 +10,9 @@ namespace AppCenter.Services;
 /// Three things want to know, and used to ask separately: the Manage page,
 /// the update count on the sidebar, and now every card on every browse page,
 /// which marks itself Installed or Update available from this. One `winget
-/// upgrade` and one `winget list` answer all of them, and two winget
-/// processes contending over the same source database was the one thing
-/// each of the callers was already at pains to avoid on its own.
+/// list` and one update check through winget's API answer all of them, and
+/// two winget processes contending over the same source database was the
+/// one thing each of the callers was already at pains to avoid on its own.
 ///
 /// Refreshed on launch and after every operation, whoever asks. A refresh
 /// that is asked for while one is already running is not started a second
@@ -154,12 +154,24 @@ public static class MachineState
     {
         try
         {
-            // Sequential rather than parallel: two winget processes contend
-            // on the same source database. The pins come first because the
-            // update list is read in their light - see ReadUpgrades.
+            // The update check goes to winget's API, in its own server
+            // process, beside the two winget.exe reads that stay: the pins,
+            // which the API has no notion of, and the installed list, which
+            // the API gives one row per id where winget prints one per
+            // installed copy. Those two run one after the other, as they
+            // always did - two winget processes contend on the source
+            // database - and the server contends with neither, since it
+            // leaves the index's updates to them. When the API cannot
+            // answer, winget.exe is asked for the updates afterwards, which
+            // is the refresh as it was.
+            var check = WingetApi.CheckForUpdatesAsync();
             var pins = await WingetService.ListPinsAsync().ConfigureAwait(false);
-            var upgrades = await WingetService.ListUpgradesAsync(pins).ConfigureAwait(false);
             var installed = await WingetService.ListInstalledAsync().ConfigureAwait(false);
+
+            var answer = await check.ConfigureAwait(false);
+            var upgrades = answer.Answered && !WingetService.UpgradesNeedWinget(pins)
+                ? WingetService.ReadUpgrades(answer.Value, pins)
+                : await WingetService.ListUpgradesAsync(pins).ConfigureAwait(false);
 
             UpdateMemory.Apply(upgrades);
 

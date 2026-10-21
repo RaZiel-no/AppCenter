@@ -46,6 +46,12 @@ public static class Warmup
 
     public static void Begin()
     {
+        // Before anything reads what they change: the one-off changes a new
+        // build makes to what an older one left on disk. Nothing to do on
+        // every launch but the first after an update, and a file read to
+        // know that.
+        LightweightPatching.Run();
+
         var engine = new Thread(RunEngineThread) { IsBackground = true, Name = "warm-up" };
         engine.SetApartmentState(ApartmentState.STA);
         engine.Start();

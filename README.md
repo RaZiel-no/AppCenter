@@ -88,9 +88,9 @@ not show the same release twice.
 | Explore | `catalog.json` — curated banner + picks, categories pinned at the foot |
 | Featured / Productivity / Development | `catalog.json` sections, with sorting |
 | Games | Curated carousel + Top Rated grid |
-| Search | Live `winget search`, enriched with `winget show` |
-| App detail | `winget show` + `winget list` for install state; screenshots from the catalogue, the Store or Flathub |
-| Manage | Live `winget upgrade` and `winget list` |
+| Search | Live `winget search`, each hit enriched from winget's COM API (`winget show` when the API cannot answer) |
+| App detail | The manifest from winget's COM API (`winget show` as the fallback) + the shared machine read for install state; screenshots from the catalogue, the Store or Flathub |
+| Manage | Live `winget list`, with the update check from winget's COM API (`winget upgrade` when the API cannot answer) |
 
 Install, update and uninstall run **real winget commands against this machine**.
 Every one of them goes through a confirmation dialog first, and Windows itself
@@ -99,12 +99,31 @@ without an explicit click. When App Center itself is running as administrator,
 the sidebar says so under its name: no installer will ask, and winget refuses
 to update some apps installed for one user only.
 
-`winget pin list`, `winget upgrade` and `winget list` are read once, shared, and
-re-read after every operation (`Services/MachineState.cs`). That one read drives the update
-count on the sidebar, the Manage page, and the *Installed* / *Update* chip on
-every card, so browsing shows what is already on the machine. An app's own page
-asks `winget list --id` itself, and offers Install, Update or Uninstall from
-what comes back.
+The machine is read once, shared, and re-read after every operation
+(`Services/MachineState.cs`): `winget pin list` and `winget list` one after the
+other, and beside them the update check through winget's COM API, which asks
+the same engine the question `winget upgrade --include-unknown --include-pinned`
+asks without starting a process. That one read drives the update count on the
+sidebar, the Manage page, and the *Installed* / *Update* chip on every card, so
+browsing shows what is already on the machine. An app's own page takes its
+install state from that same read, and offers Install, Update or Uninstall
+from it. When the API cannot answer, or a blocking or gating pin made in a
+terminal changes which version winget would offer, `winget upgrade` is run
+afterwards and the refresh is what it always was.
+
+What the sources say about one package — publisher, description, homepage,
+licence — is read through the Windows Package Manager COM API: the same engine
+as winget.exe, in a server process of its own, where an exact-id lookup takes
+milliseconds against a quarter of a second for a winget process. What the API
+says is written out the way `winget show` prints it and read by the same
+parser, so an app's page sees one vocabulary whichever answered and the two
+cannot drift apart. When the API cannot answer — it is not on the machine, it
+broke, or winget itself had no answer — winget.exe is asked as it always was.
+`Services/WingetApi.cs` holds the interop; `test.bat machine` reads a sample
+of packages both ways on the real sources and compares every field. The API's
+type metadata, `Microsoft.Management.Deployment.winmd`, ships beside the exe
+because Windows needs it to marshal calls into winget's server from a process
+without a package identity.
 
 ### Manage
 
@@ -272,8 +291,13 @@ catalog.json              the curated catalogue (edit this to change the pages)
 app.manifest              per-monitor v2 DPI awareness
 AppCenter.ico             the app icon, 16-256 (see tools/make_icon.py)
 LICENSE                   GPL-3.0; ships next to the exe, About links to it
-THIRD-PARTY-NOTICES.txt   SharpVectors' BSD-3-Clause notice; ships next to the exe too
+THIRD-PARTY-NOTICES.txt   SharpVectors' and the winget metadata's notices; ships next to the exe too
 deploy.bat                publish + installer + winget manifests -> releases/
+
+lib/
+  Microsoft.Management.Deployment.winmd
+                          winget's COM API types, 64 KB of metadata; beside the exe so
+                          Windows can marshal calls into winget's server (see WingetApi)
 
 installer/
   AppCenter.iss           Inno Setup script, incl. the .NET runtime bootstrap
@@ -289,7 +313,10 @@ Models/AppPackage.cs      one package; notifies so late-arriving data lands
 Models/InstalledGroup.cs  one Manage row: a package, or a family of installs
 Models/ManageLists.cs     what Manage holds and says, apart from the page
 Services/
-  WingetService.cs        async wrapper + fixed-width table parser
+  WingetService.cs        async wrapper + fixed-width table parser; `winget show` rendered and parsed
+  WingetApi.cs            the reads that go through winget's COM API instead of a process
+  WinRt.cs                the COM plumbing under WingetApi and the Store listing
+  LightweightPatching.cs  one-off changes a new build makes on disk, recorded by name in patches.json
   MachineState.cs         the one shared read of what winget lists as installed
   UpdateMemory.cs         what went in over the versions winget cannot read
   AppInfo.cs              this build's version, repository and package id
@@ -323,26 +350,44 @@ needs nothing beyond the SDK and SharpVectors.
 
 ## Icons for catalogue apps
 
-winget carries no icon data, so icons come **from each app's own homepage** —
-or, as a last resort, from its Microsoft Store listing — and are cached in
+A winget manifest may declare the app's icon, and about a third do; the rest
+come **from each app's own homepage** — or, as a last resort, from the app's
+Microsoft Store listing — and all of them are cached in
 `%LOCALAPPDATA%\AppCenter\icons`. No third-party icon service is contacted.
 Resolution runs in this order:
 
 1. an explicit `"icon"` URL in the `catalog.json` entry, if there is one;
-2. otherwise the homepage is read and whatever it declares in
+2. otherwise the icons the package's manifest declares, read through winget's
+   COM API from the sources indexed on this machine and fetched from winget's
+   own content network — the app's icon as its publisher submitted it. The
+   largest for any background comes first; a size or theme that says nothing
+   comes after; at most two are tried;
+3. otherwise the homepage is read and whatever it declares in
    `<link rel="apple-touch-icon">` or `<link rel="icon">` is used, best first —
    apple-touch-icon ahead of favicon, larger ahead of smaller. An SVG is as
    good as a bitmap: WPF cannot decode one, so
    [SharpVectors](https://github.com/ElinamLLC/SharpVectors) draws it into a
    bitmap of the size everything else is brought down to;
-3. failing that, the conventional paths at the site root
+4. failing that, the conventional paths at the site root
    (`/apple-touch-icon.png`, `/favicon.ico`, …);
-4. and when all of that yields nothing, the logo from the app's Microsoft
+5. and when all of that yields nothing, the logo from the app's Microsoft
    Store listing, if it has one the app can be sure of — see
    [Screenshots on the detail page](#screenshots-on-the-detail-page) for
    what that means and how the listing is reached. Last rather than first
    so that the two hundred apps already served from their homepages never
    cost the Store a query.
+
+So that the manifest's icon reaches machines that ran the app before it was
+looked at, the first launch of this build clears the icon cache once of
+everything written before the moment that change shipped, and the next pages
+hunt their icons afresh, page by page as before. That is a *lightweight patch*:
+`Services/LightweightPatching.cs` holds the one-off changes a new build makes
+to what an older one left on disk, each with a name, runs the ones this machine
+has not had at the start of warm-up, and records each name with when it ran in
+`%LOCALAPPDATA%\AppCenter\patches.json`. A patch that fails is tried again at
+the next launch; a record that cannot be read means they all run again, so
+every patch is written to be safe to run twice — the icon clearing by touching
+nothing newer than its cutoff.
 
 The order matters. Guessing at the site root first is what makes
 `https://www.mozilla.org` hand back the Mozilla flag instead of Firefox's logo:
@@ -448,8 +493,9 @@ The Store is reached through hand-written COM interop in
 meant a Windows SDK target framework and a twenty-megabyte assembly for two
 method calls. The interfaces are declared in vtable order from the SDK
 headers, and the parameterised ones carry the IIDs the WinRT signature hash
-produces. On a Windows without the Store the first call fails and nothing is
-asked again.
+produces. The plumbing under it — activation, wrappers, strings — is
+`Services/WinRt.cs`, shared with the winget reads. On a Windows without the
+Store the first call fails and nothing is asked again.
 
 Screenshots are fetched once, decoded down to 960px and cached under
 `%LOCALAPPDATA%\AppCenter\screenshots`, like the carousel's. Clicking one
